@@ -5,9 +5,9 @@
 - Updated: 2026-11-02. Harness baseline: `fe8f580`; local integration into `main` was requested by the owner. See Git history for the integration commit.
 - Product: Kindle Sync, one owner's self-hosted reading dashboard and KOReader plugin.
 - Application server, production plugin and panel are not implemented. There is no application start command yet.
-- H01 harness is implemented. C0 shared contracts are the active task; further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
-- Tests: run `make check` for the current result and coverage; the command records H01 evidence only after success.
-- Latest local harness result: 18 unit tests passed; combined statement/branch coverage of harness source is 97.85%. C0 dispatch tests went RED then GREEN; they cover success, failure without registry promotion, null verification and rejection of unknown commands. Handoff boundary tests accept 70 lines and reject 71 lines or a missing file.
+- H01 harness and C0 shared contracts are implemented and verified. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
+- Tests: run `make check` for the current result and coverage; the command records H01/C0 evidence only after all checks succeed.
+- Latest local result: 19 Python unit tests and 29 JavaScript contract unit tests passed. Python combined statement/branch coverage:97.94%; contract JavaScript:100%lines,98.14%branches,100%functions. These percentages do not measure JSON schemas, application functionality or device behavior.
 
 ## Done
 
@@ -18,7 +18,8 @@
 - AGENTS.md follows the template's six sections in English. Detailed workflow/environment instructions are in `docs/development.md`; specifications, testing guidance and plans stay under `docs/` with explicit reading triggers.
 - `docs/session-handoff.md` carries agent-transfer context. Its mandatory 70-line limit includes headings and blank lines and is enforced by `make check`.
 - The English-only rule explicitly covers repository instructions, documentation and plans. Existing Russian research notes and the application plan are translated without changing their historical claims, technical literals or task states.
-- The harness can dispatch the fixed C0 unit command and records evidence only after all checks pass. C0 verification stays null while the contract delivery is incomplete or unreviewed; no application feature has been promoted.
+- C0: versioned JSON schemas, pure Ajv validators, synthetic fixtures and API v1 cover sync/acks/events, reset generations, uploads and owner routes. Review found five Important issues; all were fixed and the scoped re-review found no new issues. C0 was registered only after review; the verifier recorded passing evidence.
+- The fixed C0 unit command participates in the combined gate; failures leave the registry unchanged. Cache/temp settings for child processes stay in the project on P:.
 
 ## Blocked
 
@@ -30,15 +31,15 @@
 - The application plan was approved on 2026-11-02; deployment/publication still require separate instruction.
 - The owner requested unit tests only, with about 90% coverage. The harness enforces >=90% statement/branch coverage; this overrides older automated E2E/integration test steps in the application plan.
 - coverage.py 7.16.2 is approved only for this project's `.local/harness-venv` on P:. Cache and temporary setup files also stay under `.local` on P:.
-- The first coverage scope is `scripts/`, the implemented harness source. Production application/Lua code and the older standalone diagnostic are not measured by this gate.
+- Coverage scopes are `scripts/` Python and executable contract JavaScript. Production application/Lua code and the older standalone diagnostic are not measured by these gates.
 - Product constraints remain in AGENTS.md and linked specifications: portable Express/PostgreSQL, private settings, stable source identities and no device writes by agents.
 - The owner requested development before further manual Kindle checks. The application plan now applies that order and the newer unit-only testing policy. Keep one active feature at a time; role implementers contribute within that boundary.
 - For C0 the owner approved npm registry downloads of ajv 8.17.1, ajv-formats 3.0.1 and their dependencies only, under P:/Code/hackindle/node_modules; cache/temp stays under .local/. No other dependency/runtime/browser download is authorized.
 
 ## Next steps
 
-1. Implement/review C0 versioned schemas, synthetic fixtures and pure validators. The backend role is contributing only this shared feature; it is not starting B1.
-2. Add the executable contract unit/coverage gate to the harness, then review before recording C0 completion. JSON schema tests and executable-code coverage have different measurement boundaries.
-3. After C0, proceed to B1 under the one-active-feature rule. Defer the consolidated owner-run Kindle checklist to I1.
+1. Proceed to B1 portable configuration/PostgreSQL/authentication under the one-active-feature rule. The owner approved Express 5.3.0/pg 8.23.1 and their dependencies in the same P: paths, with install scripts disabled; no other downloads are approved.
+2. Extend the unit verifier/coverage scope when backend executable code exists; do not infer persistence or device correctness from contract coverage.
+3. Defer the consolidated owner-run Kindle checklist to I1. Keep publication/deployment separate.
 
-At each handoff update this file with verified results, blockers and the next concrete action. `passing` is written only by a verifier with an implemented gate; no application feature currently has one.
+At each handoff update this file with verified results, blockers and the next concrete action. `passing` is written only by a verifier with an implemented gate; no server/plugin/panel application feature has passed yet.

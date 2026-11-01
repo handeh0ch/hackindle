@@ -1,6 +1,6 @@
 # Kindle Sync: data contract draft
 
-Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). C0 specifies the wire contract using available compatibility findings; the owner deferred further device observations until the assembled application is ready. Unverified adapter behavior remains explicit and does not certify a working plugin.
+Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). C0 specifies the wire contract in [API v1](api-v1.md) and executable [schemas](../contracts/) using available compatibility findings; the owner deferred further device observations until the assembled application is ready. Unverified adapter behavior remains explicit and does not certify a working plugin.
 
 ## Identity and ownership
 
@@ -54,13 +54,14 @@ Exact hook ordering, range extraction, native interval identity and PDF viewport
   "schema_version": 1,
   "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
   "device_id": "a92e58b4-851b-467b-a5ad-1eaaccc84c61",
+  "reset_generation": 0,
   "seq": 42,
   "captured_at": "2026-11-01T10:00:00Z",
   "kind": "source_snapshot",
   "source_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "payload": {
-    "metadata": {"format": "epub", "title": "Synthetic book", "authors": ["Example Author"]},
-    "annotations": []
+    "metadata": {"version": 1, "value": {"format": "epub", "title": "Synthetic book", "authors": ["Example Author"], "language": null, "identifiers": []}},
+    "annotations": {"version": 1, "value": []}
   }
 }
 ```
@@ -74,6 +75,8 @@ The example uses synthetic values. Packet kinds:
 
 A reading_segment records event_id, source_id, session_id, native active_seconds, native-record provenance, timing basis/allocation quality, observed awake windows where available, and newly credited characters. The authoritative time amount is KOReader's credit, not the sum of wall-clock windows. When those windows are known, distribute credited seconds proportionally over their durations, splitting at reporting midnight and using deterministic remainder allocation so day totals equal native credit exactly. An uncapped contiguous interval needs no rescaling. If observation windows are unavailable, use an explicitly marked estimated native anchor; do not invent an exact ended_at. Freeze the applied allocation with the event instead of silently moving credited history later. The same event is credited once. Exact payload fields and native identity reconciliation remain C0 deliverables. Positions/range evidence stay source-specific; cross-format passage matching is deliberately excluded.
 
+C0 uses `native_seconds` for native credit and an explicit `volume_date` for each event's newly credited characters; time allocation may span several reporting days. The proportional allocation floors each day's weighted credit, then assigns remaining seconds by descending fractional remainder, breaking ties by earlier date. The API describes the corresponding packet fields and provisional adapter provenance; implementing and validating the actual device capture is separate work.
+
 For a first valid sync/upload manifest, bind an unbound device token to device_id atomically. A racing different UUID gets 403. Token rotation preserves binding and history. Reinstallation/replacement is an explicit migration operation; it must not automatically add a duplicate copy of old data.
 
 ## Ordering and acknowledgement
@@ -82,7 +85,7 @@ Server validation happens before writes. Apply one logical envelope in one Postg
 
 For source snapshot sections, version independently by `(device_id, source_id, section)`: newer applies, equal identical is duplicate, older is stale. A later metadata/annotation snapshot must not discard older independently delivered progress. For immutable events, event_id is unique; equal content is a duplicate and changed content under the same ID is a conflict. Packet records and event uniqueness survive server restarts/concurrent requests.
 
-Ack contains schema_version, instance_id, device_id, source_id, seq, kind and the result of each supplied section/event batch. Delete an outbox entry only after matching all identities, kind, seq and expected result keys. A malformed 200 is not acknowledgement. Exact result schemas are a C0 shared-contract deliverable.
+Ack contains schema_version, instance_id, device_id, source_id, reset_generation, current_reset_generation, seq, kind and the result of each supplied section/event. Delete an outbox entry only after matching all identities, kind, seq, expected result keys and valid result values for that kind. A malformed 200 is not acknowledgement. Exact result schemas are in the C0 shared contract. Obsolete generations have an explicit discard acknowledgement; old queued payloads are never relabeled to the new generation. A durable client baseline prevents unchanged native content from reappearing after an owner reset.
 
 ## Transport and retry policy
 

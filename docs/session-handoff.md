@@ -18,14 +18,15 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Next action
 
-1. C0 is the only active feature. Implement shared schemas, synthetic fixtures and unit validation without waiting for more device observations.
+1. C0 passed its scoped re-review and combined unit gate. Next is B1; no server, production plugin or panel exists yet. Private task artifacts are under .superpowers/sdd/2026-11-01-kindle-sync/.
 2. The owner deferred manual Kindle checks until the assembled application is ready. P0 remains open hardware evidence, not a dependency blocking C0; unverified adapters must remain explicit.
 3. Apply the unit-only testing policy and >=90% coverage gate to new executable code. No automated browser, database integration or E2E suites.
-4. Current C0 implementer works in P:/Code/hackindle, limited to contracts/, tests/contracts/, docs/api-v1.md and package files. The coordinator owns workflow, harness integration and Git operations; no concurrent Git mutations.
+4. Backend role continues sequentially in P:/Code/hackindle to reuse the approved node_modules location. Backend owns server/, db/, application scripts/tests and package files; coordinator reserves scripts/check.py, tests/unit/, registry, docs and Git. No concurrent Git mutations.
 
 ## Boundaries and references
 
 - Downloads need concrete owner approval; installs/caches/temp/builds stay on agreed P: paths. The owner performs every Kindle write.
 - Approved for C0: npm registry packages ajv 8.17.1, ajv-formats 3.0.1 and their dependencies, only in P:/Code/hackindle/node_modules with cache/temp under .local/. Run no install scripts; no other tool/package download is approved.
+- Approved for B1: npm registry express 5.3.0, pg 8.23.1 and their dependencies in the same P: paths, with install scripts disabled. No runtime, PostgreSQL server, image or browser download is approved.
 - Publication needs separate instruction. Keep credentials, personal books and reading data outside public artifacts.
 - Required detail: [development.md](development.md), [requirements.md](requirements.md), [kindle-sync-data-spec.md](kindle-sync-data-spec.md), [configuration.md](configuration.md), [harness.md](harness.md).

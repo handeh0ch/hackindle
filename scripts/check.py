@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -59,8 +60,13 @@ def verify(root):
                          "run", "test:contracts"])
     commands.append(["git", "diff", "--check"])
     (root / ".local" / "harness").mkdir(parents=True, exist_ok=True)
+    temporary = root / ".local" / "tmp"
+    temporary.mkdir(parents=True, exist_ok=True)
+    environment = {**os.environ, "npm_config_cache": str(root / ".local" / "npm-cache"),
+                   "TEMP": str(temporary), "TMP": str(temporary),
+                   "npm_config_update_notifier": "false"}
     for command in commands:
-        subprocess.run(command, cwd=root, check=True)
+        subprocess.run(command, cwd=root, check=True, env=environment)
     harness["state"] = "passing"
     harness["verification"] = "make check"
     harness["evidence"] = (

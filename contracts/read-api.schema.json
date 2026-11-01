@@ -1,0 +1,1667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kindle-sync.local/contracts/read-api.schema.json",
+  "$defs": {
+    "books": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/book"
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "book": {
+      "type": "object",
+      "properties": {
+        "book_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "format": {
+                "enum": [
+                  "epub",
+                  "mobi",
+                  "pdf"
+                ]
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "progress": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "fraction": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "position": {
+                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "Z$"
+                      },
+                      "session_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "fraction",
+                      "position",
+                      "observed_at",
+                      "session_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "last_opened_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cover_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "source_id",
+              "format",
+              "title",
+              "authors",
+              "progress",
+              "last_opened_at",
+              "cover_available"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "active_annotations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "archived_annotations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "most_recent_source_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_tracked_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_tracked_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "book_id",
+        "title",
+        "authors",
+        "sources",
+        "active_annotations",
+        "archived_annotations",
+        "most_recent_source_id",
+        "first_tracked_at",
+        "last_tracked_at",
+        "active_days"
+      ],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "format": {
+                "enum": [
+                  "epub",
+                  "mobi",
+                  "pdf"
+                ]
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "progress": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "fraction": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "position": {
+                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                      },
+                      "observed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "Z$"
+                      },
+                      "session_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "fraction",
+                      "position",
+                      "observed_at",
+                      "session_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "last_opened_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cover_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "source_id",
+              "format",
+              "title",
+              "authors",
+              "progress",
+              "last_opened_at",
+              "cover_available"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "progress_history": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "position": {
+                "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "session_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "fraction",
+              "position",
+              "observed_at",
+              "session_id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "daily": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/day"
+          },
+          "maxItems": 366
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        }
+      },
+      "required": [
+        "days",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "characters": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_seconds": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conditional_pages": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "legacy_native_pages": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "legacy_native_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "current_streak": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "elapsed_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "average_characters_per_day": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "average_seconds_per_day": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_day": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/day"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "saved_words": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_annotations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "volume_status": {
+          "enum": [
+            "available",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "time_status": {
+          "enum": [
+            "available",
+            "partial",
+            "unavailable"
+          ]
+        }
+      },
+      "required": [
+        "characters",
+        "active_seconds",
+        "conditional_pages",
+        "legacy_native_pages",
+        "legacy_native_seconds",
+        "current_streak",
+        "elapsed_days",
+        "average_characters_per_day",
+        "average_seconds_per_day",
+        "record_day",
+        "saved_words",
+        "active_annotations",
+        "volume_status",
+        "time_status"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "volume_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "volume_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "characters": {
+                "type": "null"
+              },
+              "conditional_pages": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "characters": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "conditional_pages": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "time_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "time_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "active_seconds": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "active_seconds": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "volume_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "volume_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "average_characters_per_day": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "time_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "time_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "average_seconds_per_day": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sessions": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "ended_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "characters": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "active_seconds": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cycle_id": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "volume_status": {
+                "enum": [
+                  "available",
+                  "partial",
+                  "unavailable"
+                ]
+              },
+              "time_status": {
+                "enum": [
+                  "available",
+                  "partial",
+                  "unavailable"
+                ]
+              }
+            },
+            "required": [
+              "session_id",
+              "source_id",
+              "started_at",
+              "ended_at",
+              "characters",
+              "active_seconds",
+              "cycle_id",
+              "volume_status",
+              "time_status"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "volume_status": {
+                      "const": "unavailable"
+                    }
+                  },
+                  "required": [
+                    "volume_status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "characters": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "characters": {
+                      "not": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "time_status": {
+                      "const": "unavailable"
+                    }
+                  },
+                  "required": [
+                    "time_status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "active_seconds": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "active_seconds": {
+                      "not": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "cycles": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cycle_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "finished_at": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "cycle_id",
+              "source_id",
+              "started_at",
+              "finished_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "vocabulary": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "word": {
+                "type": "string"
+              },
+              "language": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "word",
+              "language",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "count",
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "annotation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "kind": {
+                "enum": [
+                  "highlight",
+                  "bookmark"
+                ]
+              },
+              "archived": {
+                "type": "boolean"
+              },
+              "quote_preview": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "note_preview": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "context_status": {
+                "enum": [
+                  "ready",
+                  "pending",
+                  "unavailable",
+                  "none"
+                ]
+              }
+            },
+            "required": [
+              "annotation_id",
+              "source_id",
+              "version",
+              "kind",
+              "archived",
+              "quote_preview",
+              "note_preview",
+              "context_status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "annotation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "field": {
+          "enum": [
+            "quote",
+            "note",
+            "context"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "annotation_id",
+        "version",
+        "field",
+        "text",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "matches": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "candidate_book_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_id",
+              "candidate_book_id",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "additionalProperties": false
+    },
+    "goal": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "completed_unique_books": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "year",
+        "target",
+        "completed_unique_books"
+      ],
+      "additionalProperties": false
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_sync_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reset_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "device_id",
+        "last_sync_at",
+        "reset_generation"
+      ],
+      "additionalProperties": false
+    },
+    "merge_action": {
+      "type": "object",
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "target_book_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "source_ids",
+        "target_book_id"
+      ],
+      "additionalProperties": false
+    },
+    "split_action": {
+      "type": "object",
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "source_ids"
+      ],
+      "additionalProperties": false
+    },
+    "match_action": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "book_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "decision": {
+          "enum": [
+            "confirm",
+            "reject"
+          ]
+        }
+      },
+      "required": [
+        "source_id",
+        "book_id",
+        "decision"
+      ],
+      "additionalProperties": false
+    },
+    "goal_action": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "reset_action": {
+      "type": "object",
+      "properties": {
+        "confirm": {
+          "const": "reset"
+        }
+      },
+      "required": [
+        "confirm"
+      ],
+      "additionalProperties": false
+    },
+    "reset_result": {
+      "type": "object",
+      "properties": {
+        "reset_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "reset_generation"
+      ],
+      "additionalProperties": false
+    },
+    "token_result": {
+      "type": "object",
+      "properties": {
+        "device_token": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "device_token"
+      ],
+      "additionalProperties": false
+    },
+    "login_action": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ],
+      "additionalProperties": false
+    },
+    "annotation_detail": {
+      "type": "object",
+      "properties": {
+        "annotation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "enum": [
+            "highlight",
+            "bookmark"
+          ]
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "context_status": {
+          "enum": [
+            "ready",
+            "pending",
+            "unavailable",
+            "none"
+          ]
+        },
+        "context_origin": {
+          "oneOf": [
+            {
+              "enum": [
+                "creation",
+                "backfill"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context_captured_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context_page_basis": {
+          "oneOf": [
+            {
+              "enum": [
+                "rendered",
+                "original_pdf"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context_total_pages": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context_reason": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "annotation_id",
+        "source_id",
+        "version",
+        "kind",
+        "archived",
+        "context_status",
+        "context_origin",
+        "context_captured_at",
+        "context_page_basis",
+        "context_total_pages",
+        "context_reason"
+      ],
+      "additionalProperties": false
+    },
+    "day": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "characters": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_seconds": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volume_status": {
+          "enum": [
+            "available",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "time_status": {
+          "enum": [
+            "available",
+            "partial",
+            "unavailable"
+          ]
+        }
+      },
+      "required": [
+        "date",
+        "characters",
+        "active_seconds",
+        "volume_status",
+        "time_status"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "volume_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "volume_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "characters": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "characters": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "time_status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "time_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "active_seconds": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "active_seconds": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "list_query": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "byte_budget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        },
+        "search": {
+          "type": "string"
+        },
+        "book_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "archive": {
+          "enum": [
+            "active",
+            "archived"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "daily_query": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date"
+        },
+        "to": {
+          "type": "string",
+          "format": "date"
+        },
+        "book_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "summary_query": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date"
+        },
+        "to": {
+          "type": "string",
+          "format": "date"
+        },
+        "book_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "dependentRequired": {
+        "from": [
+          "to"
+        ],
+        "to": [
+          "from"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "content_query": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "enum": [
+            "quote",
+            "note",
+            "context"
+          ]
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "username"
+          ],
+          "additionalProperties": false
+        },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      },
+      "required": [
+        "owner",
+        "csrf_token",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

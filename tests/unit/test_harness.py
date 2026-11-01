@@ -198,3 +198,14 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify(self.root)
         run.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_verification_keeps_npm_cache_and_temporary_files_inside_checkout(self, run, output):
+        verify(self.root)
+        for call in run.call_args_list:
+            environment = call.kwargs.get("env", {})
+            self.assertEqual(environment.get("npm_config_cache"),
+                             str(self.root / ".local" / "npm-cache"))
+            self.assertEqual(environment.get("TEMP"), str(self.root / ".local" / "tmp"))
+            self.assertEqual(environment.get("TMP"), str(self.root / ".local" / "tmp"))

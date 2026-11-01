@@ -1,0 +1,632 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kindle-sync.local/contracts/sync.schema.json",
+  "$defs": {
+    "envelope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "instance_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reset_generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "kind": {
+              "const": "source_snapshot"
+            },
+            "source_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "metadata": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "format": {
+                          "enum": [
+                            "epub",
+                            "mobi",
+                            "pdf"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "authors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "language": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "identifiers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "scheme": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              },
+                              "provenance": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "scheme",
+                              "value",
+                              "provenance"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "format",
+                        "title",
+                        "authors",
+                        "language",
+                        "identifiers"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                "annotations": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/annotation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                "progress": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "fraction": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "position": {
+                          "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "Z$"
+                        },
+                        "session_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "fraction",
+                        "position",
+                        "observed_at",
+                        "session_id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false,
+              "minProperties": 1
+            }
+          },
+          "required": [
+            "schema_version",
+            "instance_id",
+            "device_id",
+            "reset_generation",
+            "seq",
+            "captured_at",
+            "kind",
+            "source_id",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "instance_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reset_generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "kind": {
+              "const": "reading_events"
+            },
+            "source_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "events": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/event"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "events"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schema_version",
+            "instance_id",
+            "device_id",
+            "reset_generation",
+            "seq",
+            "captured_at",
+            "kind",
+            "source_id",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "instance_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reset_generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "kind": {
+              "const": "vocabulary_snapshot"
+            },
+            "source_id": {
+              "type": "null"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "words": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "word": {
+                        "type": "string"
+                      },
+                      "language": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "source": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "word",
+                      "language",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "version",
+                "words"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schema_version",
+            "instance_id",
+            "device_id",
+            "reset_generation",
+            "seq",
+            "captured_at",
+            "kind",
+            "source_id",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "instance_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reset_generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "captured_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            "kind": {
+              "const": "legacy_statistics"
+            },
+            "source_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "native_pages": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "native_seconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "native_pages",
+                      "native_seconds"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "version",
+                "records"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "schema_version",
+            "instance_id",
+            "device_id",
+            "reset_generation",
+            "seq",
+            "captured_at",
+            "kind",
+            "source_id",
+            "payload"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "instance_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reset_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reporting_timezone": {
+          "type": "string",
+          "format": "iana-timezone"
+        },
+        "characters_per_page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "direct_bytes": {
+              "const": 1048576
+            },
+            "envelope_bytes": {
+              "const": 16777216
+            },
+            "chunk_bytes": {
+              "const": 1048576
+            },
+            "upload_ttl_seconds": {
+              "const": 604800
+            },
+            "open_uploads": {
+              "const": 2
+            }
+          },
+          "required": [
+            "direct_bytes",
+            "envelope_bytes",
+            "chunk_bytes",
+            "upload_ttl_seconds",
+            "open_uploads"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "instance_id",
+        "reset_generation",
+        "reporting_timezone",
+        "characters_per_page",
+        "limits"
+      ],
+      "additionalProperties": false
+    },
+    "ack": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "instance_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reset_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "source_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "enum": [
+            "source_snapshot",
+            "reading_events",
+            "vocabulary_snapshot",
+            "legacy_statistics"
+          ]
+        },
+        "status": {
+          "enum": [
+            "applied",
+            "duplicate",
+            "obsolete_discarded"
+          ]
+        },
+        "results": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "applied",
+              "duplicate",
+              "stale",
+              "discarded"
+            ]
+          }
+        },
+        "current_reset_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "schema_version",
+        "instance_id",
+        "device_id",
+        "reset_generation",
+        "source_id",
+        "seq",
+        "kind",
+        "status",
+        "results",
+        "current_reset_generation"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

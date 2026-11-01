@@ -1,0 +1,476 @@
+{
+  "description": "Synthetic examples only; grouping and translation relationships are illustrative, never inferred from titles.",
+  "envelopes": [
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 1,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "source_snapshot",
+      "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload": {
+        "metadata": {
+          "version": 1,
+          "value": {
+            "format": "epub",
+            "title": "Synthetic Book",
+            "authors": [
+              "Synthetic Author"
+            ],
+            "language": "en",
+            "identifiers": []
+          }
+        },
+        "annotations": {
+          "version": 1,
+          "value": [
+            {
+              "annotation_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+              "kind": "highlight",
+              "start": {
+                "type": "xpointer",
+                "value": "/synthetic/1"
+              },
+              "end": {
+                "type": "xpointer",
+                "value": "/synthetic/1"
+              },
+              "quote": "Synthetic quote",
+              "note": "Synthetic note",
+              "chapter": null,
+              "native_timestamp": null,
+              "context": {
+                "status": "pending",
+                "reason": "Synthetic extraction unavailable"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 2,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "source_snapshot",
+      "source_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "payload": {
+        "metadata": {
+          "version": 1,
+          "value": {
+            "format": "pdf",
+            "title": "Synthetic Book",
+            "authors": [
+              "Synthetic Author"
+            ],
+            "language": "en",
+            "identifiers": []
+          }
+        },
+        "annotations": {
+          "version": 1,
+          "value": [
+            {
+              "annotation_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+              "kind": "highlight",
+              "start": {
+                "type": "pdf",
+                "page": 1,
+                "boxes": [
+                  {
+                    "x": 0,
+                    "y": 0,
+                    "width": 1,
+                    "height": 1
+                  }
+                ],
+                "geometry_version": "provisional"
+              },
+              "end": {
+                "type": "pdf",
+                "page": 1,
+                "boxes": [
+                  {
+                    "x": 0,
+                    "y": 0,
+                    "width": 1,
+                    "height": 1
+                  }
+                ],
+                "geometry_version": "provisional"
+              },
+              "quote": "Synthetic quote",
+              "note": "Synthetic note",
+              "chapter": null,
+              "native_timestamp": null,
+              "context": {
+                "status": "ready",
+                "origin": "backfill",
+                "captured_at": "2024-03-01T00:00:00Z",
+                "page_basis": "original_pdf",
+                "total_pages": 1,
+                "before": null,
+                "selection_pages": [
+                  {
+                    "number": 1,
+                    "text": ""
+                  }
+                ],
+                "after": null
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 3,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "source_snapshot",
+      "source_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "payload": {
+        "metadata": {
+          "version": 1,
+          "value": {
+            "format": "mobi",
+            "title": "Synthetic Translation",
+            "authors": [
+              "Synthetic Author"
+            ],
+            "language": "en",
+            "identifiers": []
+          }
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 4,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "reading_events",
+      "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload": {
+        "events": [
+          {
+            "event_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+            "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "session_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+            "occurred_at": "2024-02-29T00:00:00Z",
+            "type": "reading_segment",
+            "native_seconds": 10,
+            "native_record_id": "synthetic-native",
+            "measurement_version": "provisional",
+            "provenance": "synthetic",
+            "timing_quality": "observed_windows",
+            "volume_quality": "measured",
+            "volume_date": "2024-02-29",
+            "allocation": [
+              {
+                "date": "2024-02-28",
+                "seconds": 4
+              },
+              {
+                "date": "2024-02-29",
+                "seconds": 6
+              }
+            ],
+            "credited_characters": 0,
+            "ranges": [],
+            "awake_windows": [
+              {
+                "start": "2024-02-28T23:59:56Z",
+                "end": "2024-02-29T00:00:06Z"
+              }
+            ],
+            "native_anchor": null
+          }
+        ]
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 5,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "vocabulary_snapshot",
+      "source_id": null,
+      "payload": {
+        "version": 1,
+        "words": []
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 6,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "legacy_statistics",
+      "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload": {
+        "version": 1,
+        "records": [
+          {
+            "date": "2024-02-29",
+            "native_pages": 2,
+            "native_seconds": 10
+          }
+        ]
+      }
+    }
+  ],
+  "reading_zones": [
+    "Europe/Berlin",
+    "America/New_York"
+  ],
+  "owner_annotations": {
+    "items": [
+      {
+        "annotation_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": 1,
+        "kind": "highlight",
+        "archived": true,
+        "quote_preview": "Synthetic quote",
+        "note_preview": "Synthetic note",
+        "context_status": "pending"
+      }
+    ],
+    "next_cursor": null
+  },
+  "vocabulary_unavailable": {
+    "status": "unavailable",
+    "count": null,
+    "items": [],
+    "next_cursor": null
+  },
+  "owner_book": {
+    "book_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+    "title": "Synthetic Book",
+    "authors": [
+      "Synthetic Author"
+    ],
+    "sources": [
+      {
+        "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "format": "epub",
+        "title": "Synthetic Book",
+        "authors": [
+          "Synthetic Author"
+        ],
+        "progress": null,
+        "last_opened_at": "2024-02-29T00:00:00Z",
+        "cover_available": false
+      },
+      {
+        "source_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "format": "pdf",
+        "title": "Synthetic Book",
+        "authors": [
+          "Synthetic Author"
+        ],
+        "progress": null,
+        "last_opened_at": null,
+        "cover_available": false
+      }
+    ],
+    "active_annotations": 1,
+    "archived_annotations": 1,
+    "most_recent_source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "first_tracked_at": "2024-02-29T00:00:00Z",
+    "last_tracked_at": "2024-02-29T00:00:00Z",
+    "active_days": 1
+  },
+  "owner_summary": {
+    "characters": 0,
+    "active_seconds": 10,
+    "conditional_pages": 0,
+    "legacy_native_pages": 2,
+    "legacy_native_seconds": 10,
+    "current_streak": 1,
+    "elapsed_days": 1,
+    "average_characters_per_day": 0,
+    "average_seconds_per_day": 10,
+    "record_day": {
+      "date": "2024-02-29",
+      "characters": 0,
+      "active_seconds": 10,
+      "volume_status": "available",
+      "time_status": "available"
+    },
+    "saved_words": null,
+    "active_annotations": 1,
+    "volume_status": "available",
+    "time_status": "available"
+  },
+  "source_switch_and_cycle": [
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 7,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "reading_events",
+      "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "payload": {
+        "events": [
+          {
+            "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "session_id": "f214161c-e575-41f4-8f8b-3101407ce66a",
+            "occurred_at": "2024-02-29T00:00:00Z",
+            "cycle_id": "55d69925-94ef-4c45-b192-dbf15e82ab93",
+            "event_id": "0efb8eab-915c-48eb-8ef3-0fbf6e9a4af2",
+            "type": "cycle_started"
+          },
+          {
+            "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "session_id": "f214161c-e575-41f4-8f8b-3101407ce66a",
+            "occurred_at": "2024-02-29T00:00:00Z",
+            "cycle_id": "55d69925-94ef-4c45-b192-dbf15e82ab93",
+            "event_id": "83567cf9-25b0-4927-95cb-05e0a060ec0b",
+            "type": "book_finished"
+          }
+        ]
+      }
+    },
+    {
+      "schema_version": 1,
+      "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "device_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+      "reset_generation": 0,
+      "seq": 8,
+      "captured_at": "2024-02-29T00:00:00Z",
+      "kind": "reading_events",
+      "source_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "payload": {
+        "events": [
+          {
+            "event_id": "cbab4c5b-02e7-4086-9b05-02a1e4aa89b5",
+            "source_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "session_id": "f214161c-e575-41f4-8f8b-3101407ce66a",
+            "occurred_at": "2024-03-01T00:00:00Z",
+            "type": "progress_sample",
+            "progress": {
+              "fraction": 0.4,
+              "position": {
+                "type": "pdf",
+                "page": 7,
+                "boxes": [],
+                "geometry_version": null
+              },
+              "observed_at": "2024-03-01T00:00:00Z",
+              "session_id": "f214161c-e575-41f4-8f8b-3101407ce66a"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "ambiguous_matches": {
+    "items": [
+      {
+        "source_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "candidate_book_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "reason": "Synthetic title matches but translation is unverified"
+      }
+    ],
+    "next_cursor": null
+  },
+  "owner_session": {
+    "owner": {
+      "username": "synthetic-owner"
+    },
+    "csrf_token": "synthetic-csrf",
+    "expires_at": "2024-03-14T00:00:00Z"
+  },
+  "timing_examples": [
+    {
+      "reporting_timezone": "UTC",
+      "event": {
+        "event_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "session_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "occurred_at": "2024-02-29T00:00:00Z",
+        "type": "reading_segment",
+        "native_seconds": 11,
+        "native_record_id": "synthetic-native",
+        "measurement_version": "provisional",
+        "provenance": "synthetic",
+        "timing_quality": "observed_windows",
+        "volume_quality": "measured",
+        "volume_date": "2024-02-29",
+        "allocation": [
+          {
+            "date": "2024-02-28",
+            "seconds": 2
+          },
+          {
+            "date": "2024-02-29",
+            "seconds": 9
+          }
+        ],
+        "credited_characters": 0,
+        "ranges": [],
+        "awake_windows": [
+          {
+            "start": "2024-02-28T23:59:59Z",
+            "end": "2024-02-29T00:00:04Z"
+          }
+        ],
+        "native_anchor": null
+      }
+    },
+    {
+      "reporting_timezone": "Europe/Berlin",
+      "event": {
+        "event_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "source_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "session_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
+        "occurred_at": "2024-03-31T01:30:00Z",
+        "type": "reading_segment",
+        "native_seconds": 11,
+        "native_record_id": "synthetic-native",
+        "measurement_version": "provisional",
+        "provenance": "synthetic",
+        "timing_quality": "observed_windows",
+        "volume_quality": "measured",
+        "volume_date": "2024-03-31",
+        "allocation": [
+          {
+            "date": "2024-03-30",
+            "seconds": 2
+          },
+          {
+            "date": "2024-03-31",
+            "seconds": 9
+          }
+        ],
+        "credited_characters": 0,
+        "ranges": [],
+        "awake_windows": [
+          {
+            "start": "2024-03-30T22:30:00Z",
+            "end": "2024-03-31T01:30:00Z"
+          }
+        ],
+        "native_anchor": null
+      }
+    }
+  ]
+}

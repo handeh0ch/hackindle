@@ -2,6 +2,8 @@
 
 Status: P0 open. These are limited observations from synthetic fixtures on KOReader v2026.07.1, not a completed compatibility certification or a production sync release.
 
+The owner deferred further manual Kindle checks until the assembled application is ready. Continue contract and application development with explicit unverified adapter assumptions; the observations below are not a blocker for that work. Consolidate remaining device checks in I1 rather than requesting another diagnostic run during development.
+
 | Area | Observed evidence | Still unverified |
 | --- | --- | --- |
 | Diagnostic loading | Owner manually installed and invoked the opt-in action; observations were appended | Crash/resume behavior of the production plugin |
