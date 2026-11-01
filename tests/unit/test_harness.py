@@ -52,6 +52,9 @@ class GateTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(dir=temporary)
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
+        (self.root / "docs").mkdir()
+        self.handoff = self.root / "docs" / "session-handoff.md"
+        self.handoff.write_text("# Session handoff\n", encoding="utf-8")
         self.items = [feature(), feature("P0", "blocked")]
         self.items[1]["verification"] = None
         self.registry = self.root / "feature_list.json"
@@ -117,5 +120,28 @@ class GateTests(unittest.TestCase):
     def test_invalid_registry_fails_before_tools(self, run):
         self.registry.write_text("not json", encoding="utf-8")
         with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_accepts_handoff_at_seventy_line_limit(self, run, output):
+        self.handoff.write_text("Synthetic context\n" * 70, encoding="utf-8")
+        verify(self.root)
+        self.assertEqual(json.loads(self.registry.read_text(encoding="utf-8"))[0]["state"], "passing")
+
+    @patch("scripts.check.subprocess.run")
+    def test_rejects_handoff_over_seventy_lines_before_tools(self, run):
+        self.handoff.write_text("\n" * 71, encoding="utf-8")
+        original = self.registry.read_bytes()
+        with self.assertRaisesRegex(ValueError, "70 lines"):
+            verify(self.root)
+        run.assert_not_called()
+        self.assertEqual(self.registry.read_bytes(), original)
+
+    @patch("scripts.check.subprocess.run")
+    def test_requires_handoff_file(self, run):
+        self.handoff.unlink()
+        with self.assertRaises(FileNotFoundError):
             verify(self.root)
         run.assert_not_called()

@@ -7,7 +7,7 @@
 - Application server, production plugin and panel are not implemented. There is no application start command yet.
 - H01 harness is implemented; P0 compatibility observations are the next project task. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
 - Tests: run `make check` for the current result and coverage; the command records H01 evidence only after success.
-- Latest local result: 11 unit tests passed; combined statement/branch coverage of harness source is 97.22%. The first coverage run failed at 88.41%, confirming the threshold blocks completion.
+- Latest local result: 14 unit tests passed; combined statement/branch coverage of harness source is 97.40%. The first coverage run failed at 88.41%, confirming the threshold blocks completion. Handoff boundary tests accept 70 lines and reject 71 lines or a missing file.
 
 ## Done
 
@@ -15,6 +15,8 @@
 - A local synthetic EPUB/PDF diagnostic exists under `tests/plugin/prototype/`; its presence does not prove device compatibility.
 - H01: repository instructions, feature registry, progress and `make check` are implemented. coverage.py is installed only in the project environment on P:.
 - Independent read-only review without chat history answered all five cold-start questions and found no critical/important issues. The whitespace check's limited scope is documented in `docs/harness.md`.
+- AGENTS.md follows the template's six sections in English. Detailed workflow/environment instructions are in `docs/development.md`; specifications, testing guidance and plans stay under `docs/` with explicit reading triggers.
+- `docs/session-handoff.md` carries agent-transfer context. Its mandatory 70-line limit includes headings and blank lines and is enforced by `make check`.
 
 ## Blocked
 

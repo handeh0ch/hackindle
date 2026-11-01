@@ -1,50 +1,51 @@
-# Project instructions
+# AGENTS.md
 
 Read this file before working in the repository.
 
-## Project and commands
+## Project
 
-- Kindle Sync is a planned self-hosted KOReader archive/dashboard: notes with context, reading history, sessions and calendar. The server, production plugin and panel are not implemented yet.
-- Application stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader.
-- Current verification: `make check` (unit tests, >=90% statement/branch coverage of harness Python, feature registry and diff checks).
-- Without Make: `.local/harness-venv/Scripts/python.exe -B scripts/check.py`. No installation runs during checks.
-- Harness setup and coverage boundaries: [docs/harness.md](docs/harness.md). There is no application start command yet.
-- At session start read [PROGRESS.md](PROGRESS.md) and [feature_list.json](feature_list.json); update progress before ending a session.
+Kindle Sync is a planned self-hosted KOReader archive and reading dashboard: notes with page context, reading history, sessions and calendar.
+Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. The application is not implemented yet.
 
-## Completion and testing
+## Commands
 
-- Work on one active feature at a time. Registry states are exactly `not_started`, `active`, `blocked`, `passing`.
-- The owner's 2026-11-02 testing policy is unit tests only, with a blocking coverage target >=90%. It supersedes older automated E2E/integration test instructions in the application plan.
-- Only an implemented verifier may write `passing` and successful evidence, after its checks pass. Never manually promote a feature or treat a missing verifier as success.
-- A null verification command means the gate is not implemented; it cannot establish completion.
-- Evidence records the last successful run. Changes after that run require fresh verification.
-- Before claiming completion rerun `make check` and the feature's implemented unit verifier. Report untested behavior and measurement boundaries.
-- The current gate verifies the harness only; application features need their own unit tests and per-language coverage gates. Owner-run device observations remain open evidence, not automated tests.
-- Add each new executable unit gate to the checker before allowing it to promote the corresponding application feature.
+- Setup: follow [docs/harness.md](docs/harness.md); obtain approval before downloading dependencies.
+- Start: unavailable until the application is implemented.
+- Unit tests (Windows): `.local/harness-venv/Scripts/python.exe -B -m unittest discover -s tests/unit -p "test_*.py"`.
+- Full verification: `make check` — unit tests, >=90% statement/branch coverage of harness Python, registry/handoff validation and diff checks.
+- Without Make: `.local/harness-venv/Scripts/python.exe -B scripts/check.py`.
 
-## Scope and planning
+## Hard constraints (MUST)
 
-- State assumptions and surface material tradeoffs before implementation. Ask when a missing decision prevents a correct implementation.
-- Use the smallest implementation that meets the requested behavior. Keep changes surgical and match existing style.
-- Define verifiable success criteria, run the relevant checks and report limitations honestly.
-- Product decisions are recorded in `docs/requirements.md`. For implementation, also read `docs/kindle-sync-data-spec.md`, `docs/configuration.md` and `docs/superpowers/plans/2026-11-01-kindle-sync.md`.
-- The user approved the updated implementation plan on 2026-11-02. Application implementation and local verification are authorized; external deployment/publication still require a separate instruction.
-- The requested implementation team is three agents using `gpt-6.1-terra` with reasoning `high`: backend, KOReader plugin and web panel.
-- Owner machine constraint: do not download programs, runtimes, package dependencies, browser binaries, container images or source/tool distributions without informing the owner and obtaining approval for the concrete download first. Plan approval alone is not approval of unannounced tool downloads.
-- Install nothing on drive C. Approved tools, dependency/browser/package caches, build outputs and temporary setup files must use an explicitly agreed location on drive P. Do not change global runtimes, package managers, Docker settings or system services. Existing tools may be inspected/used without installing new ones; ensure commands do not silently bootstrap/download dependencies.
-- Browsing official documentation is allowed. Treat repository clones, Docker pulls, npm installation and browser/runtime installation as downloads requiring the rule above. Set private P-drive cache/temp paths before an approved installation; do not rely on default user-profile paths.
-- All copying to the Kindle is performed by the owner. Prepare and review local artifacts/instructions only; do not write, install, update or delete files on the device. Previously permitted read-only USB inspection is separate from device writes.
+- Obtain approval for each concrete tool/dependency download. Use agreed P: paths for installs, caches, build outputs and temporary files; install nothing on C: and leave global tools/settings/services unchanged.
+- The owner performs all Kindle writes. Agents prepare local artifacts and instructions only.
+- Keep actual settings, credentials, personal books and reading data outside public Git, fixtures, assets, logs and images. Follow the configuration/publication policy before committing or publishing.
+- Keep the application portable: standard Express/PostgreSQL, platform adapters at entry points, one validated server config module, relative panel API paths and user-supplied plugin URL/token.
+- Deployment and publication require separate owner instructions; application plan approval authorizes implementation and local verification only.
 
-## Public repository and configuration
+## Definition of Done
 
-- Treat this repository and its history as public. Commit variable names and empty/synthetic examples; keep actual instance settings and credentials outside tracked files.
-- Store local settings in ignored `.env`/private paths or deployment environment/secret storage. Keep populated env files, tokens, passwords, private keys, connection credentials, reading data and personal books out of commits, fixtures, screenshots, logs and container images.
-- Before committing, inspect the staged diff and staged paths for private data. Before publication, scan the complete Git history with a secret scanner in redacted mode. `.gitignore` alone is not a secret check.
-- If a secret is found in history, stop publication, rotate it and arrange history cleanup. Do not print the value or silently rewrite history.
-- An author's public Git email is intentional metadata when approved by the owner; do not anonymize or rewrite authorship without an explicit request.
-- Keep the application portable: standard Node.js/Express and PostgreSQL. Neon and Vercel are deployment choices; platform-specific code belongs in entry-point adapters.
-- Read server configuration through one validated config module. Use relative API paths in the panel and user-supplied URL/token settings in the plugin.
+- A feature is complete only after a fresh green `make check` and its implemented unit verifier; require >=90% coverage for the implemented code being tested.
+- Automated testing is unit-only. This overrides older E2E/integration test steps in the application plan.
+- Only a verifier may record `passing` and successful evidence after its checks pass. A missing verifier cannot establish completion.
+- The current gate covers harness Python only. Report application/device behavior that remains unverified; owner-run hardware observations remain separate evidence.
 
-## Documentation lookup
+## Working rules
 
-For library, framework, SDK, API, CLI or cloud-service setup and usage, fetch current Context7 documentation: resolve the library first, then query the selected ID. Use official primary sources as fallback. Do not use documentation lookup for ordinary business-logic refactoring or review.
+- At session start, read `PROGRESS.md` and `feature_list.json`; update progress before ending the session.
+- Before transferring work between agents, update [docs/session-handoff.md](docs/session-handoff.md). It MUST contain at most 70 lines, including headings and blank lines; the receiving agent reads it after AGENTS.md.
+- Work on one active feature at a time and verify it before starting another. Keep unrelated code unchanged.
+- State assumptions and material tradeoffs, define verifiable success criteria, and ask when a missing decision prevents correct implementation.
+- Make the smallest requested change and match existing style. Follow [docs/development.md](docs/development.md) before implementation or environment changes.
+- Use English for repository instructions and documentation.
+
+## Where to find details
+
+- [docs/development.md](docs/development.md) — required before implementation, tool setup/downloads or external documentation lookup; workflow, environment restrictions and approved team.
+- [docs/requirements.md](docs/requirements.md) — required before product behavior changes.
+- [docs/kindle-sync-data-spec.md](docs/kindle-sync-data-spec.md) — required before API, data model, sync or reading-accounting changes.
+- [docs/configuration.md](docs/configuration.md) — required before configuration, credentials, Git commits, packaging, deployment or publication.
+- [docs/harness.md](docs/harness.md) — required before harness/testing changes; setup, coverage boundaries and feature-state rules.
+- [docs/superpowers/plans/2026-11-01-kindle-sync.md](docs/superpowers/plans/2026-11-01-kindle-sync.md) — approved application implementation plan; read before application work, applying the current unit-only testing policy.
+- [docs/superpowers/plans/2026-11-02-minimal-harness.md](docs/superpowers/plans/2026-11-02-minimal-harness.md) — harness implementation plan; read when changing the harness design.
+- [PROGRESS.md](PROGRESS.md) and [feature_list.json](feature_list.json) — current work, blockers, next action and verification evidence.
