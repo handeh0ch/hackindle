@@ -44,11 +44,11 @@ Before transferring work between agents, update the handoff in place. Keep it sh
 
 Coverage includes all Python source under `scripts/`, including unexecuted files. It excludes tests, dependencies, and the pre-existing standalone prototype generator/diagnostic, which is separate investigatory tooling. No production application exists. This percentage proves coverage of the harness only; add per-language unit coverage gates when application modules are introduced. No automated integration/E2E/browser/device tests are configured.
 
-Only after every command succeeds does the checker write H01 `passing` and timestamped evidence to `feature_list.json`. A failure returns nonzero and leaves that file untouched. Evidence describes the last successful run, not a guarantee about later changes: rerun `make check` before claiming completion. State is repository memory, not a tamper-proof security boundary.
+Only after every command succeeds does the checker write H01 `passing` and timestamped evidence to `feature_list.json`. C0 is additionally checked when its reviewed registry verification is `npm run test:contracts`: the checker runs that fixed unit command before the diff check and records C0 evidence only after the whole gate succeeds. A null C0 verifier leaves it unpromoted; an unknown C0 command is rejected before any subprocess runs. Registry text is never executed as an arbitrary shell command. A failure returns nonzero and leaves the registry untouched. Evidence describes the last successful run, not a guarantee about later changes: rerun `make check` before claiming completion. State is repository memory, not a tamper-proof security boundary.
 
-The four states are `not_started`, `active`, `blocked`, `passing`; at most one is active. An unimplemented verifier is `null`, never a made-up executable command. Only H01 currently has an implemented gate. For each later feature, implement its unit verifier and coverage check before allowing a verifier to promote it. Agents may edit work descriptions and unfinished states, but must not manually write `passing` or successful evidence.
+The four states are `not_started`, `active`, `blocked`, `passing`; at most one is active. An unimplemented or not-yet-reviewed feature gate is `null`, never a made-up executable command. C0 is in development; its registration stays null until its delivery and tests have been reviewed. For each later feature, implement its unit verifier and coverage check before allowing a verifier to promote it. Agents may edit work descriptions and unfinished states, but must not manually write `passing` or successful evidence.
 
-The green gate does not certify KOReader hardware behavior, an entire application, deployment readiness or secret-free Git history. Existing release/privacy requirements still apply. The application implementation plan predates the owner's unit-only clarification: its E2E/integration automation steps are superseded, and its test commands must be revised before that work starts. Hardware observations remain an owner activity, recorded honestly.
+The green gate does not certify KOReader hardware behavior, an entire application, deployment readiness or secret-free Git history. Existing release/privacy requirements still apply. The application implementation plan now reflects the owner's unit-only clarification and deferred manual Kindle checks. Hardware observations remain an owner activity, recorded honestly.
 
 ## Cold-start answers
 
@@ -56,7 +56,7 @@ The green gate does not certify KOReader hardware behavior, an entire applicatio
 2. **How to start?** No application is implemented. Run the local harness as above; the separate diagnostic has its own README and requires owner actions for device observations.
 3. **How to verify?** `make check`: unit tests plus >=90% harness coverage, registry validation and diff checks. No application linter/type checker is configured yet.
 4. **Hard rules?** AGENTS.md: explicit download approval, all installs/caches on P:, owner-only device writes, private credentials/data outside Git, portable validated configuration, and separate publication authorization.
-5. **Where is work now?** PROGRESS.md and feature_list.json record completed H01 and the P0 blocker; next obtain owner-run synthetic observations, then freeze C0 contracts.
+5. **Where is work now?** PROGRESS.md and feature_list.json record H01 and the current feature. C0 proceeds with explicit unverified adapter assumptions; the owner deferred remaining manual Kindle observations until the application is assembled.
 
 An independent cold-start evaluation must read those files without prior chat context; this answer map alone is not evidence that such an evaluation took place.
 

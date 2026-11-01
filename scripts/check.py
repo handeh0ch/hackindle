@@ -42,6 +42,10 @@ def verify(root):
     harness = next((item for item in items if item["id"] == "H01"), None)
     if harness is None:
         raise ValueError("Register the H01 harness gate before verification")
+    contract = next((item for item in items if item["id"] == "C0"), None)
+    contract_enabled = contract is not None and contract["verification"] is not None
+    if contract_enabled and contract["verification"] != "npm run test:contracts":
+        raise ValueError("C0 verification must use the implemented contract unit gate")
     handoff = root / "docs" / "session-handoff.md"
     if len(handoff.read_text(encoding="utf-8").splitlines()) > 70:
         raise ValueError("docs/session-handoff.md must contain at most 70 lines")
@@ -49,8 +53,11 @@ def verify(root):
         [sys.executable, "-B", "-m", "coverage", "run", "-m", "unittest",
          "discover", "-s", "tests/unit", "-p", "test_*.py"],
         [sys.executable, "-B", "-m", "coverage", "report", "--fail-under=90"],
-        ["git", "diff", "--check"],
     ]
+    if contract_enabled:
+        commands.append(["npm.cmd" if sys.platform == "win32" else "npm",
+                         "run", "test:contracts"])
+    commands.append(["git", "diff", "--check"])
     (root / ".local" / "harness").mkdir(parents=True, exist_ok=True)
     for command in commands:
         subprocess.run(command, cwd=root, check=True)
@@ -60,6 +67,12 @@ def verify(root):
         datetime.now(timezone.utc).isoformat(timespec="seconds")
         + "; make check: unit tests PASS, statement/branch coverage >=90%, git diff --check PASS"
     )
+    if contract_enabled:
+        contract["state"] = "passing"
+        contract["evidence"] = (
+            datetime.now(timezone.utc).isoformat(timespec="seconds")
+            + "; npm run test:contracts: unit tests PASS, executable coverage >=90%"
+        )
     registry.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("ALL CHECKS PASSED (unit tests, coverage >=90%, registry, handoff <=70 lines, diff)")
 

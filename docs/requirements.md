@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: decisions recorded from the user's design interview on 2026-11-01, including the public-repository requirement. These supersede earlier product assumptions in the research notes. The revised implementation plan still requires user review; no application is implemented.
+Status: decisions recorded from the user's design interview on 2026-11-01, including the public-repository requirement. These supersede earlier product assumptions in the research notes. The implementation plan was approved on 2026-11-02; application implementation is in progress, with no working server/plugin/panel yet.
 
 ## Product and scope
 

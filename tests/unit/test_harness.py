@@ -145,3 +145,56 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             verify(self.root)
         run.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_registered_contract_gate_runs_before_diff_and_records_evidence(self, run, output):
+        contract = feature("C0")
+        contract["verification"] = "npm run test:contracts"
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        self.registry.write_text(json.dumps(self.items + [contract]), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[2][1:], ["run", "test:contracts"])
+        self.assertIn(commands[2][0], {"npm", "npm.cmd"})
+        self.assertEqual(commands[3], ["git", "diff", "--check"])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual(saved[-1]["state"], "passing")
+        self.assertIn("npm run test:contracts", saved[-1]["evidence"])
+        self.assertEqual(saved[1], self.items[1])
+
+    @patch("scripts.check.subprocess.run")
+    def test_contract_failure_does_not_promote_any_feature(self, run):
+        contract = feature("C0")
+        contract["verification"] = "npm run test:contracts"
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        self.registry.write_text(json.dumps(self.items + [contract]), encoding="utf-8")
+        original = self.registry.read_bytes()
+        run.side_effect = [None, None, subprocess.CalledProcessError(1, "contract unit gate")]
+        with self.assertRaises(subprocess.CalledProcessError):
+            verify(self.root)
+        self.assertEqual(self.registry.read_bytes(), original)
+        self.assertEqual(run.call_count, 3)
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_unimplemented_contract_gate_stays_active(self, run, output):
+        contract = feature("C0")
+        contract["verification"] = None
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        self.registry.write_text(json.dumps(self.items + [contract]), encoding="utf-8")
+        verify(self.root)
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(json.loads(self.registry.read_text(encoding="utf-8"))[-1], contract)
+
+    @patch("scripts.check.subprocess.run")
+    def test_unknown_contract_verifier_fails_without_running_registry_command(self, run):
+        contract = feature("C0", "not_started")
+        contract["verification"] = "untrusted-command"
+        self.registry.write_text(json.dumps(self.items + [contract]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()

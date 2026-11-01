@@ -1,6 +1,6 @@
 # Kindle Sync: data contract draft
 
-Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). Application code and schemas are not implemented. Freeze exact schemas only after the compatibility prototype in the implementation plan.
+Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). C0 specifies the wire contract using available compatibility findings; the owner deferred further device observations until the assembled application is ready. Unverified adapter behavior remains explicit and does not certify a working plugin.
 
 ## Identity and ownership
 
@@ -43,7 +43,7 @@ The plugin owns a separate SQLite state database outside the shipped plugin dire
 4. Seal reading records into immutable events with persistent event_id. Active records can be checkpointed locally; publish only stable slices, not repeatedly add the same native duration. Crash/restart reconciliation must not manufacture time or lose already queued data.
 5. Session new volume is the newly credited amount for that day, including zero on rereading; active time includes rereading. Close a session on sleep, close or source switch.
 
-Exact hook ordering, range extraction, native interval identity and PDF viewport handling are prototype gates, not verified implementation claims. Unsupported extraction must be visible, not replaced with fabricated page counts.
+Exact hook ordering, range extraction, native interval identity and PDF viewport handling require hardware evidence during final owner-run acceptance. Contract and application development may proceed before that evidence, using explicit adapter assumptions. Unsupported extraction must be visible, not replaced with fabricated page counts.
 
 ## Synchronization envelopes
 
@@ -68,7 +68,7 @@ Exact hook ordering, range extraction, native interval identity and PDF viewport
 The example uses synthetic values. Packet kinds:
 
 - `source_snapshot`: metadata and optional complete snapshots of annotations/current progress for one source. Omitted sections are unchanged. A successfully read empty annotations list archives active annotations of that source; an unavailable source is omitted, never sent as an empty list. An absent source file itself does not delete service data.
-- `reading_events`: bounded batches of immutable events for one source. Event types: reading_segment, progress_sample, session_started, session_ended, cycle_started, book_finished. Event schemas and native provenance are frozen after the prototype.
+- `reading_events`: bounded batches of immutable events for one source. Event types: reading_segment, progress_sample, session_started, session_ended, cycle_started, book_finished. C0 defines event fields and explicit native provenance; the contract does not prove that an adapter can capture them on the device.
 - `vocabulary_snapshot`: successfully read complete set of saved Vocabulary Builder entries; source_id is null. Preserve word/language/source metadata where available and count saved unique words, not dictionary lookup occurrences.
 - `legacy_statistics`: native per-source approximate history clearly marked as legacy; never combine native screen-page counts with the new character-based series.
 
