@@ -8,6 +8,7 @@
 node_modules
 .vercel
 .worktrees
+.superpowers
 .local
 private
 data
@@ -33,6 +34,7 @@ test-results
 *.pdf
 **/.git
 **/.local
+**/.superpowers
 **/private
 **/data
 **/backups

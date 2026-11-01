@@ -10,7 +10,7 @@
 
 **Spec:** [Продуктовые требования](../../requirements.md), [контракт данных](../../kindle-sync-data-spec.md), [конфигурация и публичность](../../configuration.md), [исследование хостинга](../../kindle-sync-hosting-research.md).
 
-**Статус:** ОБНОВЛЁННЫЙ ПЛАН НА РЕВЬЮ. Ответы интервью включены; прежнее разделение на урезанный первый релиз и будущие сессии/цели отменено. Приложение и развёртывание не реализованы. Исполнителей запускать только после одобрения этого плана пользователем.
+**Статус:** ОДОБРЕН пользователем 2026-11-02. Разработка и локальные проверки начаты; внешняя публикация/деплой требуют отдельного поручения. Ответы интервью включены; прежнее разделение на урезанный первый релиз и будущие сессии/цели отменено.
 
 ## Global Constraints
 
@@ -77,7 +77,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 
 Не создавать пустые файлы ради списка. Сохранять функции с одной ответственностью рядом; дополнительные модули только при появлении конкретной необходимости.
 
-## P0 — Прототип совместимости и стабильной метрики
+## Task 1: P0 — Прототип совместимости и стабильной метрики
 
 **Owner:** plugin. **Files:** `plugin/COMPATIBILITY.md`, `tests/plugin/fixtures/`, `tests/plugin/prototype/`. **Consumes:** фактическая версия KOReader и синтетические EPUB/MOBI/PDF. **Produces:** проверенные hooks/API, форматы locators, native timing provenance и образцы данных для C0.
 
@@ -89,7 +89,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Записать результаты и замеры. Если стабильный объём/тайминг/PDF не подтверждён, представить конкретный блокер и варианты пользователю до основного построения API; не уменьшать согласованные требования молча.
 - [ ] Коммит `test(plugin): establish verified reading and context primitives`.
 
-## C0 — Заморозить контракт и инструменты для трёх исполнителей
+## Task 2: C0 — Заморозить контракт и инструменты для трёх исполнителей
 
 **Owner:** координатор. **Files:** `contracts/{sync,uploads,events,read-api}.schema.json`, `contracts/examples/`, `tests/contracts/schema.test.js`, `docs/api-v1.md`, исходные package/lockfile. **Consumes:** P0 и data-spec. **Produces:** точные payload/ack/error/read schemas и общий commit.
 
@@ -102,7 +102,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Сначала увидеть падения `npm run test:contracts`, затем PASS на валидных fixtures и ожидаемые отказы invalid dates/seq/locators/kind/timezone. Уникальность IDs и межполевые проверки закрепить также в backend validator tests.
 - [ ] Коммит `chore: freeze portable sync contracts and test fixtures`; передать SHA всем трём исполнителям. После этого изменение схем — только общий checkpoint.
 
-## B1 — Переносимая конфигурация, PostgreSQL и авторизация
+## Task 3: B1 — Переносимая конфигурация, PostgreSQL и авторизация
 
 **Owner:** backend. **Files:** config/app/db/auth/start, Vercel adapter/entry, migrations, setup-owner/migrate, `.env.example`, Docker/compose, `tests/server/{config,auth,portability}.test.js`. **Interfaces:** `loadConfig(env) -> Config`; `createApp({db,config}) -> Express.Application`; `db.withTransaction(callback) -> Promise<result>`.
 
@@ -114,7 +114,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Добавить dev/start/migrate/setup команды и контейнерный пример. Секреты инжектируются извне; explicit COPY и .dockerignore исключают env/данные. Проверить одно приложение с двумя разными DB URLs/origins/timezones без source edits.
 - [ ] Проверка `npm run test:server` на обычной PostgreSQL — PASS. Коммит `feat(server): add portable PostgreSQL application and auth`.
 
-## B2 — Приём, история, архив и большие данные
+## Task 4: B2 — Приём, история, архив и большие данные
 
 **Owner:** backend. **Files:** sync/uploads/content, `tests/server/{sync,uploads,archive,reset}.test.js`. **Consumes:** C0/B1. **Produces:** атомарный packet/event API, persisted history и versioned content.
 
@@ -125,7 +125,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Реализовать private cover JPEG/WebP <=64 КиБ и content cursors: длинный текст целиком восстанавливается из частей, изменение версии даёт 409 content_changed, пользовательский HTML остаётся текстом.
 - [ ] Relevant server tests — PASS с реальной PostgreSQL. Коммит `feat(server): persist idempotent reading history and annotation archive`.
 
-## B3 — Все отчёты, группировка и backup/restore
+## Task 5: B3 — Все отчёты, группировка и backup/restore
 
 **Owner:** backend. **Files:** queries/books, export/import scripts, `tests/server/{reports,grouping,backup}.test.js`. **Consumes:** B2/C0. **Produces:** owner read/mutation API для всех четырёх экранов.
 
@@ -136,7 +136,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Добавить export/import данных/обложек без credentials. Import допускается только в пустые таблицы данных; восстанавливает IDs/versions/policy и требует нового приватного bootstrap credentials. Round-trip в другой PostgreSQL сохраняет тексты, counts и totals; непустая цель не меняется.
 - [ ] Relevant server tests — PASS. Коммит `feat(server): add grouped reading reports goals and restore`.
 
-## P1 — Учёт чтения, аннотации, контекст и словарь
+## Task 6: P1 — Учёт чтения, аннотации, контекст и словарь
 
 **Owner:** plugin. **Files:** adapter/state/context/reading/vocabulary, `tests/plugin/run.lua`, `tests/plugin/{reading,context,vocabulary}_test.lua`. **Consumes:** P0/C0. **Produces:** source captures, sealed events и successful snapshots.
 
@@ -147,7 +147,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Экспортировать saved vocabulary и legacy archive отдельно. Disabled/unavailable источник не выдавать за пустой успешный набор. Миниатюру извлекать/уменьшать локально; файл книги не отправлять.
 - [ ] Lua tests — PASS; аппаратные результаты подтверждаются I1. Коммит `feat(plugin): capture stable reading history notes and vocabulary`.
 
-## P2 — Очередь, протокол и настройки устройства
+## Task 7: P2 — Очередь, протокол и настройки устройства
 
 **Owner:** plugin. **Files:** outbox/transport/main/_meta, `tests/plugin/{outbox,transport}_test.lua`, plugin install guide. **Consumes:** P1/C0. **Produces:** plugin distribution без локальных settings/state.
 
@@ -158,7 +158,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Progress sample раз/минуту плюс границы, sealed reading batches каждые пять активных минут плюс lifecycle flush. Сбор нового текста/контекста не пересылается с каждым минутным progress.
 - [ ] Lua tests — PASS; собрать архив по allowlist исходников, проверить отсутствие private config/state/books. Коммит `feat(plugin): deliver durable portable sync client`.
 
-## F1 — Обзор, календарь и библиотека
+## Task 8: F1 — Обзор, календарь и библиотека
 
 **Owner:** panel. **Files:** public shell/api/app/overview/books/charts, `tests/panel/{playwright.config,mock-server,overview.spec}.js`. **Consumes:** C0 HTTP fixtures. **Produces:** #/overview и #/books без зависимости от готового backend.
 
@@ -167,7 +167,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Использовать relative API URLs и test-only mock server. Private env не входит в public/**; HTML/JS не содержит owner instance URL/credentials.
 - [ ] Проверить keyboard/accessibility, табличную альтернативу графику, 390/1440 px. `npm run test:panel` — PASS. Коммит `feat(panel): add complete reading overview and grouped library`.
 
-## F2 — Книга, сессии, заметки и управление экземпляром
+## Task 9: F2 — Книга, сессии, заметки и управление экземпляром
 
 **Owner:** panel. **Files:** book/annotations/connection modules, `tests/panel/{book,annotations,grouping,connection}.spec.js`. **Consumes:** C0/F1. **Produces:** source switch/history, session/cycle views, note/archive/search, grouping/goals/device setup.
 
@@ -177,7 +177,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] Connection view: owner-controlled URL/token rotation, однократный показ нового секрета, last sync. Сервер не изображает известной длину локальной очереди Kindle без отдельной телеметрии.
 - [ ] Panel tests — PASS на 390/1440 px и keyboard navigation. Коммит `feat(panel): add source history sessions archive and grouping`.
 
-## I1 — Интеграция и аппаратная приёмка
+## Task 10: I1 — Интеграция и аппаратная приёмка
 
 **Owner:** координатор, fixes возвращаются соответствующему исполнителю. **Files:** `tests/e2e/`, `docs/testing.md`, compatibility report.
 
@@ -187,7 +187,7 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 - [ ] На реальном KOReader повторить P0 краевые случаи, offline/crash/sleep/reconnect, font/zoom changes, слова/обложки, неподдерживаемые данные, выключенный Wi-Fi. Записать версию, фактические delays, размеры, responsiveness и сравнительный battery cost.
 - [ ] Если доступа к устройству нет, аппаратная приёмка остаётся открытой. Не заявлять полный релиз только по mocks. Коммит `test: verify complete cross-component reading workflow`.
 
-## I2 — Публичный репозиторий и два воспроизводимых deploy
+## Task 11: I2 — Публичный репозиторий и два воспроизводимых deploy
 
 **Owner:** координатор + backend. **Files:** README, deployment/backup guides, Docker/compose, `.github/workflows/`, секретные значения только вне Git.
 
@@ -202,4 +202,4 @@ public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 
 Все задачи входят в один первый релиз; порядок задач — порядок разработки, не перенос agreed features на неопределённый второй этап. Готовность требует P0/C0, трёх поставок, интеграционных/аппаратных проверок и воспроизводимых способов запуска. Облачная публикация отдельно требует доступа и разрешения.
 
-На текущем этапе выполнены только документация и repository hygiene. Этот план передаётся пользователю на ревью; он ещё не является разрешением запускать implementation.
+Одобрение пользователя разрешает implementation и локальные проверки. Аппаратные результаты, cloud deployment и публикация не считаются выполненными до фактического подтверждения.
