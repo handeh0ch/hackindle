@@ -1,6 +1,6 @@
 # Minimal harness implementation plan
 
-**Goal:** Apply the four-file quick start from [Harness_ru](https://github.com/justxor/Harness_ru#быстрый-старт-минимальный-harness-за-30-минут) to this repository.
+**Goal:** Apply the four-file quick start from [Harness_ru](https://github.com/justxor/Harness_ru#%D0%B1%D1%8B%D1%81%D1%82%D1%80%D1%8B%D0%B9-%D1%81%D1%82%D0%B0%D1%80%D1%82-%D0%BC%D0%B8%D0%BD%D0%B8%D0%BC%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B9-harness-%D0%B7%D0%B0-30-%D0%BC%D0%B8%D0%BD%D1%83%D1%82) to this repository.
 
 **Design:** Keep the existing project constraints in AGENTS.md. Add a feature registry, handoff state and one local verification command. Use the existing Python and Make; coverage.py 7.16.2 is approved for a project-only environment on P:. No application implementation or publication is included.
 

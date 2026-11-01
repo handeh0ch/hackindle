@@ -1,6 +1,6 @@
 # Minimal repository harness
 
-This adapts the [Harness_ru quick start](https://github.com/justxor/Harness_ru#быстрый-старт-минимальный-harness-за-30-минут): AGENTS.md, feature_list.json, PROGRESS.md and one verification command. The owner's unit-only testing policy replaces the example E2E gate.
+This adapts the [Harness_ru quick start](https://github.com/justxor/Harness_ru#%D0%B1%D1%8B%D1%81%D1%82%D1%80%D1%8B%D0%B9-%D1%81%D1%82%D0%B0%D1%80%D1%82-%D0%BC%D0%B8%D0%BD%D0%B8%D0%BC%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B9-harness-%D0%B7%D0%B0-30-%D0%BC%D0%B8%D0%BD%D1%83%D1%82): AGENTS.md, feature_list.json, PROGRESS.md and one verification command. The owner's unit-only testing policy replaces the example E2E gate.
 
 ## Run
 
