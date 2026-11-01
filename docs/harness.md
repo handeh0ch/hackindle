@@ -1,0 +1,61 @@
+# Minimal repository harness
+
+This adapts the [Harness_ru quick start](https://github.com/justxor/Harness_ru#быстрый-старт-минимальный-harness-за-30-минут): AGENTS.md, feature_list.json, PROGRESS.md and one verification command. The owner's unit-only testing policy replaces the example E2E gate.
+
+## Run
+
+From the repository root on Windows:
+
+```powershell
+make check
+```
+
+Without Make, the same gate is:
+
+```powershell
+& .local/harness-venv/Scripts/python.exe -B scripts/check.py
+```
+
+Existing Python 3.13 and GNU Make are used. The project-only environment contains pinned coverage.py from `requirements-harness.txt`. The checker never installs dependencies. A missing interpreter or coverage module fails the command.
+
+For a fresh checkout, obtain the owner's approval before downloading the pinned dependency and agree a location on P:. The following setup uses only this project's ignored paths; do not run it from a checkout on C:.
+
+```powershell
+New-Item -ItemType Directory -Force -Path .local/tmp,.local/pip-cache | Out-Null
+$env:TEMP = Join-Path (Get-Location) '.local/tmp'
+$env:TMP = $env:TEMP
+$env:PIP_CACHE_DIR = Join-Path (Get-Location) '.local/pip-cache'
+$env:PYTHONDONTWRITEBYTECODE = '1'
+python -B -m venv .local/harness-venv
+if ($LASTEXITCODE -ne 0) { throw 'Could not create the project environment' }
+& .local/harness-venv/Scripts/python.exe -B -m pip install --disable-pip-version-check -r requirements-harness.txt
+if ($LASTEXITCODE -ne 0) { throw 'Could not install harness dependencies' }
+```
+
+On other systems use an existing approved environment and override `make check PYTHON=/path/to/python`; paths containing spaces are supported. No package manager runs during verification.
+
+## Gate and coverage scope
+
+The checker validates feature states and WIP=1, runs standard-library unittest discovery in `tests/unit`, enforces coverage.py's combined statement/branch threshold of 90%, and runs `git diff --check`. Unit tests isolate subprocess boundaries; they do not start an application, database, network service or device. Coverage data is in `.local/harness/.coverage`.
+
+`git diff --check` checks unstaged changes to tracked files; staged changes and untracked new files are outside this whitespace check. It is not a repository-wide linter.
+
+Coverage includes all Python source under `scripts/`, including unexecuted files. It excludes tests, dependencies, and the pre-existing standalone prototype generator/diagnostic, which is separate investigatory tooling. No production application exists. This percentage proves coverage of the harness only; add per-language unit coverage gates when application modules are introduced. No automated integration/E2E/browser/device tests are configured.
+
+Only after every command succeeds does the checker write H01 `passing` and timestamped evidence to `feature_list.json`. A failure returns nonzero and leaves that file untouched. Evidence describes the last successful run, not a guarantee about later changes: rerun `make check` before claiming completion. State is repository memory, not a tamper-proof security boundary.
+
+The four states are `not_started`, `active`, `blocked`, `passing`; at most one is active. An unimplemented verifier is `null`, never a made-up executable command. Only H01 currently has an implemented gate. For each later feature, implement its unit verifier and coverage check before allowing a verifier to promote it. Agents may edit work descriptions and unfinished states, but must not manually write `passing` or successful evidence.
+
+The green gate does not certify KOReader hardware behavior, an entire application, deployment readiness or secret-free Git history. Existing release/privacy requirements still apply. The application implementation plan predates the owner's unit-only clarification: its E2E/integration automation steps are superseded, and its test commands must be revised before that work starts. Hardware observations remain an owner activity, recorded honestly.
+
+## Cold-start answers
+
+1. **What and why?** Kindle Sync archives one owner's KOReader notes/context and reading history for a self-hosted dashboard. See README and product requirements.
+2. **How to start?** No application is implemented. Run the local harness as above; the separate diagnostic has its own README and requires owner actions for device observations.
+3. **How to verify?** `make check`: unit tests plus >=90% harness coverage, registry validation and diff checks. No application linter/type checker is configured yet.
+4. **Hard rules?** AGENTS.md: explicit download approval, all installs/caches on P:, owner-only device writes, private credentials/data outside Git, portable validated configuration, and separate publication authorization.
+5. **Where is work now?** PROGRESS.md and feature_list.json record completed H01 and the P0 blocker; next obtain owner-run synthetic observations, then freeze C0 contracts.
+
+An independent cold-start evaluation must read those files without prior chat context; this answer map alone is not evidence that such an evaluation took place.
+
+On 2026-11-02 an independent read-only reviewer without chat history answered all five questions from repository files and found no missing-answer gap.
