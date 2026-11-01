@@ -209,3 +209,46 @@ class GateTests(unittest.TestCase):
                              str(self.root / ".local" / "npm-cache"))
             self.assertEqual(environment.get("TEMP"), str(self.root / ".local" / "tmp"))
             self.assertEqual(environment.get("TMP"), str(self.root / ".local" / "tmp"))
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_registered_server_unit_gate_records_only_its_verified_feature(self, run, output):
+        server = feature("B1")
+        server["verification"] = "npm run test:server"
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        self.registry.write_text(json.dumps(self.items + [server]), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[2][1:], ["run", "test:server"])
+        self.assertEqual(commands[3], ["git", "diff", "--check"])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual(saved[-1]["state"], "passing")
+        self.assertIn("npm run test:server", saved[-1]["evidence"])
+        self.assertEqual(saved[1], self.items[1])
+
+    @patch("scripts.check.subprocess.run")
+    def test_server_failure_after_contract_success_keeps_all_evidence_unchanged(self, run):
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        contract = feature("C0", "passing")
+        contract["verification"] = "npm run test:contracts"
+        contract["evidence"] = "previous contract run"
+        server = feature("B1")
+        server["verification"] = "npm run test:server"
+        self.registry.write_text(json.dumps(self.items + [contract, server]), encoding="utf-8")
+        original = self.registry.read_bytes()
+        run.side_effect = [None, None, None, subprocess.CalledProcessError(1, "server unit gate")]
+        with self.assertRaises(subprocess.CalledProcessError):
+            verify(self.root)
+        self.assertEqual(self.registry.read_bytes(), original)
+        self.assertEqual(run.call_count, 4)
+
+    @patch("scripts.check.subprocess.run")
+    def test_unknown_server_verifier_is_not_executed(self, run):
+        server = feature("B1", "not_started")
+        server["verification"] = "untrusted-server-command"
+        self.registry.write_text(json.dumps(self.items + [server]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()

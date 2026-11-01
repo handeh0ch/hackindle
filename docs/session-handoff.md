@@ -4,7 +4,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Current context
 
-- Updated: 2026-11-02. Baseline: local main `1aab283`; use Git history/status for the current branch and commit.
+- Updated: 2026-11-02. Shared contract baseline: local main `07b0c23`; use Git history/status for the current branch and commit.
 - Project: Kindle Sync, a self-hosted KOReader archive/dashboard. Production server, plugin and panel are not implemented.
 - H01 harness is implemented. AGENTS.md follows six English template sections; detailed workflow/environment guidance is in [development.md](development.md).
 - All repository documentation/plans must be maintained in English. Existing Russian research notes and the application plan are translated; their technical literals, source targets and task states are preserved.
@@ -18,7 +18,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Next action
 
-1. C0 passed its scoped re-review and combined unit gate. Next is B1; no server, production plugin or panel exists yet. Private task artifacts are under .superpowers/sdd/2026-11-01-kindle-sync/.
+1. C0 passed review and the combined unit gate at 07b0c23. B1 is the sole active feature: portable config/DB/auth, no sync ingestion or panel. Private task artifacts are under .superpowers/sdd/2026-11-01-kindle-sync/.
 2. The owner deferred manual Kindle checks until the assembled application is ready. P0 remains open hardware evidence, not a dependency blocking C0; unverified adapters must remain explicit.
 3. Apply the unit-only testing policy and >=90% coverage gate to new executable code. No automated browser, database integration or E2E suites.
 4. Backend role continues sequentially in P:/Code/hackindle to reuse the approved node_modules location. Backend owns server/, db/, application scripts/tests and package files; coordinator reserves scripts/check.py, tests/unit/, registry, docs and Git. No concurrent Git mutations.

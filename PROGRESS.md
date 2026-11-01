@@ -5,9 +5,9 @@
 - Updated: 2026-11-02. Harness baseline: `fe8f580`; local integration into `main` was requested by the owner. See Git history for the integration commit.
 - Product: Kindle Sync, one owner's self-hosted reading dashboard and KOReader plugin.
 - Application server, production plugin and panel are not implemented. There is no application start command yet.
-- H01 harness and C0 shared contracts are implemented and verified. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
+- H01 harness and C0 shared contracts are implemented and verified (C0 checkpoint `07b0c23`). B1 portable server/authentication is active. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
 - Tests: run `make check` for the current result and coverage; the command records H01/C0 evidence only after all checks succeed.
-- Latest local result: 19 Python unit tests and 29 JavaScript contract unit tests passed. Python combined statement/branch coverage:97.94%; contract JavaScript:100%lines,98.14%branches,100%functions. These percentages do not measure JSON schemas, application functionality or device behavior.
+- Latest coordinator gate result: 22 Python unit tests and 29 JavaScript contract unit tests passed. Python combined statement/branch coverage:98.10%; contract JavaScript:100%lines,98.14%branches,100%functions. B1's server suite is in development and not registered yet. These percentages do not measure JSON schemas, application functionality or device behavior.
 
 ## Done
 
@@ -20,6 +20,7 @@
 - The English-only rule explicitly covers repository instructions, documentation and plans. Existing Russian research notes and the application plan are translated without changing their historical claims, technical literals or task states.
 - C0: versioned JSON schemas, pure Ajv validators, synthetic fixtures and API v1 cover sync/acks/events, reset generations, uploads and owner routes. Review found five Important issues; all were fixed and the scoped re-review found no new issues. C0 was registered only after review; the verifier recorded passing evidence.
 - The fixed C0 unit command participates in the combined gate; failures leave the registry unchanged. Cache/temp settings for child processes stay in the project on P:.
+- B1 verifier dispatch is prepared but remains disabled until its delivery is reviewed. Harness tests went RED then GREEN for the server gate, unknown-command rejection and all-or-nothing evidence after contract success/server failure.
 
 ## Blocked
 
