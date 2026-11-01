@@ -49,5 +49,5 @@ with ZipFile(package) as z:
     packaged_lua = z.read("hackindle-p0.koplugin/main.lua").decode("utf-8")
     packaged_fixtures = {name: z.read("hackindle-p0-fixtures/" + name) for name in fixture_bytes}
     check_fingerprints(packaged_lua, packaged_fixtures)
-    assert sorted(z.namelist()) == ["hackindle-p0-fixtures/hackindle-p0.epub", "hackindle-p0-fixtures/hackindle-p0.pdf", "hackindle-p0.koplugin/_meta.lua", "hackindle-p0.koplugin/main.lua"]
+    assert sorted(z.namelist()) == ["hackindle-p0-fixtures/hackindle-p0.epub", "hackindle-p0-fixtures/hackindle-p0.pdf", "hackindle-p0.koplugin/_meta.lua", "hackindle-p0.koplugin/main.lua", "hackindle-p0.koplugin/p0_ranges.lua"]
 print("PASS: deterministic fixtures, ZIP metadata, EPUB XML/container, PDF structure, Lua fingerprint contract, package allowlist")
