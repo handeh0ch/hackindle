@@ -108,13 +108,13 @@ Do not create empty files just to fill the list. Keep functions with a shared re
 
 **Owner:** backend. **Files:** config/app/db/auth/start, Vercel adapter/entry, migrations, setup-owner/migrate, `.env.example`, Docker/compose, `tests/server/{config,auth,portability}.test.js`. **Interfaces:** `loadConfig(env) -> Config`; `createApp({db,config}) -> Express.Application`; `db.withTransaction(callback) -> Promise<result>`.
 
-- [ ] Write failing tests: missing DATABASE_URL, invalid origin/timezone/port/proxy; messages include the setting name but not the secret value. If the initialized policy differs from env, fail explicitly without reprojecting history.
-- [ ] Write auth tests: anonymous read=401, device token on owner read=403, another device_id=403; only one binding when two UUIDs race; rotation revokes the old token. Sessions survive createApp/restart, logout revokes them, and mutations without CSRF/with another Origin are rejected.
-- [ ] Implement a standard PostgreSQL schema: instance/device/owner/session, sources/book groups/memberships, annotation versions/archive, immutable events, snapshot versions, vocabulary, upload manifests/chunks, goals and reset barriers. Unit-test application SQL arguments and transaction handling through the database boundary; real PostgreSQL behavior remains unverified by this unit gate.
-- [ ] Use one config module and dependency injection; frontend relative URLs; no Neon API requirement at runtime. Vercel imports stay in the adapter; standalone does not load the Vercel SDK. Each pg transaction uses one client; connections are released.
-- [ ] Add private owner bootstrap: salted scrypt, random hashed device/session secrets, session TTL 14 days, HttpOnly/SameSite cookie/Secure over HTTPS. Throttle login after five failures in 15 minutes per username+IP using the shared DB; no default owner/password.
-- [ ] Add dev/start/migrate/setup commands and a container example. Secrets are injected externally; explicit COPY and .dockerignore exclude env/data. Verify the same application with two different DB URLs/origins/timezones without source edits.
-- [ ] `npm run test:server` unit suite and coverage gate — PASS. Commit `feat(server): add portable PostgreSQL application and auth`.
+- [x] Write failing tests: missing DATABASE_URL, invalid origin/timezone/port/proxy; messages include the setting name but not the secret value. If the initialized policy differs from env, fail explicitly without reprojecting history.
+- [x] Write auth tests: anonymous read=401, device token on owner read=403, another device_id=403; only one binding when two UUIDs race; rotation revokes the old token. Sessions survive createApp/restart, logout revokes them, and mutations without CSRF/with another Origin are rejected.
+- [x] Implement a standard PostgreSQL schema: instance/device/owner/session, sources/book groups/memberships, annotation versions/archive, immutable events, snapshot versions, vocabulary, upload manifests/chunks, goals and reset barriers. Unit-test application SQL arguments and transaction handling through the database boundary; real PostgreSQL behavior remains unverified by this unit gate.
+- [x] Use one config module and dependency injection; frontend relative URLs; no Neon API requirement at runtime. Vercel imports stay in the adapter; standalone does not load the Vercel SDK. Each pg transaction uses one client; connections are released.
+- [x] Add private owner bootstrap: salted scrypt, random hashed device/session secrets, session TTL 14 days, HttpOnly/SameSite cookie/Secure over HTTPS. Throttle login after five failures in 15 minutes per username+IP using the shared DB; no default owner/password.
+- [x] Add dev/start/migrate/setup commands and a container example. Secrets are injected externally; explicit COPY and .dockerignore exclude env/data. Verify the same application with two different DB URLs/origins/timezones without source edits.
+- [x] `npm run test:server` unit suite and coverage gate — PASS. Commit `feat(server): add portable PostgreSQL application and auth`.
 
 ## Task 4: B2 — Ingestion, history, archive and large data
 

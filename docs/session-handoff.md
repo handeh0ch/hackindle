@@ -4,7 +4,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Current context
 
-- Updated: 2026-11-02. Shared contract baseline: local main `07b0c23`; use Git history/status for the current branch and commit.
+- Updated: 2026-11-02. Backend foundation baseline: local main `129645c`; shared C0 is `07b0c23`. Check actual Git status.
 - Project: Kindle Sync, a self-hosted KOReader archive/dashboard. Server/auth foundation is unit-verified; sync ingestion, reports, production plugin and panel are pending.
 - H01 harness is implemented. AGENTS.md follows six English template sections; detailed workflow/environment guidance is in [development.md](development.md).
 - All repository documentation/plans must be maintained in English. Existing Russian research notes and the application plan are translated; their technical literals, source targets and task states are preserved.
@@ -18,7 +18,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Next action
 
-1. C0 passed review at 07b0c23; B1 fix round 1 passed scoped review and the combined gate (22Python/29contracts/37server). Next B2: no sync ingestion or panel exists yet. Private task artifacts are under .superpowers/sdd/2026-11-01-kindle-sync/.
+1. B1 passed review and the combined gate (22Python/29contracts/37server) at 129645c. B2 ingestion/archive/uploads/reset is the sole active feature; no reporting or panel work yet. Private task artifacts are under .superpowers/sdd/2026-11-01-kindle-sync/.
 2. The owner deferred manual Kindle checks until the assembled application is ready. P0 remains open hardware evidence, not a dependency blocking C0; unverified adapters must remain explicit.
 3. Apply the unit-only testing policy and >=90% coverage gate to new executable code. No automated browser, database integration or E2E suites.
 4. Backend role continues sequentially in P:/Code/hackindle to reuse the approved node_modules location. Backend owns server/, db/, application scripts/tests and package files; coordinator reserves scripts/check.py, tests/unit/, registry, docs and Git. No concurrent Git mutations.

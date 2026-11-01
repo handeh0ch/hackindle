@@ -10,12 +10,14 @@ Status: revised after the design interview. This replaces the initial EPUB-only,
 | device_id | Persistent UUID of the plugin installation; loss of local state creates a new identity, not a reset seq under the old identity |
 | source_id | SHA-256 of the exact EPUB/MOBI/PDF file, 64 lowercase hex characters |
 | book_id | Server UUID for a user-facing book/edition grouping one or more source files |
-| annotation_id | Persistent plugin UUID for one annotation within its source |
+| annotation_id | Persistent plugin UUID unique across annotations in the instance, permanently owned by one source |
 | event_id | UUID of an immutable reading/history event |
 | session_id / cycle_id | Stable device identifiers referenced by related history events |
 | seq | Monotonic device outbox sequence, integer 1..2^53−1 |
 
 Do not use title, array index, a native partial MD5 or a text quote as an identity. The same file renamed has the same source_id; changed file bytes have a new source_id. Grouping does not rewrite source-specific locations or events. Manual merge/split changes group membership and preserves all source data. Different translations/revisions remain separate unless the owner explicitly corrects the grouping.
+
+The plugin assigns its own annotation UUID per source; copying a native highlight ID into another file does not reuse the service UUID. The owner detail/content routes address this globally unique UUID. Reusing it for another source is a 409 conflict, never a reassignment. Identical quotes in different formats therefore have distinct annotation UUIDs and independent context.
 
 ## Configuration and time
 

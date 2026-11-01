@@ -5,7 +5,7 @@
 - Updated: 2026-11-02. Harness baseline: `fe8f580`; local integration into `main` was requested by the owner. See Git history for the integration commit.
 - Product: Kindle Sync, one owner's self-hosted reading dashboard and KOReader plugin.
 - The server/authentication foundation has implemented migration/bootstrap/start commands. Sync ingestion, reports, the production plugin and panel are pending; the complete reading service is not ready.
-- H01, C0 shared contracts (`07b0c23`) and B1 portable server/authentication passed their unit gates and review. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
+- H01, C0 shared contracts (`07b0c23`) and B1 portable server/authentication (`129645c`) passed their unit gates and review. B2 ingestion/archive/uploads is active. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
 - Tests: run `make check` for the current result and coverage; the command records H01/C0 evidence only after all checks succeed.
 - Latest combined gate:22 Python,29 contract and37 server unit tests passed. Python combined statement/branch coverage:98.10%; contract JavaScript:100%lines,98.14%branches,100%functions; server/entry JavaScript:97.07%lines,91.89%branches,92.77%functions. These do not measure SQL, real PostgreSQL or device/deployment behavior.
 
