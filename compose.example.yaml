@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL privately}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL:-}
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN privately}
+      REPORT_TIMEZONE: ${REPORT_TIMEZONE:?Set REPORT_TIMEZONE privately}
+      PAGE_CHARACTERS: ${PAGE_CHARACTERS:-2000}
+      HOST: 0.0.0.0
+      PORT: 3000
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+    ports:
+      - "127.0.0.1:3000:3000"
