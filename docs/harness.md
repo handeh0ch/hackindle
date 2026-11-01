@@ -36,7 +36,9 @@ On other systems use an existing approved environment and override `make check P
 
 ## Gate and coverage scope
 
-The checker validates feature states and WIP=1, runs standard-library unittest discovery in `tests/unit`, enforces coverage.py's combined statement/branch threshold of 90%, and runs `git diff --check`. Unit tests isolate subprocess boundaries; they do not start an application, database, network service or device. Coverage data is in `.local/harness/.coverage`.
+The checker validates feature states and WIP=1, requires [session-handoff.md](session-handoff.md) to exist with at most 70 lines including headings and blank lines, runs standard-library unittest discovery in `tests/unit`, enforces coverage.py's combined statement/branch threshold of 90%, and runs `git diff --check`. Unit tests isolate subprocess boundaries; they do not start an application, database, network service or device. Coverage data is in `.local/harness/.coverage`.
+
+Before transferring work between agents, update the handoff in place. Keep it short by linking to current specifications, plans and evidence. The receiving agent reads AGENTS.md, then the handoff, and checks Git status; PROGRESS.md and feature_list.json remain the authoritative work/evidence records.
 
 `git diff --check` checks unstaged changes to tracked files; staged changes and untracked new files are outside this whitespace check. It is not a repository-wide linter.
 
