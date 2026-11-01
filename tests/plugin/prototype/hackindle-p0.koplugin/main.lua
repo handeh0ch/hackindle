@@ -48,7 +48,14 @@ function Probe:capture()
         end
         local lines = { "fixture=" .. expected, "observed_unix=" .. os.time() }
         local function add(k, v) lines[#lines + 1] = k .. "=" .. tostring(v) end
-        local page, ps = call(doc, "getCurrentPage")
+        local page, ps
+        if expected:match("%.pdf$") then
+            page = self.ui.paging and self.ui.paging.current_page
+            if type(page) == "number" and page > 0 then ps = "ok"
+            else page, ps = nil, "unavailable" end
+        else
+            page, ps = call(doc, "getCurrentPage")
+        end
         add("current_page_status", ps); add("current_page", page or "unavailable")
         local count, cs = call(doc, "getPageCount")
         add("page_count_status", cs); add("page_count", count or "unavailable")
@@ -84,7 +91,7 @@ function Probe:capture()
                             if type(line) == "table" then
                                 for wi, word in ipairs(line) do
                                     if type(word) == "table" then
-                                        add("box_" .. p .. "_" .. li .. "_" .. wi, string.format("%s,%s,%s,%s word:%s", word.x0, word.y0, word.x1, word.y1, word.word))
+                                        add("box_" .. p .. "_" .. li .. "_" .. wi, string.format("%s,%s,%s,%s word:%s", tostring(word.x0), tostring(word.y0), tostring(word.x1), tostring(word.y1), tostring(word.word)))
                                     end
                                 end
                             end
@@ -93,13 +100,13 @@ function Probe:capture()
                 end
                 local area, as = call(self.ui.view, "getScreenPageArea", page)
                 add("viewport_status", as)
-                if type(area) == "table" then add("viewport", string.format("%s,%s,%s,%s", area.x, area.y, area.w, area.h)) end
+                if type(area) == "table" then add("viewport", string.format("%s,%s,%s,%s", tostring(area.x), tostring(area.y), tostring(area.w), tostring(area.h))) end
                 local screen = Device.screen
                 local w, h = screen:getWidth(), screen:getHeight()
                 for _, point in ipairs({{0,0},{w-1,h-1}}) do
                     local mapped, ms = call(self.ui.view, "screenToPageTransform", {x=point[1],y=point[2]})
                     add("transform_status", ms)
-                    if type(mapped) == "table" then add("transform", string.format("%s,%s,page:%s", mapped.x, mapped.y, mapped.page)) end
+                    if type(mapped) == "table" then add("transform", string.format("%s,%s,page:%s", tostring(mapped.x), tostring(mapped.y), tostring(mapped.page))) end
                 end
                 add("viewport_text_intersection", "not calculated; inspect geometry manually")
             end

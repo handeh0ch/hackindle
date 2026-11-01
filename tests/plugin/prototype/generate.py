@@ -14,6 +14,11 @@ def epub():
     with zipfile.ZipFile(OUT / "hackindle-p0.epub", "w") as z:
         for name, content in [("mimetype", "application/epub+zip"), *files.items()]:
             info = zipfile.ZipInfo(name, (2020, 1, 1, 0, 0, 0))
+            info.create_system = 0
+            info.external_attr = 0x1800000
+            info.internal_attr = 0
+            info.extra = b""
+            info.comment = b""
             info.compress_type = zipfile.ZIP_STORED
             z.writestr(info, content.encode("utf-8"))
 
