@@ -101,13 +101,27 @@ function Probe:capture()
                 local area, as = call(self.ui.view, "getScreenPageArea", page)
                 add("viewport_status", as)
                 if type(area) == "table" then add("viewport", string.format("%s,%s,%s,%s", tostring(area.x), tostring(area.y), tostring(area.w), tostring(area.h))) end
-                local screen = Device.screen
-                local w, h = screen:getWidth(), screen:getHeight()
-                for _, point in ipairs({{0,0},{w-1,h-1}}) do
-                    local mapped, ms = call(self.ui.view, "screenToPageTransform", {x=point[1],y=point[2]})
-                    add("transform_status", ms)
-                    if type(mapped) == "table" then add("transform", string.format("%s,%s,page:%s", tostring(mapped.x), tostring(mapped.y), tostring(mapped.page))) end
-                end
+                local w = call(Device.screen, "getWidth")
+                local h = call(Device.screen, "getHeight")
+                if type(area) == "table" and type(area.x) == "number" and type(area.y) == "number"
+                    and type(area.w) == "number" and type(area.h) == "number"
+                    and area.w > 0 and area.h > 0 and type(w) == "number" and type(h) == "number" then
+                    local left = math.max(0, math.ceil(area.x))
+                    local top = math.max(0, math.ceil(area.y))
+                    local right = math.min(w - 1, math.ceil(area.x + area.w) - 1)
+                    local bottom = math.min(h - 1, math.ceil(area.y + area.h) - 1)
+                    if left <= right and top <= bottom then
+                        for _, sample in ipairs({{"top_left", left, top}, {"bottom_right", right, bottom}}) do
+                            local mapped, ms = call(self.ui.view, "screenToPageTransform", {x=sample[2], y=sample[3]})
+                            add("sample_" .. sample[1], sample[2] .. "," .. sample[3])
+                            add("transform_" .. sample[1] .. "_status", ms)
+                            if type(mapped) == "table" then
+                                add("transform_" .. sample[1], string.format("%s,%s,page:%s", tostring(mapped.x), tostring(mapped.y), tostring(mapped.page)))
+                                add("transform_" .. sample[1] .. "_matches_page", mapped.page == page)
+                            end
+                        end
+                    else add("transform_samples", "page area outside screen") end
+                else add("transform_samples", "page area or screen size unavailable") end
                 add("viewport_text_intersection", "not calculated; inspect geometry manually")
             end
         end

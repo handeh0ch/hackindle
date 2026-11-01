@@ -18,6 +18,10 @@ with ZipFile(fixtures / "hackindle-p0.epub") as z:
         ET.fromstring(z.read(name))
 source = (root / "hackindle-p0.koplugin" / "main.lua").read_text(encoding="utf-8")
 assert 'self.ui.paging.current_page' in source
+assert 'math.ceil(area.x + area.w) - 1' in source
+assert 'math.ceil(area.y + area.h) - 1' in source
+assert 'mapped.page == page' in source
+assert '{"top_left", left, top}' in source and '{"bottom_right", right, bottom}' in source
 assert 'page, ps = call(doc, "getCurrentPage")' in source
 for field in ("word.x0", "word.y0", "word.x1", "word.y1", "word.word",
               "area.x", "area.y", "area.w", "area.h", "mapped.x", "mapped.y", "mapped.page"):
