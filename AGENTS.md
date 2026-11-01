@@ -2,6 +2,26 @@
 
 Read this file before working in the repository.
 
+## Project and commands
+
+- Kindle Sync is a planned self-hosted KOReader archive/dashboard: notes with context, reading history, sessions and calendar. The server, production plugin and panel are not implemented yet.
+- Application stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader.
+- Current verification: `make check` (unit tests, >=90% statement/branch coverage of harness Python, feature registry and diff checks).
+- Without Make: `.local/harness-venv/Scripts/python.exe -B scripts/check.py`. No installation runs during checks.
+- Harness setup and coverage boundaries: [docs/harness.md](docs/harness.md). There is no application start command yet.
+- At session start read [PROGRESS.md](PROGRESS.md) and [feature_list.json](feature_list.json); update progress before ending a session.
+
+## Completion and testing
+
+- Work on one active feature at a time. Registry states are exactly `not_started`, `active`, `blocked`, `passing`.
+- The owner's 2026-11-02 testing policy is unit tests only, with a blocking coverage target >=90%. It supersedes older automated E2E/integration test instructions in the application plan.
+- Only an implemented verifier may write `passing` and successful evidence, after its checks pass. Never manually promote a feature or treat a missing verifier as success.
+- A null verification command means the gate is not implemented; it cannot establish completion.
+- Evidence records the last successful run. Changes after that run require fresh verification.
+- Before claiming completion rerun `make check` and the feature's implemented unit verifier. Report untested behavior and measurement boundaries.
+- The current gate verifies the harness only; application features need their own unit tests and per-language coverage gates. Owner-run device observations remain open evidence, not automated tests.
+- Add each new executable unit gate to the checker before allowing it to promote the corresponding application feature.
+
 ## Scope and planning
 
 - State assumptions and surface material tradeoffs before implementation. Ask when a missing decision prevents a correct implementation.

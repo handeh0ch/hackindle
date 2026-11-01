@@ -17,3 +17,7 @@ The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + 
 `.env.example` defines configuration names and contains empty secrets and generic examples. Actual settings belong in ignored `.env` files or deployment environment/secret storage. Do not commit populated credentials or personal reading data.
 
 Runnable installation instructions will be added and verified during implementation. There is no working server to deploy from this documentation-only repository yet.
+
+## Local harness
+
+Run `make check` for unit tests and a blocking 90% coverage threshold for the Python harness. This does not verify the planned application or device compatibility. See [harness setup and coverage scope](docs/harness.md), [current progress](PROGRESS.md) and [feature states](feature_list.json). The checker installs nothing; its project-only dependency is pinned in `requirements-harness.txt`.
