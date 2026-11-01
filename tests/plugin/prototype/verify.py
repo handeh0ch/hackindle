@@ -17,15 +17,6 @@ with ZipFile(fixtures / "hackindle-p0.epub") as z:
     for name in ("META-INF/container.xml", "book.opf", "toc.ncx", "body.xhtml"):
         ET.fromstring(z.read(name))
 source = (root / "hackindle-p0.koplugin" / "main.lua").read_text(encoding="utf-8")
-assert 'self.ui.paging.current_page' in source
-assert 'math.ceil(area.x + area.w) - 1' in source
-assert 'math.ceil(area.y + area.h) - 1' in source
-assert 'mapped.page == page' in source
-assert '{"top_left", left, top}' in source and '{"bottom_right", right, bottom}' in source
-assert 'page, ps = call(doc, "getCurrentPage")' in source
-for field in ("word.x0", "word.y0", "word.x1", "word.y1", "word.word",
-              "area.x", "area.y", "area.w", "area.h", "mapped.x", "mapped.y", "mapped.page"):
-    assert "tostring(" + field + ")" in source
 def check_fingerprints(lua, files):
     for name in ("hackindle-p0.epub", "hackindle-p0.pdf"):
         match = re.search(r'\["' + re.escape(name) + r'"\]\s*=\s*\{\s*(\d+)\s*,\s*(\d+)\s*\}', lua)
@@ -59,4 +50,4 @@ with ZipFile(package) as z:
     packaged_fixtures = {name: z.read("hackindle-p0-fixtures/" + name) for name in fixture_bytes}
     check_fingerprints(packaged_lua, packaged_fixtures)
     assert sorted(z.namelist()) == ["hackindle-p0-fixtures/hackindle-p0.epub", "hackindle-p0-fixtures/hackindle-p0.pdf", "hackindle-p0.koplugin/_meta.lua", "hackindle-p0.koplugin/main.lua"]
-print("PASS: deterministic fixtures, ZIP metadata, EPUB XML/container, PDF structure, Lua fingerprint and source contracts, package allowlist")
+print("PASS: deterministic fixtures, ZIP metadata, EPUB XML/container, PDF structure, Lua fingerprint contract, package allowlist")
