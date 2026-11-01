@@ -13,6 +13,7 @@ Read this file before working in the repository.
 - Owner machine constraint: do not download programs, runtimes, package dependencies, browser binaries, container images or source/tool distributions without informing the owner and obtaining approval for the concrete download first. Plan approval alone is not approval of unannounced tool downloads.
 - Install nothing on drive C. Approved tools, dependency/browser/package caches, build outputs and temporary setup files must use an explicitly agreed location on drive P. Do not change global runtimes, package managers, Docker settings or system services. Existing tools may be inspected/used without installing new ones; ensure commands do not silently bootstrap/download dependencies.
 - Browsing official documentation is allowed. Treat repository clones, Docker pulls, npm installation and browser/runtime installation as downloads requiring the rule above. Set private P-drive cache/temp paths before an approved installation; do not rely on default user-profile paths.
+- All copying to the Kindle is performed by the owner. Prepare and review local artifacts/instructions only; do not write, install, update or delete files on the device. Previously permitted read-only USB inspection is separate from device writes.
 
 ## Public repository and configuration
 
