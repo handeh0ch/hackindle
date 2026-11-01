@@ -37,7 +37,7 @@ Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. Th
 - Work on one active feature at a time and verify it before starting another. Keep unrelated code unchanged.
 - State assumptions and material tradeoffs, define verifiable success criteria, and ask when a missing decision prevents correct implementation.
 - Make the smallest requested change and match existing style. Follow [docs/development.md](docs/development.md) before implementation or environment changes.
-- Use English for repository instructions and documentation.
+- Repository instructions, documentation and plans MUST be written and maintained in English.
 
 ## Where to find details
 

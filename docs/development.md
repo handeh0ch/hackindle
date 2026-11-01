@@ -2,6 +2,10 @@
 
 Read [AGENTS.md](../AGENTS.md) first. This document holds the detailed operating instructions; product rules, configuration policy, testing guidance and implementation plans are linked below.
 
+## Language
+
+Write and maintain all repository instructions, documentation and plans in English. Translate existing Russian prose without changing technical meaning, identifiers, commands, source URLs, numeric limits, task completion states or historical dates. Keep documentation and plans under `docs/`, with the root harness entry points retained as required by AGENTS.md.
+
 ## Scope and planning
 
 - State assumptions and surface material tradeoffs before implementation. Ask when a missing decision prevents a correct implementation.

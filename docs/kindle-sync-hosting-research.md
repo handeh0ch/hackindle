@@ -1,83 +1,83 @@
-# Бесплатный хостинг Kindle Sync
+# Free hosting for Kindle Sync
 
-Проверено по доступным официальным источникам 1 ноября 2026 года. Это историческое исследование вариантов, не развёрнутое приложение. На момент первоначального исследования root `AGENTS.md` отсутствовал. Актуальные требования форматов, учёта и публичного распространения находятся в [requirements.md](requirements.md), настройки и независимость от поставщиков — в [configuration.md](configuration.md).
+Checked against available official sources on November 1, 2026. This is historical research into options, not a deployed application. The root `AGENTS.md` did not exist at the time of the initial research. Current requirements for formats, accounting and public distribution are in [requirements.md](requirements.md); settings and vendor independence are covered in [configuration.md](configuration.md).
 
-После интервью выбран первоначальный управляемый вариант Vercel + Neon. Приложение также должно запускаться как обычный Node.js/контейнер со стандартной PostgreSQL; аккаунты и адреса поставщиков не являются частью бизнес-логики. Публичный шаблон содержит пустые секреты, реальные настройки принадлежат отдельному экземпляру.
+Following the interview, Vercel + Neon was selected as the initial managed option. The application must also run as a regular Node.js application/container with standard PostgreSQL; provider accounts and addresses are not part of the business logic. The public template contains empty secrets; actual settings belong to a separate instance.
 
-## Вывод
+## Conclusion
 
-Бесплатное размещение реалистично для личного использования. Express подходит. Для Vercel нужны внешняя постоянная база и изменение нынешнего протокола больших снимков. Локальный файл SQLite на serverless-хостинге не подходит как основная база. Размер Express сам по себе не решает ограничения платформы на тело запроса, хранение и квоты.
+Free hosting is realistic for personal use. Express is suitable. Vercel requires an external persistent database and changes to the current protocol for large snapshots. A local SQLite file on serverless hosting is unsuitable as the primary database. The size of Express itself does not address the platform's limits on request bodies, storage and quotas.
 
-Два разумных варианта; основной предлагаемый — первый:
+Two reasonable options; the first is the primary recommendation:
 
-1. **Vercel + Express + Neon Postgres** — другой SQL-диалект, зато база автоматически просыпается после неактивности. Для личного приложения, к которому можно не обращаться несколько недель, это удобнее.
-2. **Vercel + Express + Turso Cloud/libSQL** — близко к прежнему проекту с SQLite, но требуется учитывать архивирование после долгого простоя.
+1. **Vercel + Express + Neon Postgres** — a different SQL dialect, but the database wakes automatically after inactivity. This is more convenient for a personal application that may go unused for several weeks.
+2. **Vercel + Express + Turso Cloud/libSQL** — close to the earlier SQLite design, but archiving after prolonged inactivity must be taken into account.
 
-Это инженерная рекомендация по исследованным ограничениям, а не гарантия бесплатной эксплуатации при любом объёме.
+This is an engineering recommendation based on the researched limits, not a guarantee of free operation at any volume.
 
 ## Vercel
 
-Официально поддерживает Express: приложение становится одной Vercel Function. Статические файлы размещаются в `public/**`; `express.static()` платформа игнорирует. [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
+Vercel officially supports Express: the application becomes a single Vercel Function. Static files are placed in `public/**`; the platform ignores `express.static()`. [Express on Vercel](https://vercel.com/docs/frameworks/backend/express).
 
-Hobby предназначен для личного некоммерческого использования. В числе бесплатных лимитов — 1 млн вызовов Functions, 4 часа Active CPU и 100 GB Fast Data Transfer; достижение ограничений может приостановить обслуживание. [Hobby](https://vercel.com/docs/plans/hobby).
+Hobby is intended for personal, noncommercial use. Free limits include 1 million Function invocations, 4 hours of Active CPU and 100 GB of Fast Data Transfer; reaching the limits may suspend service. [Hobby](https://vercel.com/docs/plans/hobby).
 
-Файловая система Functions доступна только для чтения, кроме временного `/tmp` объёмом 500 MB. Это не постоянное хранилище базы и пользовательских загрузок. [Runtimes](https://vercel.com/docs/functions/runtimes).
+The Functions filesystem is read-only except for 500 MB of temporary `/tmp` space. This is not persistent storage for the database or user uploads. [Runtimes](https://vercel.com/docs/functions/runtimes).
 
-Размер тела запроса/ответа функции ограничен 4.5 MB. Следовательно, текущий лимит снимка **16 MiB несовместим с Vercel без пересмотра контракта**. Даже несколько сотен выделений с трёхстраничным контекстом могут превысить лимит. Простое увеличение `express.json({limit: ...})` его не обходит. [Function limits](https://vercel.com/docs/functions/limitations).
+Function request/response bodies are limited to 4.5 MB. Therefore, the current **16 MiB snapshot limit is incompatible with Vercel without a contract revision**. Even a few hundred highlights with three-page context may exceed the limit. Simply increasing `express.json({limit: ...})` does not bypass it. [Function limits](https://vercel.com/docs/functions/limitations).
 
-Кандидат на изменение протокола: части снимка меньше платформенного лимита, staging в постоянной базе и атомарный commit только после получения всех частей. Частично загруженный список аннотаций не должен заменять действующий. Это предложение, не уже реализованный механизм. Альтернатива — отдельно передавать неизменяемые контексты, оставляя в снимке ссылки; она тоже требует изменения спецификации. Выбор зависит от замеров реальных книг.
+A candidate protocol change: snapshot parts smaller than the platform limit, staging in the persistent database and an atomic commit only after all parts have arrived. A partially uploaded annotation list must not replace the active one. This is a proposal, not an already implemented mechanism. An alternative is to send immutable contexts separately, leaving references in the snapshot; this also requires a specification change. The choice depends on measurements from real books.
 
-## Постоянная база
+## Persistent database
 
-| Сервис | Подтверждённые бесплатные ресурсы | Простой и превышение |
+| Service | Confirmed free resources | Inactivity and overages |
 | --- | --- | --- |
-| Neon | 1 GB Postgres на проект, 100 CU-hours/месяц на проект, 5 GB исходящего трафика/месяц на проект; регистрация Free без карты | После 5 минут неактивности compute засыпает, новый запрос автоматически будит его; квота compute/трафика при исчерпании приостанавливает compute до нового периода или повышения тарифа |
-| Turso | 5 GB хранения, 500 млн прочитанных строк/месяц, 10 млн записанных строк/месяц; Free без карты | В документации CLI указано архивирование Free-баз после 10 дней неактивности и команда восстановления группы; документация квот описывает ошибки `BLOCKED` при превышении |
+| Neon | 1 GB of Postgres per project, 100 CU-hours/month per project, 5 GB of outbound traffic/month per project; Free signup without a card | After 5 minutes of inactivity, compute sleeps; a new query wakes it automatically. Exhausting the compute/traffic quota suspends compute until the next period or a plan upgrade |
+| Turso | 5 GB of storage, 500 million rows read/month, 10 million rows written/month; Free without a card | The CLI documentation specifies archiving Free databases after 10 days of inactivity and a group restoration command; the quota documentation describes `BLOCKED` errors when limits are exceeded |
 
-Источники: [Neon pricing](https://neon.com/pricing), [Neon scale to zero](https://neon.com/docs/introduction/scale-to-zero), [Turso pricing](https://turso.tech/pricing), [Turso usage](https://docs.turso.tech/help/usage-and-billing), [официальный исходник Turso unarchive](https://github.com/tursodatabase/turso-docs/blob/main/cli/group/unarchive.mdx). Рекламируемое время пробуждения Neon — несколько сотен миллисекунд; это не обещание общей задержки синхронизации.
+Sources: [Neon pricing](https://neon.com/pricing), [Neon scale to zero](https://neon.com/docs/introduction/scale-to-zero), [Turso pricing](https://turso.tech/pricing), [Turso usage](https://docs.turso.tech/help/usage-and-billing), [official Turso unarchive source](https://github.com/tursodatabase/turso-docs/blob/main/cli/group/unarchive.mdx). Neon's advertised wake-up time is a few hundred milliseconds; this is not a promise of overall sync latency.
 
-Число rows read у Turso означает просканированные строки, а не только строки в ответе. Индексы важны. Указанные на тарифе 3 GB Monthly Syncs — отдельная квота синхронизации реплик; её нельзя выдавать за общий лимит HTTP-трафика. [Usage](https://docs.turso.tech/help/usage-and-billing), [pricing](https://turso.tech/pricing).
+Turso's rows read count means rows scanned, not just rows returned. Indexes matter. The plan's listed 3 GB of Monthly Syncs is a separate replica synchronization quota; it must not be presented as an overall HTTP traffic limit. [Usage](https://docs.turso.tech/help/usage-and-billing), [pricing](https://turso.tech/pricing).
 
-### Движок и SDK Turso
+### Turso engines and SDKs
 
-Turso Cloud сейчас предлагает **два двигателя**: зрелый libSQL (форк SQLite) и новый Turso Database. Облачное размещение нового двигателя помечено early preview, хотя сам двигатель описан как production-ready. Не смешивать названия сервиса и движка. [Cloud](https://docs.turso.tech/turso-cloud), [libSQL](https://docs.turso.tech/libsql).
+Turso Cloud currently offers **two engines**: the mature libSQL (a SQLite fork) and the new Turso Database. Cloud hosting for the new engine is marked early preview, although the engine itself is described as production-ready. Do not confuse the service and engine names. [Cloud](https://docs.turso.tech/turso-cloud), [libSQL](https://docs.turso.tech/libsql).
 
-Для удалённого libSQL используется `@libsql/client`, в том числе `/web`-вариант; для удалённого нового Turso — `@tursodatabase/serverless`, использующий только fetch. Это разные SDK, не взаимозаменяемые имена. Для текущего проекта с простыми SQL-запросами допустим зрелый libSQL. [TypeScript SDK reference](https://docs.turso.tech/sdk/ts/reference). Выбор проверен также через Context7 `/tursodatabase/turso-docs`.
+Remote libSQL uses `@libsql/client`, including its `/web` variant; the new remote Turso uses `@tursodatabase/serverless`, which uses only fetch. These are different SDKs, not interchangeable names. The mature libSQL is acceptable for the current project with its simple SQL queries. [TypeScript SDK reference](https://docs.turso.tech/sdk/ts/reference). This choice was also checked through Context7 `/tursodatabase/turso-docs`.
 
-### Обложки без третьего сервиса
+### Covers without a third service
 
-Небольшие заранее уменьшенные JPEG/WebP-обложки можно хранить как BLOB в той же базе и выдавать отдельным авторизованным маршрутом. BLOB поддерживается SQL, а libSQL-клиент принимает бинарные `ArrayBuffer`/`Uint8Array`. Это вывод о пригодности для небольших миниатюр, не рекомендация хранить EPUB или большие изображения в БД. [Turso data types](https://docs.turso.tech/sql-reference/data-types), [libSQL client API source](https://github.com/tursodatabase/libsql-client-ts/blob/main/packages/libsql-core/src/api.ts).
+Small JPEG/WebP covers resized in advance can be stored as BLOBs in the same database and served through a separate authenticated route. SQL supports BLOBs, and the libSQL client accepts binary `ArrayBuffer`/`Uint8Array` values. This is an assessment of suitability for small thumbnails, not a recommendation to store EPUBs or large images in the database. [Turso data types](https://docs.turso.tech/sql-reference/data-types), [libSQL client API source](https://github.com/tursodatabase/libsql-client-ts/blob/main/packages/libsql-core/src/api.ts).
 
-Опциональное объектное хранилище:
+Optional object storage:
 
-- Neon теперь включает 5 GB Object Storage на Free, доступ через S3-подобный API; общие 5 GB исходящего трафика проекта делятся между Postgres, хранилищем и Functions. Доступность Object Storage зависит от региона. [Storage overview](https://neon.com/docs/storage/overview), [pricing](https://neon.com/pricing).
-- Vercel Blob Hobby включает 1 GB хранения, 10 GB передачи данных и 2 000 Advanced Operations, куда относятся загрузки. Это отдельные квоты от Functions; перед выбором проверять актуальную таблицу. [Blob pricing](https://vercel.com/docs/vercel-blob/usage-and-pricing).
+- Neon now includes 5 GB of Object Storage on Free, accessible through an S3-like API; the project's shared 5 GB of outbound traffic is divided among Postgres, storage and Functions. Object Storage availability depends on the region. [Storage overview](https://neon.com/docs/storage/overview), [pricing](https://neon.com/pricing).
+- Vercel Blob Hobby includes 1 GB of storage, 10 GB of data transfer and 2 000 Advanced Operations, which include uploads. These quotas are separate from Functions; check the current table before choosing. [Blob pricing](https://vercel.com/docs/vercel-blob/usage-and-pricing).
 
-Для первой версии отдельный storage-провайдер не обязателен.
+A separate storage provider is not required for the first version.
 
-## Render как альтернатива для обычного Express
+## Render as an alternative for regular Express
 
-Free Web Service засыпает после 15 минут без входящего трафика; следующее пробуждение занимает примерно минуту. Локальные файлы теряются при перезапуске, redeploy и засыпании; постоянный диск доступен только платным сервисам. Бесплатный Render Postgres истекает через 30 дней. Workspace получает 750 бесплатных instance-hours в месяц; превышения bandwidth/build могут вести к оплате либо приостановке в зависимости от платёжных настроек. [Free services](https://render.com/docs/free), [disks](https://render.com/docs/disks).
+A Free Web Service sleeps after 15 minutes without incoming traffic; waking it on the next request takes about a minute. Local files are lost on restart, redeploy and sleep; persistent disks are available only to paid services. Free Render Postgres expires after 30 days. A workspace receives 750 free instance-hours per month; bandwidth/build overages may lead to charges or suspension depending on payment settings. [Free services](https://render.com/docs/free), [disks](https://render.com/docs/disks).
 
-Вывод: Render Free + внешняя база пригоден для прототипа, но холодный старт ухудшит требование о быстрой доставке заметок. Локальный SQLite + Free Render для постоянного хранения не подходит. Render отдельно предупреждает об ограничениях Free для production. Не предлагается обходить засыпание фиктивными запросами.
+Conclusion: Render Free + an external database is suitable for a prototype, but cold starts would compromise the requirement for fast note delivery. Local SQLite + Free Render is unsuitable for persistent storage. Render separately warns about Free limitations for production. Bypassing sleep with dummy requests is not proposed.
 
-## Минимальный предлагаемый стек
+## Minimum proposed stack
 
-- KOReader: Lua-плагин; HTTPS JSON, локальная очередь и повторы.
-- Сервер: Node.js + Express, TypeScript по желанию; один API и отдача статических страниц, без фонового постоянно работающего процесса.
-- Данные: SQL напрямую через соответствующий SDK выбранной базы; ORM, Redis и очередь на сервере для одного пользователя пока не требуются.
-- Интерфейс: HTML/CSS/JavaScript; небольшая библиотека графиков может быть выбрана отдельно. React/Next.js для этих экранов не обязательны.
-- Авторизация: отдельные токен устройства и сессия владельца, сессия должна работать после смены serverless-инстанса.
+- KOReader: Lua plugin; HTTPS JSON, local queue and retries.
+- Server: Node.js + Express, optionally TypeScript; a single API and static page serving, without a continuously running background process.
+- Data: SQL directly through the selected database's corresponding SDK; an ORM, Redis and a server-side queue are not yet required for one user.
+- Interface: HTML/CSS/JavaScript; a small charting library may be selected separately. React/Next.js are not required for these screens.
+- Authentication: a separate device token and owner session; the session must work after the serverless instance changes.
 
-Это проектное предложение; версии библиотек и схема сборки будут определены до реализации. Для бесплатного размещения не требуется добавлять Docker, Kubernetes или микросервисы.
+This is a design proposal; library versions and the build setup will be determined before implementation. Free hosting does not require adding Docker, Kubernetes or microservices.
 
-## Что изменить и проверить перед реализацией
+## What to change and check before implementation
 
-1. Выбрать базу, затем согласовать поправку к черновику с локальным SQLite.
-2. Измерить объём текста реальных трёхстраничных контекстов и полного снимка книги; решить передачу данных сверх 4.5 MB без потери атомарности.
-3. Не пересылать контексты при каждом минутном обновлении прогресса: секции уже независимы; при изменении аннотаций полный снимок также может быть большим.
-4. Проверить TLS/сертификат, холодный старт, timeout и повторы с Kindle; не заявлять проверенную задержку до испытания.
-5. Проверить фактический расход ресурсов после нескольких дней чтения. Например, 10 000 контекстов по 30 KiB — около 293 MiB только текста, до индексов/метаданных/накладных расходов; 300 обложек по 50 KiB — около 15 MiB. Это оценка, а не измеренный объём библиотеки пользователя.
-6. Предусмотреть экспорт/резервную копию: бесплатный тариф с короткой историей восстановления не заменяет независимый backup.
+1. Select a database, then agree on an amendment to the draft that uses local SQLite.
+2. Measure the text volume of real three-page contexts and a complete book snapshot; decide how to transfer data exceeding 4.5 MB without losing atomicity.
+3. Do not resend contexts with every one-minute progress update: the sections are already independent; when annotations change, the full snapshot may also be large.
+4. Check TLS/certificates, cold starts, timeouts and retries from the Kindle; do not claim verified latency before testing.
+5. Check actual resource consumption after several days of reading. For example, 10 000 contexts of 30 KiB each amount to about 293 MiB of text alone, before indexes/metadata/overhead; 300 covers of 50 KiB each amount to about 15 MiB. This is an estimate, not a measured size of the user's library.
+6. Provide export/backup: a free plan with a short recovery history does not replace an independent backup.
 
-Размещение и платные аккаунты не создавались, изменения тарифа не выполнялись. Бесплатные квоты и условия могут меняться; перед реальным deploy их следует проверить повторно.
+No deployments or paid accounts were created, and no plan changes were made. Free quotas and terms may change; they should be checked again before an actual deploy.

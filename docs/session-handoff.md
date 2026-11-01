@@ -4,9 +4,10 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Current context
 
-- Updated: 2026-11-02. Baseline: local main `0611833`; use Git history/status for the current branch and commit.
+- Updated: 2026-11-02. Baseline: local main `013572f`; use Git history/status for the current branch and commit.
 - Project: Kindle Sync, a self-hosted KOReader archive/dashboard. Production server, plugin and panel are not implemented.
 - H01 harness is implemented. AGENTS.md follows six English template sections; detailed workflow/environment guidance is in [development.md](development.md).
+- All repository documentation/plans must be maintained in English. Existing Russian research notes and the application plan are translated; their technical literals, source targets and task states are preserved.
 - The verification gate requires this file to exist and rejects more than 70 lines before running tools or recording passing evidence.
 
 ## Verification
@@ -19,7 +20,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 1. Read the latest [compatibility status](testing/compatibility-status.md) and prepare/review P0 synthetic diagnostic instructions.
 2. Wait for owner-run device observations; do not assume unverified adapters work.
-3. Freeze C0 contracts after P0, then follow the [application plan](superpowers/plans/2026-11-01-kindle-sync.md) with its older E2E/integration steps overridden by the unit-only policy.
+3. Freeze C0 contracts after P0, applying the unit-only override to the older [application plan](superpowers/plans/2026-11-01-kindle-sync.md).
 
 ## Boundaries and references
 
