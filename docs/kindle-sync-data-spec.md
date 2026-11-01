@@ -1,228 +1,123 @@
-# Kindle → собственный сервер: контракт данных v1
+# Kindle Sync: data contract draft
 
-Статус: черновик для согласования, 1 ноября 2026 года, дополнен требованием контекста и разбором четырёх экранов пользователя. Приложение и плагин ещё не реализованы. Это предложение архитектуры и контракта, а не описание уже работающего сервера.
+Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). Application code and schemas are not implemented. Freeze exact schemas only after the compatibility prototype in the implementation plan.
 
-## Задача и известные условия
+## Identity and ownership
 
-Пользователь читает на Kindle Paperwhite 11, FW 5.19.2, готов использовать KOReader. Нужен новый сервер с нуля: выделения и заметки появляются на нём автоматически; панель показывает страницы и время за день, неделю, месяц и всё время, а также календарь активности, как на GitHub. Calibre служит для передачи книг и не участвует в этом протоколе.
+| Identifier | Meaning |
+| --- | --- |
+| instance_id | UUID of one initialized installation; independent of hostname or hosting vendor |
+| device_id | Persistent UUID of the plugin installation; loss of local state creates a new identity, not a reset seq under the old identity |
+| source_id | SHA-256 of the exact EPUB/MOBI/PDF file, 64 lowercase hex characters |
+| book_id | Server UUID for a user-facing book/edition grouping one or more source files |
+| annotation_id | Persistent plugin UUID for one annotation within its source |
+| event_id | UUID of an immutable reading/history event |
+| session_id / cycle_id | Stable device identifiers referenced by related history events |
+| seq | Monotonic device outbox sequence, integer 1..2^53−1 |
 
-В первой версии: один владелец, один Kindle, чтение EPUB в KOReader, передача Kindle → сервер. На сервере заметки доступны для просмотра и поиска. Обратное редактирование на Kindle, чтение в браузере, перенос старых заметок из читалки Amazon, словарь и интервальное повторение не входят в v1.
+Do not use title, array index, a native partial MD5 or a text quote as an identity. The same file renamed has the same source_id; changed file bytes have a new source_id. Grouping does not rewrite source-specific locations or events. Manual merge/split changes group membership and preserves all source data. Different translations/revisions remain separate unless the owner explicitly corrects the grouping.
 
-Предлагаемые допущения: время отчётов — Asia/Yekaterinburg (UTC+05:00), начало дня 00:00, недели — понедельник. Для иной зоны контракт надо согласовать до реализации клиента. История начинается с доступной истории KOReader; прошлое чтение в Amazon автоматически не восстанавливается.
+## Configuration and time
 
-## Подход и объём
+Use authenticated `GET /api/v1/sync/config` to obtain instance_id, protocol version, reporting timezone, conditional-page denominator and transport limits. A device token can read this nonsecret profile and write sync data; it cannot read the owner's library.
 
-Выбранное направление — плагин KOReader и собственный сервер. Предлагаемый сервер: один HTTP-сервис, SQLite, веб-панель; язык и библиотеки остаются решением этапа реализации. Нужен стабильный HTTPS-адрес, доступный Kindle; хостинг пока не выбран.
+Persist the reporting policy at first initialization. It comes from installation settings, not a built-in owner timezone. Save instants in UTC. The plugin and server use the same IANA timezone to split credited active intervals at local midnight; weeks start Monday. A later configuration mismatch must not silently reproject historical totals.
 
-После исследования бесплатного размещения появилась альтернативная рекомендация: Vercel Hobby + Express 5 + внешняя PostgreSQL в Neon; подробности — в [исследовании хостинга](kindle-sync-hosting-research.md). Это предложение, ещё не принятое изменение контракта. На Vercel нельзя сохранять рабочую SQLite-базу как локальный постоянный файл, а лимит HTTP-запроса 4,5 МБ несовместим с предложенными ниже 16 МиБ. Перед реализацией на этой платформе нужно изменить доставку крупных снимков: передавать части с подтверждением полного набора, сохраняя прежнее состояние до его полной проверки. Простое уменьшение лимита без доставки оставшегося текста не выполняет требование сохранения контекста.
+The native annotation's local timestamp is preserved as reported. Do not invent a UTC offset if its timezone is unknown; keep server received_at separately. Dates of reading events come from their UTC instants and the initialized reporting policy.
 
-Для контракта предлагаются полные снимки отдельных секций одной книги. Альтернативы: загрузка всей SQLite-базы проще для резервирования, но связывает сервер с внутренней схемой KOReader; поток отдельных событий требует устойчивых идентификаторов заметок, обработки удаления и восстановления истории. Снимки секций проще для одной читалки и панели без обратного редактирования. Удаление заметки определяется новым полным списком, а не отдельной командой удаления.
+## Source metadata and positions
 
-## Доставка и задержки
+Metadata includes format (`epub`, `mobi`, `pdf`), title, authors, optional language and available identifiers, including identifier provenance. These values are matching evidence, not proof that files contain the same edition. Reliable mappings may group automatically; uncertain candidates require owner confirmation.
 
-- Изменение заметки/выделения немедленно сохраняется в собственной очереди плагина; отправка начинается после короткой паузы, целевой срок — до 5 секунд при уже доступном Wi-Fi и сервере. Это цель для проверки на устройстве, не гарантия работы сети.
-- Прогресс сохраняется при перелистывании и отправляется не чаще раза в минуту, а также при закрытии книги.
-- Статистика отправляется раз в 5 минут активного чтения и после закрытия книги. Сначала штатный модуль статистики завершает запись своих данных; несовместимый порядок обработчиков должен выявляться проверкой адаптера.
-- Перед сном данные остаются в очереди. Уход в сон не ждёт ответа сервера. При возобновлении работы и появлении сети очередь отправляется повторно.
-- Плагин не держит Kindle постоянно бодрствующим и сам не включает выключенный пользователем Wi-Fi. Без сети «сразу» означает сразу сохранить локально и доставить при следующем подключении.
-- Очередь переживает перезапуск. Одновременно выполняется один запрос. После сбоя — повтор через 5, 15, 60, затем каждые 300 секунд, пока устройство активно; таймер не будит спящий Kindle. HTTP 429 учитывает Retry-After. Ошибка авторизации останавливает повторы и видна в статусе.
+Locations are typed per document engine: rolling text uses native XPointers; PDF uses original page numbers and selection geometry/order as required by the verified adapter. They are not interchangeable and are not advertised as EPUB CFI. Progress samples include fraction, source position, timestamp and session_id. The panel shows the most recently opened source and keeps per-source history separate.
 
-## Идентичность и порядок
+Full book files are not uploaded. A pre-reduced JPEG/WebP cover up to 65,536 bytes may be uploaded to a source-specific endpoint and stored in PostgreSQL; the book card selects an available member cover. No local persistent upload directory or provider-specific object store is required.
 
-- `device_id` — UUID установки плагина, сохранённый локально. При потере состояния создаётся новый ID; повторно использовать ID со сброшенным счётчиком нельзя. Подключение замены устройства и перенос его истории требуют явной операции, автоматическое сложение двух копий истории не входит в v1.
-- `book_id` — SHA-256 исходного файла EPUB, 64 строчных hex-символа. Одинаковый файл после переименования имеет тот же ID; изменённый или заново сконвертированный EPUB — другой. Название и автор не служат ключом. Файл книги на сервер не отправляется.
-- `seq` — положительное целое до 2^53−1, растущий счётчик установки. Сохранение нового значения счётчика и записи в очередь — одна локальная транзакция.
-- Сервер хранит последнее применённое `seq` отдельно для каждой пары `(device_id, book_id, section)`. Секции: `book`, `progress`, `annotations`, `statistics`. Сравнение часов для разрешения порядка не используется.
-- Каждая аннотация получает `annotation_id` — UUID, назначенный плагином и сохранённый вместе с локальной аннотацией. Он нужен для устойчивой связи с сохранённым контекстом. Индекс в списке и текст заметки ключом не служат. Сервер по-прежнему заменяет полный список секции, без поэлементного слияния. Адаптер должен проверить сохранение этого ID при редактировании и перезапуске; при неоднозначном сопоставлении контекст чужой аннотации не подставляется.
+## Durable device data
 
-Предлагаемая граница начального импорта: при первом открытии каждого EPUB с установленным плагином передаётся вся доступная история этой книги в KOReader и текущие аннотации, а не только изменения после установки плагина. Автоматического обхода всей библиотеки в v1 нет. История книг, которые ещё не открывались с плагином, появится после их открытия; историю удалённого до установки EPUB без достоверного соответствия файлу не импортируем и показываем как неподключённую, если обнаружили такую запись.
+The plugin owns a separate SQLite state database outside the shipped plugin directory. Store annotation identities/context, source mappings, credited text ranges, reading history, seq and outbox there. A transaction persists the state advance and its outgoing payload together. Never modify the native statistics DB to implement service bookkeeping.
 
-При импорте плагин сохраняет соответствие `book_id` штатному ключу статистики открытой книги и её метаданные. Полный SHA-256 EPUB и частичный MD5 KOReader — разные значения, их нельзя приравнивать. Неоднозначное соответствие требует видимого статуса, а не угадывания по названию. Уже установленные соответствия сохраняются после удаления EPUB; это позволяет корректировать ранее отправленную статистику без повторного чтения файла.
+1. Capture viewed text ranges qualified by the verified native reading-time behavior. Union overlapping ranges per source/reporting day, so font changes and same-day rereads do not credit the same passage twice. For PDF, use visible text regions; a zoomed crop must not automatically credit a full physical page.
+2. Preserve exact credited character counts, using one versioned extraction/whitespace rule verified by the prototype. Derive conditional pages from the initialized denominator, default 2000. Historical credited amounts are not recomputed when font/layout changes.
+3. Archive the native active-time contribution into durable, nonoverlapping credited intervals. Do not run a second independent attention timer. Clearing native statistics does not delete already credited service records.
+4. Seal reading records into immutable events with persistent event_id. Active records can be checkpointed locally; publish only stable slices, not repeatedly add the same native duration. Crash/restart reconciliation must not manufacture time or lose already queued data.
+5. Session new volume is the newly credited amount for that day, including zero on rereading; active time includes rereading. Close a session on sleep, close or source switch.
 
-## Приём данных
+Exact hook ordering, range extraction, native interval identity and PDF viewport handling are prototype gates, not verified implementation claims. Unsupported extraction must be visible, not replaced with fabricated page counts.
 
-`POST /api/v1/snapshots`, `Content-Type: application/json`, `Authorization: Bearer <device-token>`.
+## Synchronization envelopes
 
-Один запрос содержит одну книгу, обязательную секцию `book` и одну или несколько доступных секций. Каждая присутствующая секция — полный согласованный снимок этой секции. Отсутствующая секция означает «оставить прежнюю». Пустой список означает «источник успешно прочитан и действительно пуст».
+`POST /api/v1/sync`, JSON, `Authorization: Bearer <device-token>`.
 
 ```json
 {
   "schema_version": 1,
+  "instance_id": "48bc0344-efad-4c68-adb6-dc0f0ba57276",
   "device_id": "a92e58b4-851b-467b-a5ad-1eaaccc84c61",
-  "book_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "seq": 42,
   "captured_at": "2026-11-01T10:00:00Z",
-  "book": {
-    "title": "Пример книги",
-    "authors": ["Автор"],
-    "format": "epub"
-  },
-  "progress": {
-    "position": {"type": "koreader_xpointer", "value": "/body/DocFragment[3]/body/p[12].0"},
-    "fraction": 0.375,
-    "page": 120,
-    "total_pages": 320
-  },
-  "annotations": [
-    {
-      "annotation_id": "3256d027-7238-48e9-a299-701047c0df1d",
-      "kind": "highlight",
-      "text": "Выделенная цитата",
-      "note": "Моя заметка к цитате",
-      "note_format": "plain",
-      "chapter": "Глава 3",
-      "start": "/body/DocFragment[3]/body/p[12].0",
-      "end": "/body/DocFragment[3]/body/p[12].30",
-      "page": 120,
-      "created_at_local": "2026-11-01 14:58:00",
-      "modified_at_local": null,
-      "context": {
-        "status": "ready",
-        "origin": "creation",
-        "captured_at": "2026-11-01T09:58:00Z",
-        "page_basis": "koreader_screen_at_capture",
-        "total_pages_at_capture": 320,
-        "before": {"page": 119, "text": "Полный основной текст предыдущей страницы."},
-        "selection_pages": [{"page": 120, "text": "Полный основной текст страницы с выделением, включая цитату."}],
-        "after": {"page": 121, "text": "Полный основной текст следующей страницы."},
-        "reason": null
-      }
-    }
-  ],
-  "statistics": {
-    "basis": "koreader_daily_v1",
-    "timezone": "Asia/Yekaterinburg",
-    "page_reference_total": 320,
-    "days": [
-      {"date": "2026-10-31", "reading_seconds": 1800, "pages_read": 18},
-      {"date": "2026-11-01", "reading_seconds": 1200, "pages_read": 12}
-    ]
+  "kind": "source_snapshot",
+  "source_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payload": {
+    "metadata": {"format": "epub", "title": "Synthetic book", "authors": ["Example Author"]},
+    "annotations": []
   }
 }
 ```
 
-Правила полей:
+The example uses synthetic values. Packet kinds:
 
-- `schema_version`, `device_id`, `book_id`, `seq`, `captured_at`, `book` обязательны. `captured_at` — RFC 3339 UTC, время создания снимка; сервер отдельно ставит `received_at`.
-- `title` — строка, `authors` — массив строк, может быть пустым; `format` в v1 равен `epub`.
-- В `progress` все поля обязательны; `fraction` от 0 до 1 включительно; `page` и `total_pages` — положительные целые, `page <= total_pages`. При отсутствии валидной позиции секция пропускается. Последняя позиция может уменьшаться при возврате назад.
-- Каждый элемент `annotations` содержит все поля примера. `kind` равен `highlight` или `bookmark`; у `highlight` обязательны непустые `text`, `start`, `end`; у `bookmark` обязательна `start`, а `text` и `end` равны null. Начало и конец — нативные XPointers KOReader, их нельзя выдавать за EPUB CFI. Поля `note`, `chapter`, `page`, `created_at_local`, `modified_at_local` допускают null. `note_format` равен `plain`, `md` или `html`; при отсутствии заметки равен null. Веб-панель v1 показывает содержимое как текст, не исполняя HTML.
-- Время аннотаций сохраняется в исходном локальном виде: если KOReader не указал смещение UTC, его не придумываем. `captured_at` определяет время наблюдения, `seq` — порядок обновлений.
-- `annotation_id` и поле `context` обязательны для каждой аннотации. Один `annotation_id` не может повторяться в списке. У `highlight` контекст — объект по правилам ниже; у обычной закладки `bookmark` он равен null. Наличие заметки не зависит от успешного извлечения контекста.
-- `statistics.days` содержит все доступные ненулевые дни этой книги; даты уникальны. `reading_seconds` и `pages_read` — неотрицательные целые. `page_reference_total` — положительное целое. Отсутствующие в новом полном списке даты удаляются из серверной статистики книги.
-- Удаление исходной книги с Kindle само по себе не удаляет серверную историю. Ошибка чтения файла, базы, отключённый/неподдерживаемый модуль не должны превращаться в пустой снимок.
+- `source_snapshot`: metadata and optional complete snapshots of annotations/current progress for one source. Omitted sections are unchanged. A successfully read empty annotations list archives active annotations of that source; an unavailable source is omitted, never sent as an empty list. An absent source file itself does not delete service data.
+- `reading_events`: bounded batches of immutable events for one source. Event types: reading_segment, progress_sample, session_started, session_ended, cycle_started, book_finished. Event schemas and native provenance are frozen after the prototype.
+- `vocabulary_snapshot`: successfully read complete set of saved Vocabulary Builder entries; source_id is null. Preserve word/language/source metadata where available and count saved unique words, not dictionary lookup occurrences.
+- `legacy_statistics`: native per-source approximate history clearly marked as legacy; never combine native screen-page counts with the new character-based series.
 
-## Контекст выделения и заметки
+A reading_segment records event_id, source_id, session_id, credited UTC interval and newly credited characters. Split segments at reporting midnight before publication. Credited active seconds derive from those intervals; the same event is credited once. Positions/range evidence stay source-specific; cross-format passage matching is deliberately excluded.
 
-Требование пользователя: вместе с выделением отправлять контекст одной страницы до и одной после текущей страницы. Принятая для черновика интерпретация: передаём **текст трёх страниц**, включая полную страницу с выделением; это не снимки экрана. На сервере цитата и пользовательская заметка показаны отдельно, а три страницы открываются действием «Показать контекст».
+For a first valid sync/upload manifest, bind an unbound device token to device_id atomically. A racing different UUID gets 403. Token rotation preserves binding and history. Reinstallation/replacement is an explicit migration operation; it must not automatically add a duplicate copy of old data.
 
-Для обычного выделения на странице P сохраняются P−1, P, P+1. Ориентир — страница, к которой относится выделение, а не текущая позиция читателя при позднем редактировании заметки. Для многостраничного выделения предложение: `selection_pages` содержит все страницы выделения, `before` — страницу перед его началом, `after` — после конца; текст самой цитаты не теряется.
+## Ordering and acknowledgement
 
-В v1 это правило относится к выделениям и заметкам на выделениях. Обычные закладки без выделенного текста передаются с `context: null`.
+Server validation happens before writes. Apply one logical envelope in one PostgreSQL transaction and acknowledge only after COMMIT. Persist packet identity `(device_id, seq)` and canonical semantic JSON digest; identical retries return a safe acknowledgement, different content under the same seq returns 409 without partial writes.
 
-Правила хранения и доставки:
+For source snapshot sections, version independently by `(device_id, source_id, section)`: newer applies, equal identical is duplicate, older is stale. A later metadata/annotation snapshot must not discard older independently delivered progress. For immutable events, event_id is unique; equal content is a duplicate and changed content under the same ID is a conflict. Packet records and event uniqueness survive server restarts/concurrent requests.
 
-- Контекст извлекается локально при создании выделения/заметки до постановки готового снимка в очередь. Шрифт, поля и ориентация определяют границы страниц в этот момент. Для EPUB v1 проверяем обычный одностраничный постраничный режим; другие режимы требуют отдельной проверки адаптера и не должны незаметно выдавать экран прокрутки за страницу.
-- Сохранённый текст переживает перезапуск и офлайн-работу. После смены шрифта или места чтения прежний контекст не пересчитывается. Редактирование только заметки сохраняет прежний контекст; изменение границ выделения создаёт новый снимок контекста для того же `annotation_id`.
-- `before` и `after` равны null только при отсутствии соседней страницы у начала/конца книги либо при неготовом контексте. Иллюстрированная страница с доступным пустым текстом может иметь `text: ""`; картинки, вёрстка и OCR не передаются. Исходные абзацы сохраняются насколько это позволяет извлечение текста, интерфейсные колонтитулы не добавляются.
-- `status` принимает `ready`, `pending`, `unavailable`. В `ready` обязательны `captured_at` (UTC), положительный `total_pages_at_capture`, непустой массив `selection_pages`; `reason` равен null. Для выделения из N страниц `selection_pages` содержит N элементов. Каждый элемент страницы имеет положительный `page` и строковый `text`.
-- В `pending`/`unavailable`: `captured_at` и `total_pages_at_capture` равны null, `selection_pages` пуст, `before`/`after` null, `reason` содержит код `document_not_loaded`, `extraction_failed` либо `unsupported_layout`. `pending` означает, что будет повтор при следующей доступности открытой книги; `unavailable` — что автоматического повтора до изменения условий не будет. Заметка отправляется сразу с этим статусом; проблема контекста не блокирует её доставку.
-- `origin` принимает `creation` или `backfill`; для старых заметок контекст можно получить только в текущей раскладке при импорте (`backfill`), а не восстановить точные границы страниц в прошлом. Если извлечение при создании не удалось и текст получен лишь позднее, он тоже помечается `backfill`. `page_basis` в v1 всегда `koreader_screen_at_capture`.
-- Для старой заметки или неготового контекста успешное последующее извлечение обновляет полный снимок аннотаций с новым seq. Сервер сохраняет старую версию до получения новой, без отдельного запроса за EPUB.
-- Нельзя молча обрезать контекст ради лимита запроса. Слишком большой снимок остаётся локально и получает явную ошибку доставки согласно общему правилу 413. Для необычно длинных выделений потребуется согласовать разбиение/отдельную загрузку; это ограничение v1, а не потеря текста.
+Ack contains schema_version, instance_id, device_id, source_id, seq, kind and the result of each supplied section/event batch. Delete an outbox entry only after matching all identities, kind, seq and expected result keys. A malformed 200 is not acknowledgement. Exact result schemas are a C0 shared-contract deliverable.
 
-Техническая основа EPUB: `getPageFromXPointer`, `getPageXPointer`, `getTextFromXPointers` в [CreDocument](https://github.com/koreader/koreader/blob/master/frontend/document/credocument.lua). Это подтверждённые возможности исходного кода, не проверка на установленном KOReader. Получение текста меняет выделение внутри движка даже без рисования; адаптер сохраняет/восстанавливает его и учитывает инвалидирование кэша, как штатный `getSelectedWordContext`. Чтение соседних страниц не должно вызывать перелистывания или увеличивать статистику. Последнюю страницу обрабатываем отдельно: номер за концом книги не является допустимым указателем конца текста. [Движок](https://github.com/koreader/koreader-base/blob/master/cre.cpp).
+## Transport and retry policy
 
-## Подтверждение, повторы и ошибки
+- Direct JSON request limit: 1,048,576 bytes. Logical envelope limit: 16,777,216 bytes. Split event batches before that limit; an oversize single annotation snapshot is retained with an explicit error, never silently truncated.
+- Large envelopes: `POST /api/v1/uploads` creates `{upload_id,instance_id,device_id,source_id,seq,kind,byte_length,sha256,chunk_count}`; `PUT /api/v1/uploads/{id}/chunks/{index}` accepts raw byte chunks up to 1 MiB, starting at index 0; `POST /api/v1/uploads/{id}/commit` assembles/checks bytes and applies the original envelope atomically.
+- Keep chunks/manifest in PostgreSQL, not function memory/files. Decode UTF-8 after assembly, since a character can cross chunk boundaries. Repeated identical chunks/commit are safe; mismatched content gets 409. Partial upload never replaces live state.
+- Upload TTL is seven days, at most two open uploads per device. Expiration returns 410; recreate upload_id using the same saved envelope/seq. Opportunistic cleanup suffices; correctness does not depend on cron.
+- Annotation changes: enqueue durably immediately, send after a short debounce with a target of seconds on an already available connection. Progress samples: at most once/minute plus lifecycle boundaries; statistics/history batches: every five active minutes plus close/suspend checkpoint.
+- One network request at a time. Retry transient failures after 5/15/60/300 seconds while active; honor 429 Retry-After. 401 pauses sending until credentials are corrected. 400/403/409/413 retain data with a visible actionable error. Do not wake the device or enable Wi-Fi for retry.
+- HTTPS certificate validation and bounded network timeouts are required. Nonblocking behavior, battery cost and real delays need device tests.
 
-Сервер проверяет весь запрос до записи. Все применяемые секции одного запроса фиксируются одной транзакцией; ответ отправляется только после её завершения.
+## Annotations and context
 
-```json
-{
-  "schema_version": 1,
-  "device_id": "a92e58b4-851b-467b-a5ad-1eaaccc84c61",
-  "book_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-  "seq": 42,
-  "sections": {
-    "book": "applied",
-    "progress": "applied",
-    "annotations": "applied",
-    "statistics": "applied"
-  }
-}
-```
+Each annotation has stable annotation_id, source-specific locations, kind, quote/note text, optional chapter/native timestamps and context. Normal bookmarks without a selected passage use context=null. Display HTML/Markdown as text in the first release.
 
-Для каждой присланной секции: большее `seq` заменяет состояние и возвращает `applied`; равное `seq` с тем же нормализованным JSON — `duplicate`; меньшее — `stale`. Равное `seq` с другим содержимым этой секции — HTTP 409, без записи всего запроса. Сервер сравнивает JSON семантически, не по порядку ключей.
+For a highlight, context contains status, origin, captured_at, layout/page basis, total pages at capture, before, selection_pages and after. Page entries contain page number and full extracted text. Capture P−1/P/P+1 for a one-page highlight; for a multipage selection include the whole range and one neighbour on either side. For PDF these are original document pages, independently of volume statistics.
 
-HTTP 200 перечисляет ровно присланные секции. Клиент удаляет запись очереди только после проверки совпадающих `device_id`, `book_id`, `seq` и статуса каждой секции (`applied`, `duplicate` или `stale`). Потерянный ответ приводит к безопасному повтору: дневные секунды и страницы не прибавляются повторно. Более старые снимки статистики могут применяться независимо от более новых снимков только заметок, поскольку версии хранятся по секциям.
+- ready: complete available page texts, timestamp, page basis and no error. A missing first/last neighbour is null; an image-only blank text page can be an empty string.
+- pending/unavailable: preserve/send the annotation with a reason; a failed extraction does not block the note. Pending survives restart and retries when the book is available.
+- origin is creation or backfill. Late extraction/import is backfill, not a reconstruction of original page boundaries.
 
-Ошибки имеют форму `{"error":{"code":"invalid_payload","message":"..."}}`. 400 — невалидный контракт; 401 — отсутствующий/неверный токен; 403 — токен другого устройства; 409 — повторное использование seq с другим содержимым; 413 — тело больше 16 MiB; 429 — ограничение частоты; 5xx — временная ошибка. 400/403/409/413 сохраняются в очереди как требующие внимания, без бесконечных быстрых повторов. В v1 нет разделения одного большого снимка на части: превышение лимита должно явно отображаться, не теряя локальную копию.
+Editing note text preserves stored context; changing selection recaptures it. Font changes do not recapture old context. Extraction must restore the engine's selection/position and must not emit artificial page-turn/statistics events.
 
-## Смысл статистики
+Missing IDs in a successful full annotation snapshot are archived, not destroyed. Reactivation with the same ID restores active status. Native errors, missing files and incomplete uploads cannot archive data. Identical quotes in different sources remain distinct; archived records retain quote/note/context. Owner service-data deletion is separate from native sync and must not trigger later silent resurrection.
 
-Предложение: брать существующий учёт KOReader, а не запускать второй независимый таймер. Адаптер читает согласованные данные через KOReader/SQLite; живой файл SQLite с WAL и исполняемый `metadata.lua` по HTTP не загружаются.
+## Read API and owner actions
 
-Источник текущего кода: `page_stat_data` хранит книгу, страницу, начало, длительность и размер пагинации; представление `page_stat` пересчитывает страницы к текущей пагинации. Плагин статистики сохраняет данные при закрытии и перед сном. Точная установленная версия KOReader пока неизвестна: эти детали — основа адаптера, их надо проверить до реализации. [Исходник статистики](https://github.com/koreader/koreader/blob/master/plugins/statistics.koplugin/main.lua).
+Owner-only read routes: books, book details, per-source progress/history, daily statistics, sessions, cycles, vocabulary, active/archive annotations, annotation detail/content and device status. Server-side query schemas are frozen in C0; the panel uses the same synthetic contract fixtures as backend tests.
 
-Нормативные правила v1:
+Lists use bounded cursor pagination. Return quote/note previews in lists and full text through paged detail/content routes, so one long context does not exceed hosting response limits. Bind content cursors to annotation version; a changed version requires restarting that content read.
 
-1. За день и книгу `reading_seconds` — сумма длительностей записей исходной таблицы `page_stat_data` с началом в этом локальном дне. Весь отрезок относится к дню начала, даже если пересекает полночь; точное распределение отрезка между днями не входит в v1. Используются уже записанные длительности KOReader с его правилами отсечения простоя. Для времени не суммируем представление `page_stat`: его масштабирование и целочисленное деление могут менять сумму при смене пагинации. Это оценка активного чтения, не доказательство внимания человека.
-2. `pages_read` — количество разных страниц из соответствующих записей представления `page_stat` с положительной длительностью в пределах книги и дня. Мгновенный прыжок с 10-й на 100-ю не создаёт 90 прочитанных страниц. Повтор той же страницы в тот же день увеличивает время, но не число страниц; на следующий день эта страница снова может учитываться.
-3. День — по часовому поясу отчётов. Для первой версии фиксирован Asia/Yekaterinburg; клиент группирует исходные Unix timestamps в UTC+05:00, независимо от часового пояса процесса сервера. Неподдерживаемая зона в запросе отклоняется. Устройство должно иметь правильные часы; счётчик seq не исправляет неверные даты чтения.
-4. Неделя/месяц/всё время — сумма дневных показателей. Поэтому «за всё время» означает сумму прочитанных страниц по дням, включая перечитывания в разные дни, а не количество уникальных страниц за всю жизнь.
-5. **Страницы — экранные страницы KOReader, а не печатные.** При смене шрифта/пагинации адаптер пересчитывает полный снимок дней книги и обновляет `page_reference_total`; исторические числа страниц могут измениться вслед за KOReader. Время от одной смены шрифта не должно увеличиваться. Стабильные условные или печатные страницы потребуют другого определения и не обещаются в v1.
-6. Очистка статистики в KOReader отражается новым полным снимком; серверные итоги пересчитываются. Не реже раза в 5 минут, пока KOReader активен, и при ручном «Синхронизировать сейчас» клиент проверяет все ранее установленные соответствия книг, включая неоткрытые и уже удалённые EPUB. Если успешно прочитанная совместимая база не содержит прежней записи/строк, отправляется пустой снимок статистики этой книги. Отсутствующая или нечитаемая база не считается очищенной. Для такой отправки используются сохранённые метаданные `book`; секция аннотаций пропускается, если её источник недоступен. Это текущая копия, а не неизменяемый архив всех когда-либо удалённых данных. Резервирование сервера — отдельная операция.
+Statistics sum character counts/active seconds for grouped books without cross-format deduplication. Current active annotation counts exclude archive. Day ranges are inclusive; totals-only queries support all time without returning an unbounded daily array. Calendar/day series are requested for bounded ranges including leap years. Empty days are explicit zeros and future days do not penalize streaks/averages.
 
-Аннотации текущего KOReader содержат текст, заметку, координаты и локальные временные строки. Обработчик изменений существует, но конкретный порядок вызовов надо проверить на установленной версии. [ReaderAnnotation](https://github.com/koreader/koreader/blob/master/frontend/apps/reader/modules/readerannotation.lua), [DocSettings](https://github.com/koreader/koreader/blob/master/frontend/docsettings.lua).
+Owner mutations include authentication, device-token rotation, grouping/ungrouping source files, confirming uncertain matches, annual goals and explicit service-data reset. Use cookie sessions with CSRF/Origin checks, independent of the device bearer token. Grouped-book completion/cycle queries derive from preserved source events; merge/split never deletes those events.
 
-## Серверная панель и хранение
+## Implementation acceptance
 
-Минимальные данные: устройство и хеш его токена; книги; текущее состояние секций и их seq; дневная статистика по книге. Обновление дневного снимка заменяет записи одной книги, а не прибавляет значения. Сырой SQLite KOReader не становится серверной базой. В v1 сервер ведёт отчёты по единственному подключённому устройству, поэтому перенос на второе устройство не должен незаметно удвоить историю.
-
-Первый экран: минуты и страницы за выбранный период, календарь активности за год, последние заметки. Далее — список книг, страница книги с историей по дням и список заметок с поиском по цитате, заметке, названию и автору. Веб-интерфейс адаптирован для компьютера/телефона; копирование интерфейса видео на Kindle не входит в этот этап.
-
-Для календаря: значение — сумма секунд за локальный день. Уровни клеток: 0 секунд; 1–899; 900–1799; 1800–3599; от 3600. Подсказка показывает дату, минуты и страницы. Дни без чтения — нули, будущие дни не считаются пропусками.
-
-### Соответствие четырём скриншотам пользователя
-
-Это оценка реализуемости, не автоматическое включение всех перечисленных расширений в контракт v1.
-
-| Элемент | Реализуемость и источник | Что добавить к текущему контракту |
-| --- | --- | --- |
-| Обзор: страницы, минуты, цитаты; график за 7/14/30 дней | Из дневной статистики и списка аннотаций | Представление в веб-панели; «цитаты» — число текущих выделений, «заметки» считаются отдельно |
-| Серия дней | Сервер вычисляет последовательность дней с ненулевым временем | Определить отображение текущей серии: она продолжается, если активен сегодня или вчера; иначе 0 |
-| Цель 19/24 книги | Цель задаётся на сервере; число завершений требует статусов и дат завершения | Отдельные настройки цели и история завершений; нельзя восстановить годы/циклы по одному текущему проценту |
-| Счётчик слов | Возможен экспорт из включённого Vocabulary Builder | Отдельный источник слов и определение: сохранённые уникальные слова или обращения к словарю; в v1 не включён |
-| Годовая карта, среднее, рекорд | Вычисляются из дневных данных | Для среднего за год предложение — страницы / число прошедших календарных дней года, включая нули; для прошлого года — все дни года |
-| Книга: страницы, минуты, активные дни, график дневных страниц | Доступны из дневных данных одной книги | «Активные дни» — даты с ненулевым временем, а не длина промежутка между первым и последним чтением |
-| Линия «прочитано, %» по дням | Нужна история позиций, текущей позиции недостаточно | Собирать отметки прогресса с временем в плагине. Пропущенное прошлое показывать как неизвестное, не интерполировать из количества страниц |
-| Журнал сессий с временем начала, страницами и минутами | Из исходных отрезков можно оценить сессии; точные границы зависят от определения сессии | Для точного журнала отдельно собирать open/resume/pause/close и позиции; согласовать паузу, разрывающую сессию. Нынешних дневных сумм для этого недостаточно |
-| Цикл 1 / перечитывание | Возможен при ведении истории циклов | Нужны события начала нового чтения и завершения; не угадывать цикл по возврату на первую страницу |
-| Галерея цитат с обложками, поиском и фильтрами | Текст и заметки доступны, EPUB-движок умеет извлекать обложку | Для обложек добавить отдельную передачу уменьшенного изображения; при отсутствии обложки — текстовая заглушка |
-| Контекст цитаты | Текст сохранённых соседних страниц | Включён в этот черновик по явному требованию пользователя |
-
-Источники дополнительных возможностей: [Vocabulary Builder](https://github.com/koreader/koreader/blob/master/plugins/vocabbuilder.koplugin/main.lua), [CreDocument: обложки](https://github.com/koreader/koreader/blob/master/frontend/document/credocument.lua), [статистика и отрезки чтения](https://github.com/koreader/koreader/blob/master/plugins/statistics.koplugin/main.lua). Экраны здесь — серверная веб-панель; идентичные собственные экраны на Kindle потребуют отдельной разработки интерфейса плагина.
-
-Предлагаемые read API: `GET /api/v1/books`, `GET /api/v1/books/{book_id}`, `GET /api/v1/annotations?q=...&book_id=...`, `GET /api/v1/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD`. `from` и `to` включительны; отсутствие обоих означает всю историю, только одного — ошибка 400. Ответ статистики: `timezone`, `from`, `to`, `totals:{reading_seconds,pages_read}`, `days:[{date,reading_seconds,pages_read,activity_level}]`; дни диапазона без записей заполняются нулями, totals — сумма days. Форма UI и пагинация списков остаются этапу реализации; они не нужны клиенту Kindle.
-
-Сервер доступен по HTTPS с проверяемым сертификатом. Токен — случайный непрогнозируемый секрет не менее 256 бит, привязан к одному устройству; в БД хранится его хеш. Новый токен создаётся владельцем при первоначальной настройке. Device token разрешает только загрузку снимков своего устройства. Для веб-панели и read API используется отдельная авторизация владельца (пароль/сессия); публичных заметок и самостоятельной регистрации нет. Токены и тела заметок не попадают в обычные логи. Авторизацию в браузере и схему развёртывания надо описать в плане реализации.
-
-## Проверки приёмки
-
-- При включённой сети сохранённая заметка появляется на сервере без ручной синхронизации; измеряется реальная задержка. Офлайн-заметка переживает перезапуск и появляется после подключения.
-- Изменение и удаление заметки отражаются на сервере. Ошибка чтения источника не удаляет прежний список.
-- Контекст содержит соседние и текущую страницы в раскладке на момент создания. Проверяются первая/последняя страницы, многостраничное выделение, пустая страница, сноски и граница главы; после смены шрифта и офлайн-перезапуска сохранённый контекст остаётся прежним. Извлечение не меняет позицию чтения, экранное выделение и счётчики статистики.
-- Редактирование текста заметки сохраняет annotation_id и контекст. Изменение диапазона обновляет контекст. Повторные одинаковые цитаты не получают контекст друг друга. Ошибка извлечения доставляет заметку с явным статусом, а не теряет её; поздний backfill не выдаётся за контекст оригинального момента создания.
-- Повтор одного запроса после потерянного ответа не создаёт дубликатов и не увеличивает время/страницы. seq=43 нельзя перезаписать seq=42 в той же секции; более старые данные другой секции не теряются.
-- Чтение и ручной выбор страницы 100 не засчитывают промежуточные страницы. Повтор страницы в один и в разные дни соответствует правилам выше.
-- Набор данных с чтением около полуночи UTC+5, воскресенья/понедельника и границы месяца попадает в нужные дни; суммы выбранных дней совпадают с неделей, месяцем и общим итогом.
-- Изменение шрифта обновляет базу пагинации и полный снимок; минуты не удваиваются. Сброс статистики корректирует итоги.
-- Первая отправка включает прошлые данные KOReader для открытой книги. История ещё не открывавшейся с плагином книги явно не считается уже импортированной. Глобальная очистка статистики корректирует ранее подключённые книги без их повторного открытия; ошибка чтения базы не очищает серверные данные.
-- Перезапуск сервера сохраняет подтверждённые данные. Неверный токен и чужой device_id отклоняются. HTML в заметке показывается безопасным текстом.
-- На реальном Kindle проверяются: версия KOReader, совместимость адаптера, порядок flush/close/suspend, чтение и редактирование заметок, сохранность очереди, влияние частоты отправки на батарею. Эти проверки ещё не выполнены.
-
-## Что надо согласовать до реализации
-
-Основной продуктовый выбор — подходят ли экранные страницы KOReader с возможным пересчётом истории при смене шрифта и дневные суммы, включающие перечитывания в разные дни. Это предлагаемое определение, не подтверждённое пользователем.
-
-Остальное: конкретная версия KOReader; место размещения нового сервера и HTTPS-адрес; язык/библиотеки сервера; способ первоначальной настройки авторизации и резервного копирования. Формат данных не зависит от VPS против домашнего сервера. После согласования контракта можно составить план реализации, не начиная с установки зависимостей наугад.
+The updated plan must test: stable counts across reflow; source-specific dedup and allowed cross-format double count; PDF cropped views and original-page context; exact persisted queue after crash; duplicate events/uploads; independent snapshot section versions; annotation archive/backfill; native reset without history loss; grouping/splitting without lost source data; unique annual completion/cycles; Vocabulary Builder export; midnight/DST/host-timezone independence; secret-free examples/packages; and the same application against Neon and ordinary PostgreSQL.

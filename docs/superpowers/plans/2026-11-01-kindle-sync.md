@@ -2,307 +2,204 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Создать личный сервис синхронизации заметок с трёхстраничным контекстом и статистики чтения из KOReader, с четырьмя основными экранами веб-панели.
+**Goal:** Создать публично распространяемый, самостоятельно разворачиваемый сервис KOReader с полным функционалом четырёх экранов и сохранением контекста заметок.
 
-**Architecture:** Lua-плагин хранит очередь на Kindle и отправляет HTTPS-запросы в Express на Vercel. Постоянные данные находятся в Neon PostgreSQL; панель состоит из статических HTML/CSS/JavaScript и обращается к тому же API. Сначала фиксируется контракт, затем три исполнителя работают параллельно в отдельных Git worktree, после чего координатор интегрирует результаты.
+**Architecture:** Lua-плагин хранит собственную долговечную очередь и историю на устройстве. Один Express API принимает данные и обслуживает статическую панель; постоянное состояние хранится в стандартной PostgreSQL. Vercel + Neon — основной управляемый вариант, обычный Node.js/контейнер + PostgreSQL — обязательный второй способ запуска того же приложения.
 
-**Tech Stack:** Node.js 24.x, Express 5, JavaScript ES modules, PostgreSQL/Neon, `pg`, `ajv`, `ajv-formats`, `@vercel/functions`; HTML/CSS/JavaScript и SVG; Lua/LuaJIT KOReader. Проверки: `node:test`, Playwright как dev dependency, Lua assertion runner, испытания на Kindle. Точные версии пакетов фиксируются lockfile при реализации после проверки актуальной документации.
+**Tech Stack:** Node.js 24.x, Express 5, JavaScript ES modules, `pg`, `ajv`, `ajv-formats`; платформенный SDK Vercel только в адаптере. HTML/CSS/JavaScript/SVG, Lua/LuaJIT KOReader. Проверки: node:test, Playwright как dev dependency, Lua assertion runner, реальная PostgreSQL и Kindle. Совместимые версии библиотек фиксируются lockfile после проверки актуальной документации.
 
-**Spec:** [Контракт данных](../../kindle-sync-data-spec.md), [исследование KOReader](../../kindle-sync-research.md), [хостинг](../../kindle-sync-hosting-research.md). Текущий контракт — черновик; изменения ниже являются предложением на ревью, а не уже согласованной новой редакцией.
+**Spec:** [Продуктовые требования](../../requirements.md), [контракт данных](../../kindle-sync-data-spec.md), [конфигурация и публичность](../../configuration.md), [исследование хостинга](../../kindle-sync-hosting-research.md).
 
-**Статус:** ПЛАН НА РЕВЬЮ. Код, аккаунты и развёртывание не создаются на этом этапе. Исполнителей запускать после явного согласования пользователем этого плана. Текущие коммиты документов находятся в `main`.
-
-## Что предлагается согласовать этим планом
-
-| Решение | Предложение |
-| --- | --- |
-| Размещение | Vercel Hobby + Neon Free, один владелец и один Kindle |
-| Страницы | Экранные страницы KOReader; смена шрифта может пересчитать прошлые дневные числа. Повтор страницы в тот же день не добавляет страницу, в другой день добавляет |
-| Контекст | Полный текст страницы выделения и соседних страниц; для многостраничного выделения весь диапазон плюс по одной соседней странице; снимок сохраняется при создании |
-| Время | Asia/Yekaterinburg, начало дня 00:00, недели — понедельник. Интервал относится к дню начала, как в текущем черновике |
-| Объём первой поставки | Четыре экрана с дневной статистикой, серией, цитатами, поиском, обложками и контекстом; отдельный экран подключения |
-| Дальнейшее соответствие скриншотам | После основного сквозного сценария добавить исторические проценты, журнал сессий, годовую цель и явные циклы перечитывания. Это включённый в дорожную карту второй этап, требующий отдельного дополнения контракта |
-| Слова | Vocabulary Builder не входит в первую поставку; счётчик «Слова» не показывается с выдуманными значениями |
-| Фронтенд | Обычный JavaScript и SVG, без обязательного сборщика; интерфейс адаптирован для телефона и компьютера |
-| Передача больших данных | Сохранить логический снимок до 16 МиБ, но добавить загрузку частями по 1 МиБ и атомарное применение полного снимка |
-
-Одобрение плана фиксирует эти допущения. Если пользователь меняет определение страниц или состав этапов, сначала обновить контракт и этот план, затем запускать исполнителей. Исторические проценты, точные сессии и даты завершения книг до установки плагина не восстанавливаются из отсутствующих данных.
+**Статус:** ОБНОВЛЁННЫЙ ПЛАН НА РЕВЬЮ. Ответы интервью включены; прежнее разделение на урезанный первый релиз и будущие сессии/цели отменено. Приложение и развёртывание не реализованы. Исполнителей запускать только после одобрения этого плана пользователем.
 
 ## Global Constraints
 
-- Kindle Paperwhite 11, FW 5.19.2; точная версия установленного KOReader ещё не известна и должна быть записана в отчёт совместимости.
-- В первой версии: один владелец, один Kindle, чтение EPUB в KOReader, передача Kindle → сервер.
-- Файл книги на сервер не отправляется.
-- `book_id` — SHA-256 исходного файла EPUB, 64 строчных hex-символа.
-- `seq` — положительное целое до 2^53−1, растущий счётчик установки.
-- Сервер хранит последнее применённое `seq` отдельно для каждой пары `(device_id, book_id, section)`.
-- Отсутствующая секция означает «оставить прежнюю». Пустой список означает «источник успешно прочитан и действительно пуст».
-- Прогресс отправляется не чаще раза в минуту; статистика — раз в 5 минут активного чтения и после закрытия книги.
-- Плагин не включает выключенный Wi-Fi и не будит Kindle ради повторов. Очередь переживает перезапуск.
-- Текст заметки отправляется даже при неготовом контексте; позднее извлечение помечается `backfill`.
-- Удаление исходной книги с Kindle само по себе не удаляет серверную историю.
-- Рабочая SQLite-база, токены и загруженные обложки не хранятся в файловой системе Vercel.
-- Токен устройства позволяет только запись своего устройства; панель и read API требуют отдельную авторизацию владельца.
-- Пользовательский текст выводится как текст; токены, пароли, тексты заметок и строки подключения не попадают в обычные логи.
-- Новые необходимые библиотеки добавляются только в пределах этого плана; изменения общего контракта проходят через координатора.
+- В первый релиз входят обзор, календарь, библиотека, книга с историей процентов/сессиями, цели, циклы, Vocabulary Builder, цитаты/контекст/архив, объединение форматов и подключение.
+- Форматы: EPUB, MOBI и PDF с текстовым слоем; AZW3 исключён. Сканам требуется предварительный OCR вне сервиса.
+- По умолчанию 2000 символов с пробелами = условная страница; сохраняются точные символы. Смена шрифта не пересчитывает историю.
+- Повторный фрагмент засчитывается один раз за день внутри файла; другой формат может засчитать его ещё раз. Перечитывание в другой день считается снова.
+- Сессии показывают новый объём за день, включая 0 при перечитывании, и всё активное время по штатным правилам KOReader.
+- Контекст — страницы выделения и по одной соседней; у PDF исходные страницы. Позднее извлечение — backfill, ошибка не задерживает заметку.
+- Удалённые выделения архивируются; основные списки/счётчики — действующие. Сброс KOReader не удаляет серверную историю.
+- source_id — SHA-256 файла, book_id — отдельная идентичность объединённой книги. Переводы/редакции раздельны. Сомнительные объединения подтверждает владелец; merge/split обратимы.
+- В карточке прогресс последнего открытого формата; истории/позиции и одинаковые цитаты источников сохраняются раздельно.
+- Завершение книги и новый цикл — явные действия на Kindle. Годовая цель считает уникальные объединённые книги. Слова — уникальные сохранённые записи Vocabulary Builder.
+- Старые native-страницы — отдельный приблизительный архив; их не складывают с новой серией. Тimestamps UTC, дни по настраиваемой IANA-зоне, интервалы разделяются в полночь.
+- Настройки конкретного экземпляра и секреты находятся вне Git. В публичном шаблоне timezone=UTC и пустые секреты; личный профиль владельца остаётся в игнорируемом .env.
+- Конфигурация загружается/валидируется один раз и передаётся модулям. Frontend использует относительные API URL; плагин — URL/token владельца. Нет встроенных credentials, доменов или обязательных аккаунтов облачного поставщика.
+- Один владелец и один KOReader на экземпляр первоначально. Device bearer отделён от owner session; TLS, CSRF/Origin и отсутствие секретов/читаемого содержимого в логах обязательны.
+- Прогресс не чаще раза/минуту; пакеты истории каждые пять активных минут и на lifecycle boundaries. Очередь переживает crash; повторы не включают Wi-Fi и не будят устройство.
+- Разработка не должна включать платные тарифы автоматически. Публикация/деплой остаются отдельной финальной операцией после проверяемой подготовки.
 
 ## Review Focus
 
-1. Прерывание питания после сохранения заметки и до подтверждения: очередь и `seq` восстанавливаются вместе, заметка доставляется один раз по смыслу. Проверка P2 и I1.
-2. Совпадение цитат и изменение аннотаций KOReader: устойчивый `annotation_id`, правильная привязка контекста после редактирования и перезапуска. Проверка P1/P2 и I1.
-3. Частично загруженный большой список: прежние аннотации остаются доступны до успешного commit; потеря ответа и повтор commit безопасны. Проверка B2 и I1.
-4. Смена пагинации, очистка и недоступность статистики: минуты не растут от перерасчёта страниц, сброс отражается, ошибка чтения не удаляет данные. Проверка P3/B3.
-5. Перезапуск serverless-инстанса и одновременные запросы: сессия владельца остаётся действительна, старый `seq` не побеждает новый, device token не читает заметки. Проверка B1/B2 и I1.
+1. PDF zoom/reflow, смена шрифта и повторное чтение не должны незаметно завышать новый объём. Прототип P0 и тесты P1.
+2. После crash между сохранением заметки, начислением символов и ack не теряются данные и не повторяется начисление. P2/B2/I1.
+3. Merge/split, одинаковые цитаты и разные форматы не перепривязывают контекст/позицию к другому источнику. B3/F2/I1.
+4. Native reset, поздние пакеты и owner reset не теряют историю и не воскрешают явно удалённое. C0/B2/P2/I1.
+5. Другой сервер/домен/PostgreSQL/timezone и публичный репозиторий не требуют правок исходников и не раскрывают private config. B1/I2.
 
-## Исполнители и владение файлами
+## Команда, владение и Git
 
-Каждый из трёх исполнителей создаётся только после ревью с `model: "gpt-6.1-terra"`, `reasoning_effort: "high"`, `fork_turns: "none"`. В задание передать абсолютные пути его worktree, этого плана, спецификации и замороженного контракта; указать базовый commit. Не подменять модель без сообщения пользователю.
+Три исполнителя: **model `gpt-6.1-terra`, reasoning_effort `high`, fork_turns `none`**. Не менять модель молча. В каждом задании передать абсолютный workdir, AGENTS.md, этот план, требования, конфигурацию, контракт и базовый commit.
 
-| Роль | Область | Ответственность |
-| --- | --- | --- |
-| Координатор, текущий агент | `contracts/`, `docs/`, `tests/contracts/`, интеграционные `tests/e2e/`, Git-интеграция | Контракт, синтетические общие fixtures, исходный package/lockfile в C0, ревью, общие проверки, подготовка развёртывания |
-| Субагент 1 — backend | `server/`, `db/`, `scripts/`, `tests/server/`, корневые `index.js`, `dev.js`, `package.json`, `package-lock.json`, `.env.example`, `vercel.json` | Express, PostgreSQL, авторизация, загрузка снимков, read API, конфигурация запуска |
-| Субагент 2 — plugin | `plugin/`, `tests/plugin/` | Плагин KOReader, контекст, адаптер статистики, долговечная очередь, транспорт и настройки Kindle |
-| Субагент 3 — panel | `public/`, `tests/panel/` | Четыре экрана, подключение, графики, состояния загрузки/ошибок и адаптивность |
-
-Изменения вне своей области сначала согласовать с координатором. После C0 package/lockfile передаются backend-исполнителю; frontend сам их не меняет. Если нужна новая общая зависимость, координатор фиксирует её и распространяет checkpoint во все worktree до продолжения. Секреты, настоящие книги и заметки пользователя не используются в общих fixtures.
-
-Предполагаемые ключевые файлы:
-
-```text
-contracts/snapshot.schema.json       # итоговый логический снимок
-contracts/upload.schema.json         # манифест загрузки частями
-contracts/read-api.schema.json       # ответы панели
-contracts/examples/*.json            # общие положительные/отрицательные примеры
-server/app.js                       # createApp({db, config}), без app.listen
-server/db.js                        # query + withTransaction на одном pg client
-server/auth.js                      # owner session и device bearer
-server/snapshots.js                 # валидация, сравнение seq, атомарная запись
-server/uploads.js                   # манифест, bytea-части, проверка и commit
-server/queries.js                   # отчёты и поиск
-server/covers.js                    # приватная выдача миниатюр
-db/migrations/001-initial.sql        # постоянное состояние и индексы
-scripts/migrate.js                  # последовательное применение миграций
-scripts/setup-owner.js              # первоначальные credentials владельца
-scripts/export.js                   # полный переносимый экспорт, включая обложки
-scripts/import.js                   # восстановление экспорта только в пустые таблицы данных
-index.js                            # default export приложения для Vercel
-dev.js                              # локальный listener и public/**
-plugin/kindle-sync.koplugin/_meta.lua
-plugin/kindle-sync.koplugin/main.lua
-plugin/kindle-sync.koplugin/adapter.lua
-plugin/kindle-sync.koplugin/context.lua
-plugin/kindle-sync.koplugin/state.lua # собственная SQLite: IDs, контекст, seq и очередь
-plugin/kindle-sync.koplugin/outbox.lua
-plugin/kindle-sync.koplugin/transport.lua
-plugin/kindle-sync.koplugin/statistics.lua
-public/index.html                   # оболочка, четыре раздела и подключение
-public/styles.css
-public/js/api.js                     # cookie API и единый разбор ошибок
-public/js/app.js                     # навигация и состояние фильтров
-public/js/overview.js
-public/js/books.js
-public/js/book.js
-public/js/annotations.js
-public/js/connection.js
-public/js/charts.js                  # SVG и календарная сетка
-```
-
-Файлы выше — границы ответственности, а не требование создавать пустые модули. Небольшие функции остаются рядом; отдельный файл создаётся, когда у него появляется реализация своей ответственности.
-
-## Порядок и контрольные точки
-
-```text
-C0: контракт и fixtures + P0: проверка KOReader
-                     ↓
-        ┌────────────┼────────────┐
-        B1→B2→B3     P1→P2→P3     F1→F2
-        └────────────┼────────────┘
-                     ↓
-          I1: интеграция и Kindle
-                     ↓
-          I2: подготовка и deploy
-                     ↓
-          E1: история/сессии/цели/циклы
-```
-
-Координатор и три исполнителя занимают четыре доступных слота. Дополнительных постоянных агентов не требуется. Ревью каждой поставки делает координатор: соответствие контракту, diff, проверки и затем интеграция. Исправления возвращаются тому же исполнителю через followup, без незаметного расширения объёма.
-
-### C0. Заморозить контракт для параллельной разработки
-
-**Владелец:** координатор. **Files:** изменить `docs/kindle-sync-data-spec.md`; создать `contracts/*.schema.json`, `contracts/examples/*.json`, `tests/contracts/schema.test.js`, `docs/api-v1.md`, исходные `package.json`/`package-lock.json`.
-
-**Interfaces:** итоговый `Snapshot` сохраняет поля текущей спецификации и ack. Транспорт больших снимков добавляется без изменения смысла секций:
-
-| API | Контракт |
+| Исполнитель | Область файлов |
 | --- | --- |
-| `POST /api/v1/snapshots` | JSON одного снимка, не более 1 048 576 байт; ответ — существующий ack |
-| `POST /api/v1/uploads` | `{upload_id,device_id,book_id,seq,byte_length,sha256,chunk_count}`; идентичный повтор безопасен |
-| `PUT /api/v1/uploads/{id}/chunks/{index}` | `application/octet-stream`, индекс с 0, до 1 048 576 байт; одинаковая часть повторно принимается, отличающаяся даёт 409 |
-| `POST /api/v1/uploads/{id}/commit` | Собрать UTF-8 JSON, проверить длину, SHA-256 и совпадение идентичности с манифестом, затем применить снимок одной транзакцией; ответ — тот же ack |
-| `POST /api/v1/auth/login` | `{username,password}`, устанавливает HttpOnly cookie |
-| `GET /api/v1/auth/session` | Текущий владелец и CSRF token либо 401 |
-| `POST /api/v1/auth/logout` | Удаляет сессию, требует CSRF token |
-| `GET /api/v1/books` | `{items,next_cursor}`; `limit` по умолчанию 20, максимум 100 |
-| `GET /api/v1/books/{book_id}` | `{book,progress,totals,days}` |
-| `GET /api/v1/annotations` | Поиск `q`, `book_id`, `has_note`; `{items,next_cursor}` без полного контекста |
-| `GET /api/v1/annotations/{annotation_id}` | Метаданные аннотации и контекста, без длинных текстовых полей; ссылки на content API |
-| `GET /api/v1/annotations/{annotation_id}/content?cursor=...` | `{items,next_cursor}`; части цитаты, note и страниц контекста, помеченные field/page/part; все тексты можно получить без обрезки |
-| `GET /api/v1/statistics` | `from/to` включительны; `include_days` по умолчанию true, false возвращает только итоги и days=[]; дополнительно счётчики цитат/заметок, серия, среднее и рекорд с явными формулами |
-| `PUT /api/v1/books/{book_id}/cover` | Device bearer, JPEG/WebP до 65 536 байт |
-| `GET /api/v1/books/{book_id}/cover` | Owner session, изображение либо 404 |
-| `POST /api/v1/device-token` | Owner session + CSRF; создаёт/заменяет токен единственного устройства, показывает секрет один раз |
-| `GET /api/v1/device` | Owner session; последняя успешная синхронизация, last_seen, состояние привязки |
+| Backend | `server/`, `db/`, `scripts/`, `tests/server/`, после C0 корневые package/lockfile, `index.js`, `dev.js`, `Dockerfile`, `compose.example.yaml` |
+| Plugin | `plugin/`, `tests/plugin/` |
+| Panel | `public/`, `tests/panel/` |
+| Координатор | `contracts/`, `docs/`, `tests/contracts/`, `tests/e2e/`, `.github/`, ревью/интеграция; начальный package/lockfile в C0 |
 
-- [ ] Зафиксировать в новой редакции спецификации Vercel/Neon, transport, read API и исключения первой поставки; явно убрать прежнее утверждение «нет разделения на части».
-- [ ] Описать upload TTL 7 суток, максимум две незавершённые загрузки на устройство, общий логический предел 16 777 216 байт. Просроченная загрузка получает 410; клиент создаёт новый upload_id для того же сохранённого снимка и seq. Очистка просроченных частей выполняется при запросах; корректность не зависит от cron.
-- [ ] Задать правила read API: последние даты диапазона включительно, cursor — непрозрачный; сортировка аннотаций по серверному времени первого наблюдения и ID. Историческая локальная дата KOReader показывается отдельно. Список возвращает превью цитаты/note до 500 Unicode code points и явный признак сокращения, полный текст доступен через content API. Content API отдаёт не более 256 КиБ UTF-8 текста за ответ, делит длинные поля на границах символов и не смешивает страницы; панель последовательно собирает field/page/part. Cursor привязан к версии аннотации: при её изменении вернуть 409 `content_changed`, панель перезагружает detail. Все read-ответы остаются меньше 1 МиБ; список завершается раньше limit при достижении байтового бюджета и возвращает next_cursor. Дневные ряды ограничены 366 днями за запрос, более длинный диапазон с include_days=true получает 400 range_too_large; итоги за всё время запрашиваются с include_days=false, без потери дней в сумме.
-- [ ] Записать формулы: серия продолжается при чтении сегодня или вчера; среднее — сумма страниц / календарные дни выбранного периода до сегодня; рекорд — максимум за день; будущие дни исключаются. Годовая сетка умеет переключать секунды и страницы, с фиксированными порогами для страниц 0 / 1–9 / 10–24 / 25–49 / от 50.
-- [ ] Создать fixtures: пустая библиотека, две книги с одинаковой цитатой, pending/backfill, первая/последняя страницы, скачок 10→100, полночь UTC+5, високосный год, устаревший seq, конфликт seq, очистка статистики, снимок больше 1 МиБ и больше 16 МиБ. Большие fixtures генерировать из малых шаблонов, не хранить мегабайты текста в Git.
-- [ ] Создать исходный package с Node 24.x, ES modules, перечисленными runtime dependencies и Playwright как dev dependency; зафиксировать lockfile. Определить scripts: `test:contracts` = `node --test tests/contracts/schema.test.js`, `test:server` = `node --test tests/server/*.test.js`, `test:panel` = `playwright test --config=tests/panel/playwright.config.js`, `test:e2e` = `playwright test --config=tests/e2e/playwright.config.js`. Остальные команды B1 добавляет backend. Каждый исполнитель выполняет npm ci в своём worktree.
-- [ ] Проверка `npm run test:contracts`: валидный пример принимается; неверные даты/seq, несовпадение kind/context и неподдерживаемая timezone отвергаются. Сначала увидеть ожидаемые падения, затем завершить схемы и проверку. Уникальность annotation_id и другие межполевые проверки дополнительно закрепляются тестами server validator B2.
-- [ ] Коммит `chore: freeze v1 API fixtures and development toolchain`; зафиксировать его SHA для трёх worktree. Создать `.worktrees/backend`, `.worktrees/plugin`, `.worktrees/panel` с отдельными ветками от этого commit до запуска исполнителей. Все их команды явно используют собственный workdir. После этого изменения контракта только через координатора и общий checkpoint.
+Координатор подготавливает отдельные worktree/ветки `.worktrees/backend`, `.worktrees/plugin`, `.worktrees/panel`; каждый исполнитель всегда указывает свой workdir. Первый технический прототип выполняет plugin-исполнитель. После P0 координатор фиксирует C0 и обновляет общую базу; затем три направления работают параллельно. Frontend использует контрактные HTTP fixtures и не ждёт готовый API.
 
-### P0. Подтвердить совместимость установленного KOReader
+Все изменения контрактов/общих зависимостей идут через координатора. После C0 package/lockfile изменяет backend; frontend не создаёт конкурирующий lockfile. Координатор последовательно переносит проверенные коммиты в main. Не выполнять параллельный git add/commit в одном checkout; не переписывать авторство, не создавать remote и не делать push без поручения.
 
-**Владелец:** plugin, до извлечения реальных данных. **Files:** `plugin/COMPATIBILITY.md`, `tests/plugin/fixtures/*.lua`. **Consumes:** модель/FW из спецификации, фактическая версия KOReader. **Produces:** таблица проверенных hooks и API адаптера с версией/commit исходников.
+Ключевые файлы и ответственность:
 
-- [ ] Узнать установленную версию KOReader и проверить источники именно этой версии: сохранение/изменение аннотаций, запись статистики, close/suspend/resume, сетевые запросы и механизм фоновой работы. Не считать событие из master гарантированно доступным на устройстве.
-- [ ] Зафиксировать способы сохранять annotation_id и контекст без потери при перезапуске, получать SHA-256 и защищённый случайный device_id, читать конец EPUB, восстанавливать selection после getTextFromXPointers. UUID генерировать из системного источника случайности, не math.random.
-- [ ] Проверить, что транспорт и хеширование книги можно выполнять без длительного блокирования интерфейса; до подтверждения не обещать асинхронность штатного HTTP-вызова.
-- [ ] Записать воспроизводимые проверки с синтетическим EPUB и результаты; неподтверждённое пометить «не проверено». Backend и frontend не ждут физического устройства, но P1 и финальная приёмка требуют совместимого адаптера.
-- [ ] Коммит `docs(plugin): record KOReader compatibility baseline`.
+```text
+server/config.js                    validated instance settings
+server/app.js                       createApp({db,config}), no listener
+server/db.js                        standard pg + transaction on one client
+server/auth.js                      owner sessions / scoped device credentials
+server/sync.js                      packet validation, dedup, section versions
+server/uploads.js                   durable chunks + atomic commit
+server/queries.js                   reading reports / note search
+server/books.js                     group, split, matches, goals
+server/content.js                   versioned paged text and private covers
+server/start.js                     standalone entry
+server/adapters/vercel.js            optional platform lifecycle integration
+db/migrations/*.sql                 standard PostgreSQL schema
+scripts/{migrate,setup-owner,export,import}.js
+plugin/kindle-sync.koplugin/{main,_meta,adapter,state,context,reading,outbox,transport,vocabulary}.lua
+public/{index.html,styles.css}
+public/js/{api,app,overview,books,book,annotations,connection,charts}.js
+```
 
-### B1. Основа API, PostgreSQL и авторизация
+Не создавать пустые файлы ради списка. Сохранять функции с одной ответственностью рядом; дополнительные модули только при появлении конкретной необходимости.
 
-**Владелец:** backend. **Files:** `server/app.js`, `server/db.js`, `server/auth.js`, `db/migrations/001-initial.sql`, `scripts/migrate.js`, `scripts/setup-owner.js`, `index.js`, `dev.js`, `package*.json`, `.env.example`, `tests/server/auth.test.js`.
+## P0 — Прототип совместимости и стабильной метрики
 
-**Interfaces:** `createApp({db,config}) → Express.Application`; `db.withTransaction(async client => result) → Promise<result>`; `requireOwner` и `requireDevice` — независимые middleware. Внутри транзакции все SQL используют один client. Для tests нужен отдельный `TEST_DATABASE_URL`; миграции используют direct URL, runtime — pooled URL Neon.
+**Owner:** plugin. **Files:** `plugin/COMPATIBILITY.md`, `tests/plugin/fixtures/`, `tests/plugin/prototype/`. **Consumes:** фактическая версия KOReader и синтетические EPUB/MOBI/PDF. **Produces:** проверенные hooks/API, форматы locators, native timing provenance и образцы данных для C0.
 
-- [ ] Написать auth-тесты: анонимный read=401; device token на read=403; неверный device_id=403; после повторного createApp с той же БД сессия остаётся действительной; logout отзывает её; небезопасный Origin/отсутствующий CSRF не допускает cookie-authorized mutation.
-- [ ] Запустить `node --test tests/server/auth.test.js`, увидеть падение на отсутствующей реализации; реализовать приложение и миграции минимально для этих сценариев.
-- [ ] Добавить PostgreSQL-таблицы owner/sessions/devices/books/section_versions/annotations/daily_statistics/uploads/upload_chunks; уникальные ключи включают устройство там, где оно является частью идентичности. Сессии имеют срок 14 дней, в БД хранятся хеши случайных секретов, пароли — salted scrypt; cookie Secure в HTTPS, HttpOnly, SameSite=Strict. Login ограничен пятью неуспешными попытками за 15 минут на username+IP; счётчики общие для инстансов.
-- [ ] Первый созданный device token ещё не привязан к UUID: первый валидный snapshot или upload manifest атомарно привязывает его к device_id. Покрыть гонку двух разных UUID тестом: связывается только один, второй получает 403. Ротация сохраняет прежнюю привязку и историю, отзывает старый секрет. Переустановка с новым UUID требует отдельной явной процедуры переноса, не автоматического слияния.
-- [ ] Подключить `pg` с малым пулом max=2 и управлением жизненным циклом через `@vercel/functions`; runtime credentials только из env. Добавить `npm run dev`, `npm run db:migrate`, `npm run test:server`, `npm run test:contracts`. Первый setup владельца — явная команда с интерактивным вводом, не опубликованный endpoint и не пароль в аргументах процесса.
-- [ ] Проверить PASS на реальной тестовой PostgreSQL, включая отсутствие секретов в ответах/логах. Наличие только mock DB не подтверждает транзакции и сохранность сессий.
-- [ ] Коммит `feat(server): add database and owner/device authentication`.
+- [ ] Определить установленную версию; проверить её исходники и доступные библиотеки. Исследовать hook ordering: annotation save/edit, native-stat flush, rerender, close/suspend/resume, фоновые запросы и SHA-256. Не считать master проверкой устройства.
+- [ ] Написать сначала падающие проверки: при одинаковом тексте после font change объём неизменен; повтор в день=0 новых символов; прыжок не считает промежуток. Прототип объединяет интервалы просмотренного текста внутри source/day; фиксирует правило пробелов/Unicode и версию измерения.
+- [ ] Для PDF сопоставить native text boxes с видимой областью: crop/zoom, поворот, прокрутка, reflow, колонки, частично видимые слова. Отдельно получить текст исходных страниц N−1/N/N+1 для контекста. Не подменять видимую область полной страницей в статистике.
+- [ ] Подтвердить native active intervals и способ запоминать уже начисленные slices без независимого таймера. Проверить min/max настройки установленной версии, полночь и несколько flush одной неподвижной страницы.
+- [ ] Проверить стабильные UUID/контекст после перезапуска и редактирования, восстановление engine selection, конец книги, pending/backfill, фоновые запросы без длительного блокирования UI.
+- [ ] Записать результаты и замеры. Если стабильный объём/тайминг/PDF не подтверждён, представить конкретный блокер и варианты пользователю до основного построения API; не уменьшать согласованные требования молча.
+- [ ] Коммит `test(plugin): establish verified reading and context primitives`.
 
-### B2. Атомарные снимки и загрузка частями
+## C0 — Заморозить контракт и инструменты для трёх исполнителей
 
-**Владелец:** backend. **Files:** `server/snapshots.js`, `server/uploads.js`, `tests/server/snapshots.test.js`, `tests/server/uploads.test.js`. **Consumes:** схемы C0, транзакции/auth B1. **Produces:** direct/upload API и `applySnapshot(client, snapshot) → Ack`.
+**Owner:** координатор. **Files:** `contracts/{sync,uploads,events,read-api}.schema.json`, `contracts/examples/`, `tests/contracts/schema.test.js`, `docs/api-v1.md`, исходные package/lockfile. **Consumes:** P0 и data-spec. **Produces:** точные payload/ack/error/read schemas и общий commit.
 
-- [ ] Написать проверки: duplicate annotation_id отклоняется; повтор=duplicate без роста totals; старый seq не перезаписывает новый; более старые statistics применяются после нового annotations; одинаковый seq с другим JSON=409 с rollback всего запроса; порядок ключей JSON не создаёт конфликт.
-- [ ] Добавить тест гонки двух запросов одной книги, в том числе при отсутствии её строки до обоих запросов; итог всегда соответствует большему seq каждой секции. Запустить тесты и увидеть ожидаемые падения.
-- [ ] Реализовать проверку всего payload до применения, сериализацию обновлений одной книги и версии по секциям. Части — bytea в PostgreSQL; прогресс загрузки не хранится в памяти функции.
-- [ ] Написать upload-тесты: оборванная загрузка не меняет заметки; повтор частей безопасен; другая часть на тот же индекс=409; неверные hash/длина/идентичность=ошибка без записи; потерянный ответ commit и повтор дают корректный ack; TTL=410; больше двух pending uploads/невалидный размер не расходуют неограниченное хранилище. JSON может содержать UTF-8 символ, разделённый границей частей: декодировать только после сборки байтов.
-- [ ] В одном commit-транзакционном пути применить снимок и сохранить результат загрузки. Ответить ack только после COMMIT. Разделять лимит HTTP 1 МиБ и логический снимок 16 МиБ; клиентские ошибки сохраняют определённые в спецификации коды.
-- [ ] Проверить `node --test tests/server/snapshots.test.js tests/server/uploads.test.js` — PASS с настоящей PostgreSQL. Коммит `feat(server): accept idempotent snapshots and resumable uploads`.
+- [ ] Зафиксировать sync/config, sync, chunk upload, source covers, vocabulary/legacy packets и все owner routes. Точно описать typed locators, sealed reading events, section versions и поля конфигурационного handshake.
+- [ ] Описать ключи idempotence packet/event, семантический JSON hash, независимые версии snapshot sections и exact ack keys. Для owner reset задать tombstones/reset barrier и подтверждаемые client statuses: повтор старой очереди не воскрешает данные, новые наблюдения остаются допустимыми.
+- [ ] Определить read API: books/source switch, daily/summary statistics, sessions/cycles, goals, vocabulary, active/archive annotations, group/split/match actions, device setup. Списки — cursor + byte budget; preview до 500 символов; full content частями <=256 КиБ с привязкой к версии. Дневной ряд <=366 дней, all-time summary без неограниченного массива days.
+- [ ] Манифест/части: direct JSON <=1 МиБ, envelope <=16 МиБ, raw chunks <=1 МиБ, TTL семь дней, максимум две открытые загрузки/device. Повтор части/commit безопасен, UTF-8 декодируется после сборки, 410 возобновляется новым upload_id со старым envelope/seq.
+- [ ] Создать только синтетические fixtures: несколько форматов одной книги, другой перевод, неоднозначные metadata, одинаковые quotes, source switch, rereading zero volume, pending/backfill, архив, legacy, vocabulary unavailable, leap day и разные IANA-зоны/DST. Большие данные генерируются из малых шаблонов, настоящие книги не коммитятся.
+- [ ] Создать исходный package с runtime dependencies и Playwright dev dependency, lockfile и scripts `test:contracts`, `test:server`, `test:panel`, `test:e2e`. Tests используют node:test и Playwright configs в своих tests-каталогах. Каждый исполнитель делает npm ci в своём worktree.
+- [ ] Сначала увидеть падения `npm run test:contracts`, затем PASS на валидных fixtures и ожидаемые отказы invalid dates/seq/locators/kind/timezone. Уникальность IDs и межполевые проверки закрепить также в backend validator tests.
+- [ ] Коммит `chore: freeze portable sync contracts and test fixtures`; передать SHA всем трём исполнителям. После этого изменение схем — только общий checkpoint.
 
-### B3. Read API, статистика, поиск, обложки и экспорт
+## B1 — Переносимая конфигурация, PostgreSQL и авторизация
 
-**Владелец:** backend. **Files:** `server/queries.js`, `server/covers.js`, `scripts/export.js`, `scripts/import.js`, `tests/server/queries.test.js`, `tests/server/covers.test.js`, `tests/server/backup.test.js`. **Consumes:** persisted B2, C0 read schemas. **Produces:** API для F1/F2 и переносимый экспорт/восстановление.
+**Owner:** backend. **Files:** config/app/db/auth/start, Vercel adapter/entry, migrations, setup-owner/migrate, `.env.example`, Docker/compose, `tests/server/{config,auth,portability}.test.js`. **Interfaces:** `loadConfig(env) -> Config`; `createApp({db,config}) -> Express.Application`; `db.withTransaction(callback) -> Promise<result>`.
 
-- [ ] Написать проверки точных значений из fixtures: суммы 1800+1200=3000 секунд; пустые дни заполнены нулями; границы недели/месяца и UTC+5; страница, прочитанная в разные дни, участвует в обоих днях; reset заменяет, а не добавляет статистику. Для 29 февраля есть одна корректная клетка. Период больше 366 дней с include_days=true получает 400, с false — полные totals и days=[]; totals равны сумме тех же дней при запросах по годам.
-- [ ] Написать поиск/изоляцию: фильтр книги, has_note, Unicode, кавычки в q, пагинация без пропусков/дублей; список не содержит full context, detail содержит метаданные, а content API возвращает весь текст частями. Проверить поле больше 1 МиБ с многобайтными символами и изменение заметки между content-страницами. Запустить тесты до реализации.
-- [ ] Реализовать параметризованный SQL и индексы; текущие проценты и исторические ряды не смешивать. Все mutation по cookie требуют CSRF. Последний успех синхронизации показывать отдельно от last_seen запроса.
-- [ ] Реализовать JPEG/WebP miniatures в bytea, проверку сигнатуры, максимум 64 КиБ, приватный GET с ETag, отсутствие обложки=404. Проверить, что загрузка требует device bearer, а чтение — owner session.
-- [ ] Экспортировать данные приложения и обложки командой `npm run export -- --output <path>`; токены/пароли/сессии исключить. Реализовать `npm run import -- --input <path>` только для пустых таблиц данных приложения, сохраняя IDs и версии секций; непустую цель отклонить без изменений. Проверить round trip в отдельную тестовую БД: число книг/заметок/дней, содержимое контекста, binary cover и totals совпадают. Credentials владельца и новый device token настраиваются заново с сохранением импортированного device_id. Экспорт не заменяет миграции и SQL backup.
-- [ ] Проверить PASS через `npm run test:server`; коммит `feat(server): expose reading dashboard queries and export`.
+- [ ] Написать failing tests: отсутствующая DATABASE_URL, неверные origin/timezone/port/proxy; сообщения содержат имя, но не значение секрета. Инициализированная policy отличается от env — явный отказ без перепроекции истории.
+- [ ] Написать auth tests: anonymous read=401, device token на owner read=403, чужой device_id=403; одна привязка при гонке двух UUID; rotation отзывает старый токен. Сессия сохраняется после createApp/restart, logout отзывает её, mutation без CSRF/с чужим Origin отвергается.
+- [ ] Реализовать стандартную PostgreSQL-схему: instance/device/owner/session, sources/book groups/memberships, annotation versions/archive, immutable events, snapshot versions, vocabulary, upload manifests/chunks, goals и reset barriers. Проверить ключи/транзакции на реальной тестовой PostgreSQL.
+- [ ] Конфиг — один модуль и dependency injection; frontend relative URLs; runtime не требует Neon API. Vercel imports только в адаптере, standalone не открывает Vercel SDK. pg transaction использует один client, connections освобождаются.
+- [ ] Добавить приватный bootstrap owner: salted scrypt, случайные hashed device/session secrets, session TTL 14 дней, HttpOnly/SameSite cookie/Secure на HTTPS. Login throttle пять неудач за 15 минут username+IP в общей БД; никакого default owner/password.
+- [ ] Добавить dev/start/migrate/setup команды и контейнерный пример. Секреты инжектируются извне; explicit COPY и .dockerignore исключают env/данные. Проверить одно приложение с двумя разными DB URLs/origins/timezones без source edits.
+- [ ] Проверка `npm run test:server` на обычной PostgreSQL — PASS. Коммит `feat(server): add portable PostgreSQL application and auth`.
 
-### P1. Извлечение аннотаций и неизменяемого контекста
+## B2 — Приём, история, архив и большие данные
 
-**Владелец:** plugin. **Files:** `_meta.lua`, `main.lua`, `adapter.lua`, `context.lua`, `state.lua` внутри `plugin/kindle-sync.koplugin/`, `tests/plugin/run.lua`, `tests/plugin/context_test.lua`. **Consumes:** P0, Snapshot C0. **Produces:** `adapter.captureBook(document) → book_id, book`; `adapter.captureAnnotations(document) → annotations`; `context.capture(document, annotation) → context` с обязательными статусами; `state.withTransaction(callback)` для собственной SQLite, используемой также P2.
+**Owner:** backend. **Files:** sync/uploads/content, `tests/server/{sync,uploads,archive,reset}.test.js`. **Consumes:** C0/B1. **Produces:** атомарный packet/event API, persisted history и versioned content.
 
-- [ ] Написать Lua-проверки: первая/последняя страница; многостраничное выделение; пустая иллюстрированная страница; сноска и граница главы; одинаковые цитаты имеют разные IDs; edit note сохраняет context, edit range обновляет его.
-- [ ] Запустить `luajit tests/plugin/run.lua`, убедиться в падении; реализовать нормализацию через адаптер проверенной версии KOReader, без выполнения чужого metadata.lua как входного HTTP-документа.
-- [ ] Сохранять собственные IDs/контекст в state.sqlite3 плагина до публикации в outbox; повторный запуск должен прочитать их. После crash между сохранением штатной заметки и собственной очереди сверка открытой книги заново создаёт недоставленный снимок, при необходимости с pending/backfill. При неясном сопоставлении не присваивать чужой контекст. Ошибку извлечения превратить в pending/unavailable, позднее извлечение — backfill.
-- [ ] Проверить сохранение selection/позиции и отсутствие PageUpdate/GotoPage от извлечения. Стримить SHA-256 файла; изменение содержимого EPUB создаёт новый book_id. Полный MD5/SHA и частичный MD5 статистики не смешивать.
-- [ ] Lua-тесты PASS; реальный адаптер на Kindle проверяется I1. Коммит `feat(plugin): capture annotations with persistent page context`.
+- [ ] Написать tests: duplicate packet/event не добавляет объём/секунды; другой JSON под тем же ID=409; порядок ключей не конфликтует; старый snapshot не побеждает новый; старое независимое progress не теряется после нового annotations. Проверить concurrent first insert/update одной source.
+- [ ] Проверить full annotations=[] архивирует, omitted section/ошибка источника — нет. Архив содержит текст/note/context; одинаковые quotes другого source не затрагиваются. Native reset не очищает ledger. Owner reset + старая очередь не воскрешают удалённое.
+- [ ] Реализовать validation, packet/event dedup и section versions в транзакциях, COMMIT до ack. Не хранить upload progress в памяти/локальных файлах функции.
+- [ ] Upload tests: обрыв/перезапуск/повтор commit; неверные hash/размер/identity; отличающаяся часть на тот же index; UTF-8 через границу частей; TTL=410; превышение open-upload/byte limits. Частичный набор не заменяет live annotations.
+- [ ] Реализовать private cover JPEG/WebP <=64 КиБ и content cursors: длинный текст целиком восстанавливается из частей, изменение версии даёт 409 content_changed, пользовательский HTML остаётся текстом.
+- [ ] Relevant server tests — PASS с реальной PostgreSQL. Коммит `feat(server): persist idempotent reading history and annotation archive`.
 
-### P2. Долговечная очередь и сетевой транспорт
+## B3 — Все отчёты, группировка и backup/restore
 
-**Владелец:** plugin. **Files:** `outbox.lua`, `transport.lua`, настройки в `main.lua`, `tests/plugin/outbox_test.lua`, `tests/plugin/transport_test.lua`. **Consumes:** captures P1, C0 transport. **Produces:** `outbox.enqueue(snapshot_without_seq) → persisted_snapshot`; `transport.flush(outbox, network, clock) → result`. Счётчик и immutable payload сохраняются одной локальной транзакцией в собственной SQLite плагина, не в базе KOReader.
+**Owner:** backend. **Files:** queries/books, export/import scripts, `tests/server/{reports,grouping,backup}.test.js`. **Consumes:** B2/C0. **Produces:** owner read/mutation API для всех четырёх экранов.
 
-- [ ] Написать проверки crash/restart между seq и записью: потерянный ack не удаляет запись; новый запуск повторяет те же payload/seq; чужие identity, отсутствующая секция ack, неизвестный статус и malformed 200 не удаляют запись.
-- [ ] Написать проверки таймеров: 5/15/60/300 секунд, Retry-After при 429, 401 приостанавливает отправку, 400/403/409/413 сохраняют видимую ошибку; Wi-Fi off и suspend не запускают сеть. Запустить Lua-тесты до реализации.
-- [ ] Реализовать один запрос за раз, TLS с проверкой сертификата, сетевой timeout 15 секунд и ненарушающий интерфейс механизм по результату P0. Заметки объединяются короткой паузой до целевой доставки 5 секунд при готовой сети; это измеряемая цель, не гарантия.
-- [ ] Для payload больше 1 МиБ использовать точные сохранённые UTF-8 байты, манифест и части C0. Возобновление может повторно отправить уже принятые части. После 410 начать новый upload с прежними payload/seq; после полного ack удалить запись. Данные больше логического лимита удержать с явной ошибкой, не обрезать.
-- [ ] Добавить меню URL/token, «Синхронизировать сейчас», количество ожидающих записей, последний успех и ошибку. Не копировать credentials в diagnostics. Проверить queue/transport Lua-тестами — PASS.
-- [ ] Коммит `feat(plugin): persist sync queue and retry HTTPS uploads`.
+- [ ] Написать exact fixture assertions: 4000 chars=2 pages; rerender не меняет прошлое; одна source повторно=0 новых, другая source может начислить снова; session reread имеет время и 0 нового объёма; UTC-midnight split по разным reporting zones; leap day и нулевые дни.
+- [ ] Проверить daily/month/year/all-time, current streak, average по прошедшим календарным дням, day record, bounded calendar и totals-only query. Legacy не смешивается; vocabulary unavailable не очищает прежний успешный snapshot.
+- [ ] Merge/split tests сохраняют source annotations/positions/events и исходные IDs; ambiguous match требует owner action; переводы раздельны. Annual goal считает grouped unique books, повторный cycle не добавляет новую уникальную книгу; карточка использует последнее открытие источника, не последний network arrival.
+- [ ] Реализовать параметризованный SQL, индексы, pagination/search и owner mutations. Не соединять процентные ряды разных источников линией и не восстанавливать отсутствующие прошлые проценты.
+- [ ] Добавить export/import данных/обложек без credentials. Import допускается только в пустые таблицы данных; восстанавливает IDs/versions/policy и требует нового приватного bootstrap credentials. Round-trip в другой PostgreSQL сохраняет тексты, counts и totals; непустая цель не меняется.
+- [ ] Relevant server tests — PASS. Коммит `feat(server): add grouped reading reports goals and restore`.
 
-### P3. Дневная статистика, прогресс, импорт и обложки
+## P1 — Учёт чтения, аннотации, контекст и словарь
 
-**Владелец:** plugin. **Files:** `statistics.lua`, `adapter.lua`, `main.lua`, `tests/plugin/statistics_test.lua`. **Consumes:** P0, P2, определения дневных данных в спецификации. **Produces:** `statistics.capture(mapping, timezone) → statistics | unavailable`; независимые секции очереди, миниатюра для cover API.
+**Owner:** plugin. **Files:** adapter/state/context/reading/vocabulary, `tests/plugin/run.lua`, `tests/plugin/{reading,context,vocabulary}_test.lua`. **Consumes:** P0/C0. **Produces:** source captures, sealed events и successful snapshots.
 
-- [ ] Написать проверки: seconds из page_stat_data, pages из пересчитанного page_stat; два чтения одной страницы в день не удваивают pages; прыжок 10→100 не добавляет 90 страниц; UTC+5, интервал через полночь; изменение шрифта меняет pages, но не seconds.
-- [ ] Проверить импорт всей доступной истории открытой книги и сохранение сопоставления native stat key → SHA-256; после удаления EPUB сопоставление остаётся. Пустая совместимая БД отправляет очистку, отсутствующая/повреждённая/неподдерживаемая — unavailable без очистки. Сначала увидеть падения тестов.
-- [ ] Реализовать вызов после штатного flush статистики, минутный progress, пятиминутную проверку всех сопоставленных книг и close/suspend queueing. Не отправлять full annotations вместе с каждым progress. Аннотации недоступной книги не превращать в [].
-- [ ] Извлекать обложку через API KOReader и уменьшать до JPEG/WebP <=64 КиБ локально. Отправлять отдельно только при изменении; если поддерживаемого конвертера нет, оставить текстовую заглушку, без незаметной загрузки полного EPUB.
-- [ ] Проверить Lua-тесты — PASS; записать инструкцию установки/обновления/удаления плагина с сохранением резервной копии и очереди. Коммит `feat(plugin): sync reading statistics progress and covers`.
+- [ ] Написать Lua assertions на P0 fixtures: visible-range union, jump/zoom/rerender, same-day/new-day reread, UTF-8 characters, source-specific identity и общее grouping-neutral происхождение данных. Запустить `luajit tests/plugin/run.lua` и увидеть падения до production реализации.
+- [ ] Реализовать собственную SQLite: annotation UUID/context, credited ranges, source IDs, sessions/cycles, native credited slices и immutable events. State advance/event/outbox должны иметь одну транзакционную границу; native DB не меняется.
+- [ ] Считать active time через проверенный native adapter, не новый таймер. При reset/native DB unavailable ранее накопленное остаётся; нет повторного начисления одного interval после flush/restart. Report timezone/denominator берутся из authenticated sync profile, не хардкодятся.
+- [ ] Контекст tests: первая/последняя, multipage, chapter/footnote/blank, PDF original neighbours, edit note/range, одинаковые quotes в двух форматах. Сохранять selection/position и не генерировать перелистывания; late context=backfill, failure не теряет note.
+- [ ] Экспортировать saved vocabulary и legacy archive отдельно. Disabled/unavailable источник не выдавать за пустой успешный набор. Миниатюру извлекать/уменьшать локально; файл книги не отправлять.
+- [ ] Lua tests — PASS; аппаратные результаты подтверждаются I1. Коммит `feat(plugin): capture stable reading history notes and vocabulary`.
 
-### F1. Панель: авторизация, обзор, календарь и библиотека
+## P2 — Очередь, протокол и настройки устройства
 
-**Владелец:** panel. **Files:** `public/index.html`, `public/styles.css`, `public/js/api.js`, `app.js`, `overview.js`, `books.js`, `charts.js`, `tests/panel/overview.spec.js`, `tests/panel/playwright.config.js`, `tests/panel/mock-server.js`. **Consumes:** C0 schemas/examples; mock HTTP fixtures до готовности B3. **Produces:** навигация `#/overview`, `#/books`, API client `request(path,{method,body}) → Promise<JSON>` и SVG-компоненты.
+**Owner:** plugin. **Files:** outbox/transport/main/_meta, `tests/plugin/{outbox,transport}_test.lua`, plugin install guide. **Consumes:** P1/C0. **Produces:** plugin distribution без локальных settings/state.
 
-- [ ] Создать test-only mock-server для public/** и routes по fixtures, Playwright webServer config; он не попадает в production. Написать Playwright-проверки на fixtures: 401 переводит на вход; успешный вход открывает обзор; выбранный период меняет цифры/график; пустая библиотека объясняет подключение Kindle; API error имеет повтор, а не нулевые показатели. Сначала увидеть ожидаемые падения.
-- [ ] Сделать четыре карточки метрик первой поставки: страницы, время, цитаты, заметки; серия дней; переключатель день/неделя/месяц/всё время и график 7/14/30 дней. Не рисовать пока годовую цель, слова и исторические проценты фиктивными данными.
-- [ ] Сделать годовой календарь с переключением страниц/времени, годом, подсказками и доступной табличной альтернативой. Проверить 29 февраля, переход года и будущие дни. Для итогов «всё время» использовать include_days=false; график 7/14/30 дней и календарь года получают отдельные ограниченные диапазоны C0.
-- [ ] Сделать список книг с обложкой/заглушкой, названием, автором, текущим процентом и переходом в книгу. Выводить названия/заметки через textContent. Разделить loading/empty/error.
-- [ ] Проверить `npm run test:panel` на ширинах 390 и 1440, клавиатуру и подписи графиков. Коммит `feat(panel): add reading overview heatmap and library`.
+- [ ] Написать crash tests для границ native note/state/queue/ack. После restart недоставленная note обнаруживается; ранее начисленные chars/time не начисляются снова; потерянный ack повторяет прежние bytes/seq. Не удалять запись по malformed 200/чужому instance/source/неполным result keys.
+- [ ] Реализовать один запрос за раз, проверяемый TLS, bounded timeout и проверенный P0 background mechanism. Direct/chunk upload работает с сохранёнными UTF-8 bytes, новый upload_id после 410 не меняет envelope/seq. Oversize удерживается с явной ошибкой.
+- [ ] Проверить retries 5/15/60/300, Retry-After, pause on401 и actionable errors400/403/409/413. Wi-Fi off/suspend не запускают сеть; queue остаётся на диске.
+- [ ] Настройки URL/token — приватные KOReader settings. Fetch profile проверяет instance/policy; смена сервера не должна незаметно отправлять очередь не тому экземпляру. Добавить sync now/status, queue length, last success/error и явные finish/restart cycle actions.
+- [ ] Progress sample раз/минуту плюс границы, sealed reading batches каждые пять активных минут плюс lifecycle flush. Сбор нового текста/контекста не пересылается с каждым минутным progress.
+- [ ] Lua tests — PASS; собрать архив по allowlist исходников, проверить отсутствие private config/state/books. Коммит `feat(plugin): deliver durable portable sync client`.
 
-### F2. Книга, цитаты, контекст и подключение
+## F1 — Обзор, календарь и библиотека
 
-**Владелец:** panel. **Files:** `public/js/book.js`, `annotations.js`, `connection.js`, `tests/panel/annotations.spec.js`, `tests/panel/connection.spec.js`. **Consumes:** F1, detail/search/device API C0. **Produces:** `#/books/{id}`, `#/annotations`, `#/connection`.
+**Owner:** panel. **Files:** public shell/api/app/overview/books/charts, `tests/panel/{playwright.config,mock-server,overview.spec}.js`. **Consumes:** C0 HTTP fixtures. **Produces:** #/overview и #/books без зависимости от готового backend.
 
-- [ ] Написать тест поиска/фильтра книги и наличия заметки; раскрытие контекста запрашивает detail и content API; pending/unavailable/backfill имеют понятные разные подписи; первая/последняя страница не показывают несуществующую соседнюю. Длинный контекст собирается без потери текста, при 409 content_changed чтение начинается с новой версии.
-- [ ] Написать тест с цитатой `<img src=x onerror=...>`: отображается текст, код не исполняется. Ошибка detail-запроса сохраняет открытую цитату и кнопку повтора. Запустить тесты до реализации.
-- [ ] Реализовать карточку книги с временем, pages, active days, дневными столбцами и текущим прогрессом; историческая линия и журнал появятся E1. Галерея цитат показывает обложку, автора, текст выделения, note отдельно и раскрываемые страницы контекста с абзацами.
-- [ ] Реализовать экран подключения: HTTPS URL, создание device token с однократным показом, предупреждение при замене действующего токена, последний успешный sync. Показывать только известные серверу ошибки; сервер не знает длину локальной очереди без отдельной телеметрии.
-- [ ] Проверить `npm run test:panel` — PASS и вручную просмотреть 390/1440 px, длинную русскую цитату и пустую обложку. Коммит `feat(panel): add book notes context and device setup`.
+- [ ] Написать Playwright failing cases: login/401, loading/empty/error/retry, выбранный период, 7/14/30-дневный график, год/високосный день, объём/время heatmap, streak/goal/vocabulary и отсутствие fake zeros у unavailable данных.
+- [ ] Реализовать все agreed cards, year grid и библиотеку grouped books, covers/fallback, last-source progress. Сохранять точные values, округлять только текст интерфейса; conditional pages подписаны явно.
+- [ ] Использовать relative API URLs и test-only mock server. Private env не входит в public/**; HTML/JS не содержит owner instance URL/credentials.
+- [ ] Проверить keyboard/accessibility, табличную альтернативу графику, 390/1440 px. `npm run test:panel` — PASS. Коммит `feat(panel): add complete reading overview and grouped library`.
 
-### I1. Свести три части и проверить на Kindle
+## F2 — Книга, сессии, заметки и управление экземпляром
 
-**Владелец:** координатор; исправления у соответствующих исполнителей. **Files:** `tests/e2e/sync.spec.js`, `tests/e2e/playwright.config.js`, `docs/testing.md`, уточнения compatibility report. **Consumes:** B3, P3, F2. **Produces:** подтверждённый сквозной сценарий или конкретный список блокеров.
+**Owner:** panel. **Files:** book/annotations/connection modules, `tests/panel/{book,annotations,grouping,connection}.spec.js`. **Consumes:** C0/F1. **Produces:** source switch/history, session/cycle views, note/archive/search, grouping/goals/device setup.
 
-- [ ] Проверить ветки/worktree, созданные в C0, и чистоту каждого рабочего дерева. Не запускать параллельные git add/commit в одном checkout; исполнители не коммитят прямо в общий main.
-- [ ] Принимать законченные коммиты поочерёдно в `main` после ревью; не копировать незакоммиченные файлы между worktree и не делать force reset. После всех трёх частей выполнить `npm run test:contracts`, `npm run test:server`, `luajit tests/plugin/run.lua`, `npm run test:panel`.
-- [ ] E2E через настоящий API и тестовую БД: загрузить книгу/notes/stats → открыть панель → найти цитату → раскрыть три страницы → повторить отправку → totals не меняются → изменить/удалить note → панель отражает изменения. Отдельно оборвать большой upload, перезапустить Express, продолжить и повторить commit.
-- [ ] На Kindle с тестовым EPUB проверить выделение/заметку, offline/restart/reconnect, sleep/resume, font change, edit range, первую/последнюю страницы, одинаковые цитаты, очистку статистики и выключенный Wi-Fi. Зафиксировать версию, реальные задержки, размер snapshot и сохранность очереди. До теста сделать копию аннотаций и статистики; пользовательские заметки не удалять ради проверки reset.
-- [ ] Проверить, что извлечение контекста не меняет положение/выделение/статистику, сеть не замораживает управление, а фоновые повторы не будят устройство. Батарею оценить сравнением одинаковых сеансов с плагином и без; точный расход до измерения не обещать.
-- [ ] Коммит `test: verify end-to-end Kindle synchronization`. Если физического доступа нет, явно оставить аппаратную приёмку незавершённой; автоматические тесты не заменяют её.
+- [ ] Написать cases: separate percentage histories/source switch; sessions with0 new volume; explicit cycles and yearly goal; same quote in EPUB/PDF has separate note/context; search/book/note/archive filters и верные active/archive counts.
+- [ ] Реализовать full context через detail/content paging с version restart; pending/unavailable/backfill различаются, book boundaries не создают соседние страницы. Long Russian text и HTML-like quote отображаются безопасно.
+- [ ] Добавить uncertain-match confirmation и reversible merge/split; не скрывать формат/происхождение данных. Owner goal/device/reset actions используют CSRF и понятное подтверждение последствий. Reset соответствует C0 barrier, а не простому DELETE с последующим resurrection.
+- [ ] Connection view: owner-controlled URL/token rotation, однократный показ нового секрета, last sync. Сервер не изображает известной длину локальной очереди Kindle без отдельной телеметрии.
+- [ ] Panel tests — PASS на 390/1440 px и keyboard navigation. Коммит `feat(panel): add source history sessions archive and grouping`.
 
-### I2. Подготовить и развернуть на бесплатных тарифах
+## I1 — Интеграция и аппаратная приёмка
 
-**Владелец:** координатор + backend. **Files:** `vercel.json`, `.env.example`, `docs/deployment.md`, `docs/backup.md`. **Consumes:** согласованный продукт и I1. **Produces:** воспроизводимый deploy, проверенный HTTPS и экспорт.
+**Owner:** координатор, fixes возвращаются соответствующему исполнителю. **Files:** `tests/e2e/`, `docs/testing.md`, compatibility report.
 
-- [ ] Подготовить точные команды migrate/setup/deploy и env: `DATABASE_URL`, `DIRECT_DATABASE_URL` только для миграций, `APP_ORIGIN`; отдельные тестовые credentials не публикуются. Секрет устройства и owner session находятся в БД, не в public/**.
-- [ ] Проверить Node 24.x, default export, static public/**, связь PostgreSQL и выбранные регионы. Выполнить build/deploy validation до публикации, проверить зависимости на известные уязвимости и разобрать существенные runtime-риски.
-- [ ] Подключить аккаунты Vercel/Neon после предоставления доступа владельцем; создавать только Free/Hobby, не подключать платные опции. Внешнее развёртывание выполнять после разрешения на публикацию, когда URL/настройки и результат локальной приёмки можно показать пользователю.
-- [ ] Проверить с Kindle реальный HTTPS, холодный старт и повторы, большой снимок >4,5 МБ через несколько коротких запросов, сессию после redeploy. Проверить экспорт/восстановление в отдельной тестовой базе, записать расход квот. Не требовать периодических запросов для удержания сервиса бодрствующим.
-- [ ] Коммит `docs: document verified deployment and backup procedure` с фактическими результатами; не публиковать credentials.
+- [ ] После ревью переносить законченные коммиты последовательно в main; проверить actual diff/ownership. Выполнить contracts/server/Lua/panel tests, затем `npm run test:e2e` против настоящего приложения и отдельной PostgreSQL, без HTTP mocks.
+- [ ] Сквозной сценарий: несколько форматов → grouping → reading/session/finish/cycle → daily/annual dashboard → notes/context → archive → retry/restart. Проверить reset barriers, source switch, partial upload >4,5 МБ логического payload и повтор commit без double count.
+- [ ] Проверить owner export/import в другой БД; raw native reset не уменьшает сервисную историю. Fixtures и отчёты не содержат настоящих книг/заметок/credentials.
+- [ ] На реальном KOReader повторить P0 краевые случаи, offline/crash/sleep/reconnect, font/zoom changes, слова/обложки, неподдерживаемые данные, выключенный Wi-Fi. Записать версию, фактические delays, размеры, responsiveness и сравнительный battery cost.
+- [ ] Если доступа к устройству нет, аппаратная приёмка остаётся открытой. Не заявлять полный релиз только по mocks. Коммит `test: verify complete cross-component reading workflow`.
 
-### E1. Довести детали четырёх экранов: прогресс, сессии, цель и перечитывание
+## I2 — Публичный репозиторий и два воспроизводимых deploy
 
-**Статус:** запланированный второй этап; детализация и заморозка дополнения к контракту перед началом. Это нельзя молча выдать за готовую часть дневного API.
+**Owner:** координатор + backend. **Files:** README, deployment/backup guides, Docker/compose, `.github/workflows/`, секретные значения только вне Git.
 
-**Владельцы:** те же три субагента, та же модель/effort. **Files:** новое дополнение `docs/reading-history-spec.md`, `contracts/reading-history.schema.json`; после его ревью — `plugin/kindle-sync.koplugin/history.lua`, `server/history.js`, `db/migrations/002-reading-history.sql`, изменения `public/js/book.js`, `overview.js` и соответствующие тесты.
+- [ ] Проверить `git check-ignore` для root/nested env, plugin state, keys/dumps/books/exports и trackability пустого .env.example/migrations. Ввести redacted staged check и full-history secret scanner в CI/release; fetch полной истории, не только последнего commit. Конкретный scanner/version/action фиксируется по официальному источнику.
+- [ ] Проверить образ/архив плагина: populated env, local config, DB dumps, notes и device tokens отсутствуют. Логи/config errors содержат имена настроек, но не значения credentials. Scan failures останавливают публикацию.
+- [ ] Документировать команды install/migrate/bootstrap/start и backup/restore для обычного Node.js/PostgreSQL и контейнера. Развернуть тестовый экземпляр на другом origin/timezone и обычной PostgreSQL без правки source; проверить owner/device separation и HTTPS через выбранный reverse proxy.
+- [ ] Подготовить Vercel/Neon Free guide/env, проверить адаптер, pooling/TLS и миграции. Идентификаторы проектов и credentials принадлежат оператору, не шаблону репозитория.
+- [ ] После разрешения владельца и доступа выкатить подготовленный экземпляр, проверить Kindle HTTPS/cold start/retry и квоты. Платные опции не активируются. Remote/push/publication выполняются только по отдельному поручению, с сохранением выбранного авторства.
+- [ ] Коммит `docs: verify portable deployment and public release checks` с фактическими результатами, не секретами.
 
-- [ ] Сначала согласовать отдельный контракт: timestamped progress, явные границы session, finished/restarted book cycle и годовая цель. Определить паузу, разрывающую session, и поведение пересечения полуночи, crash, изменения часов, возврата назад и очистки штатной статистики. Отдельные новые события не должны удваивать основной учёт reading_seconds.
-- [ ] Проценты хранить по наблюдениям плагина, не вычислять по сумме pages; дни до начала сбора показывать как неизвестные. Источник времени сессий — те же учтённые интервалы KOReader, не второй независимый таймер.
-- [ ] Завершение/начало перечитывания записывать явным действием на Kindle либо подтверждённым штатным событием. Сервер не назначает цикл из одного скачка процента вниз. Годовая цель редактируется в панели; завершённые книги считаются по определению согласованного контракта.
-- [ ] После ревью дополнения повторить схему C0 → три исполнителя → интеграция; написать отдельный короткий исполнимый план, уже с точными payload, endpoints и тестами для этих новых данных. Не запускать исполнителей по расплывчатому описанию E1.
+## Условие готовности и ревью
 
-## Условия завершения и порядок Git
+Все задачи входят в один первый релиз; порядок задач — порядок разработки, не перенос agreed features на неопределённый второй этап. Готовность требует P0/C0, трёх поставок, интеграционных/аппаратных проверок и воспроизводимых способов запуска. Облачная публикация отдельно требует доступа и разрешения.
 
-- Сейчас: начальный коммит исследований и отдельный коммит этого плана в `main`. Remote не создаётся и push не выполняется без адреса и поручения пользователя.
-- После одобрения: координатор фиксирует C0, исполнители коммитят свои изменения в трёх независимых ветках; координатор последовательно интегрирует проверенные коммиты в `main`. Каждая интеграционная точка должна иметь проходящие относящиеся к ней проверки.
-- Первая поставка завершена после B1–B3, P0–P3, F1–F2 и I1. Развёрнутая версия требует I2 и реального доступа. Полное соответствие дополнительным элементам скриншотов требует E1; слово «готово» не должно скрывать его отсутствие.
-- Ожидаемый результат ревью этого документа — согласованный стек, правила страниц, границы двух этапов и метод запуска трёх субагентов. До ответа пользователя implementation не начинается.
-
-## Опорная документация
-
-Проверена при планировании через Context7; перед установкой зависимостей повторно проверить совместимые версии:
-
-- [Express on Vercel](https://vercel.com/docs/frameworks/backend/express), [Node 24.x on Vercel](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
-- [Neon + Express](https://neon.com/docs/guides/express), [выбор подключения](https://neon.com/docs/connect/choose-connection), [транзакции pg](https://node-postgres.com/features/transactions).
-- [Статистика KOReader](https://github.com/koreader/koreader/blob/master/plugins/statistics.koplugin/main.lua), [аннотации](https://github.com/koreader/koreader/blob/master/frontend/apps/reader/modules/readerannotation.lua), [EPUB API](https://github.com/koreader/koreader/blob/master/frontend/document/credocument.lua). Ссылки master служат ориентиром исследования; адаптер фиксируется на проверенной установленной версии P0.
+На текущем этапе выполнены только документация и repository hygiene. Этот план передаётся пользователю на ревью; он ещё не является разрешением запускать implementation.
