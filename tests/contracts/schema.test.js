@@ -185,6 +185,14 @@ test('owner grouping, goals and content reject malformed requests', () => {
   assert.equal(validate('content_query', { field: 'other' }), false);
   assert.equal(validate('annotation_detail', { annotation_id: id }), false);
 });
+
+test('UUID case aliases cannot bypass annotation or event uniqueness', () => {
+  const a = annotation();
+  const snapshot = { ...envelope(), payload: { annotations: { version: 1, value: [a, { ...a, annotation_id: id.toUpperCase() }] } } };
+  assert.equal(validateEnvelope(snapshot), false);
+  const event = segment();
+  assert.equal(validateEnvelope({ ...eventEnvelope(), payload: { events: [event, { ...event, event_id: id.toUpperCase() }] } }), false);
+});
 test('event acknowledgements reject stale while snapshots may be stale', () => {
   const packet = eventEnvelope();
   const response = { ...ack(), kind: 'reading_events', results: { [id]: 'stale' } };
@@ -236,4 +244,24 @@ test('PDF multipage context follows selection endpoints and includes available n
   assert.equal(validateEnvelope(wrap(a)), true);
   assert.equal(validateEnvelope(wrap({ ...a, end: pdf(4) })), false);
   assert.equal(validateEnvelope(wrap({ ...a, context: { ...a.context, total_pages: 3 } })), false);
+});
+
+test('window comparisons preserve arbitrary fractional UTC precision', () => {
+  const wrap = awake_windows => ({ ...eventEnvelope(), payload: { events: [{ ...segment(), awake_windows }] } });
+  assert.equal(validateEnvelope(wrap([{ start: '2024-02-29T00:00:00.0001Z', end: '2024-02-29T00:00:00.0002Z' }])), true);
+  assert.equal(validateEnvelope(wrap([{ start: '2024-02-29T00:00:00.0001Z', end: '2024-02-29T00:00:00.0003Z' }, { start: '2024-02-29T00:00:00.0002Z', end: '2024-02-29T00:00:00.0004Z' }])), false);
+  assert.equal(validateEnvelope(wrap([{ start: '2024-02-29 00:00:00.1Z', end: '2024-02-29T00:00:00.1000Z' }])), false);
+  assert.equal(validateEnvelope(wrap([{ start: '2024-02-29T00:00:00.1Z', end: '2024-02-29 00:00:00.2Z' }])), true);
+});
+
+test('annotation detail reason preview is limited to 500 Unicode characters', () => {
+  const detail = { annotation_id: id, source_id: source, version: 1, kind: 'highlight', archived: false, context_status: 'pending', context_origin: null, context_captured_at: null, context_page_basis: null, context_total_pages: null, context_reason: '😀'.repeat(500) };
+  assert.equal(validate('annotation_detail', detail), true);
+  assert.equal(validate('annotation_detail', { ...detail, context_reason: detail.context_reason + '😀' }), false);
+});
+
+test('annotation detail timestamp is at most 24 characters', () => {
+  const detail = { annotation_id: id, source_id: source, version: 1, kind: 'highlight', archived: false, context_status: 'ready', context_origin: 'creation', context_captured_at: '2024-02-29T00:00:00.123Z', context_page_basis: 'rendered', context_total_pages: 1, context_reason: null };
+  assert.equal(validate('annotation_detail', detail), true);
+  assert.equal(validate('annotation_detail', { ...detail, context_captured_at: '2024-02-29T00:00:00.1234Z' }), false);
 });

@@ -4,10 +4,11 @@
 
 - Updated: 2026-11-02. Harness baseline: `fe8f580`; local integration into `main` was requested by the owner. See Git history for the integration commit.
 - Product: Kindle Sync, one owner's self-hosted reading dashboard and KOReader plugin.
-- The server/authentication foundation has implemented migration/bootstrap/start commands. Sync ingestion, reports, the production plugin and panel are pending; the complete reading service is not ready.
-- H01, C0 shared contracts (`07b0c23`) and B1 portable server/authentication (`129645c`) passed their unit gates and review. B2 ingestion/archive/uploads is active. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verification evidence are in [feature_list.json](feature_list.json).
-- Tests: run `make check` for the current result and coverage; the command records H01/C0 evidence only after all checks succeed.
-- Latest combined gate:22 Python,29 contract and37 server unit tests passed. Python combined statement/branch coverage:98.10%; contract JavaScript:100%lines,98.14%branches,100%functions; server/entry JavaScript:97.07%lines,91.89%branches,92.77%functions. These do not measure SQL, real PostgreSQL or device/deployment behavior.
+- The server/authentication foundation and sync ingestion/archive have implemented migration/bootstrap/start commands. Reports, the production plugin and panel are pending; the complete reading service is not ready.
+- H01, C0 shared contracts (`07b0c23`), B1 portable server/authentication (`129645c`) and B2 ingestion/archive/uploads passed their unit gates and review. Further P0 owner-run observations are deferred until the assembled application is ready. Machine-readable states and verifier-written evidence are in [feature_list.json](feature_list.json).
+- B2 continuation used the requested gpt-6.1-terra/high implementer and independent reviewer. Four Important findings were fixed across two scoped review rounds; all are addressed, with no new actionable breakage. See Git history for the B2 commit after baseline `5cd6d18`.
+- Tests: run `make check` for the current result and coverage; the command records enabled feature evidence only after all checks succeed.
+- Latest combined gate:24 Python,33 contract and74 server unit tests passed. Python combined statement/branch coverage:98.10%; contract JavaScript:100%lines,98.26%branches,100%functions; server/entry JavaScript:98.11%lines,91.06%branches,94.59%functions. These do not measure SQL, real PostgreSQL or device/deployment behavior.
 
 ## Done
 
@@ -22,6 +23,7 @@
 - The fixed C0 unit command participates in the combined gate; failures leave the registry unchanged. Cache/temp settings for child processes stay in the project on P:.
 - B1 verifier dispatch was kept disabled until review. Harness tests went RED then GREEN for the server gate, unknown-command rejection and all-or-nothing evidence after contract success/server failure.
 - B1 is now reviewed and registered: validated configuration/policy, PostgreSQL schema/migrations, owner/device authentication, private bootstrap, standalone/provider entry points and container examples. Review fixes cover initialization recovery, safe token rotation, throttle Retry-After and expired-failure cleanup. The verifier recorded passing only after the combined gate succeeded.
+- B2 is reviewed and registered: transactional packet/event deduplication, independent snapshots, global source-owned annotations, archive/reactivation, durable uploads, private covers/content and reset barriers. Review fixes preserve ready context, retain monotonic content versions across reset, compare arbitrary fractional timestamps precisely and bound detail metadata while preserving complete paged context. The shared B1/B2 server gate runs once.
 
 ## Blocked
 
@@ -41,8 +43,8 @@
 
 ## Next steps
 
-1. Proceed to B2 idempotent ingestion, durable uploads, annotation archive/content and reset barriers under the one-active-feature rule. Existing approved dependencies suffice; no additional download is authorized.
-2. Extend the unit verifier to B2 only after its delivery/review; keep SQL persistence and device evidence distinct from unit coverage.
+1. Proceed to B3 reports, grouping, goals and backup/restore under the one-active-feature rule. Existing approved dependencies suffice; no additional download is authorized.
+2. Add profile-dependent allocation recomputation at ingestion in B3 before release; B2 currently certifies structural validation only. Keep SQL persistence and device evidence distinct from unit coverage.
 3. Defer the consolidated owner-run Kindle checklist to I1. Keep publication/deployment separate.
 
 At each handoff update this file with verified results, blockers and the next concrete action. `passing` is written only by a verifier with an implemented gate; later sync/plugin/panel features have not passed yet.

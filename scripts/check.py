@@ -43,7 +43,7 @@ def verify(root):
     harness = next((item for item in items if item["id"] == "H01"), None)
     if harness is None:
         raise ValueError("Register the H01 harness gate before verification")
-    unit_gates = {"C0": "test:contracts", "B1": "test:server"}
+    unit_gates = {"C0": "test:contracts", "B1": "test:server", "B2": "test:server"}
     enabled = []
     for identity, script in unit_gates.items():
         item = next((entry for entry in items if entry["id"] == identity), None)
@@ -59,7 +59,7 @@ def verify(root):
          "discover", "-s", "tests/unit", "-p", "test_*.py"],
         [sys.executable, "-B", "-m", "coverage", "report", "--fail-under=90"],
     ]
-    for item, script in enabled:
+    for script in dict.fromkeys(script for _, script in enabled):
         commands.append(["npm.cmd" if sys.platform == "win32" else "npm",
                          "run", script])
     commands.append(["git", "diff", "--check"])

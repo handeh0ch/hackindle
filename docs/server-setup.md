@@ -1,6 +1,6 @@
 # Server foundation setup
 
-B1 implements configuration, migrations, owner/device authentication and entry points. Sync ingestion, reports, the panel and the production plugin are not implemented yet. These are foundation commands, not a verified deployment guide. Unit tests use a database boundary double; no real PostgreSQL, container or cloud deployment has been exercised.
+B1 implements configuration, migrations, owner/device authentication and entry points. B2 adds sync ingestion, uploads, annotation archive/content, private covers and reset barriers. Reports, the panel and the production plugin are not implemented yet; profile-dependent accounting validation remains B3 work before release. These are foundation commands, not a verified deployment guide. Unit tests use a database boundary double; no real PostgreSQL, container or cloud deployment has been exercised.
 
 ## Prerequisites and private configuration
 
@@ -26,7 +26,7 @@ The [Node environment-file option](https://nodejs.org/docs/latest-v22.x/api/cli.
 
 Migrations run transactionally under a PostgreSQL advisory lock. Bootstrap requires an interactive private terminal and hides username/password input. It creates a single owner and refuses to replace an existing one. There are no default credentials; this work has not bootstrapped an actual account.
 
-Implemented HTTP routes are login, session refresh, logout, device-token rotation and authenticated device sync configuration. Device credentials cannot use owner routes. A rotated token is returned once through the authenticated owner API; it is not printed in server logs. Other owner reads and sync writes are later milestones and currently return no successful implementation. See [API v1](api-v1.md) for the handshake and scopes.
+Implemented HTTP routes are login, session refresh, logout, device-token rotation, authenticated device sync configuration, envelope ingestion, durable upload/chunk/commit, source cover upload, private annotation detail/content/cover reads, device status and owner reset. Device credentials cannot use owner routes. A rotated token is returned once through the authenticated owner API; it is not printed in server logs. Library/report/list/grouping/goal routes are later milestones. See [API v1](api-v1.md) for the handshake and scopes.
 
 ## Provider and container entry points
 

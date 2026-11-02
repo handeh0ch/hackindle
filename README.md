@@ -2,7 +2,7 @@
 
 A planned self-hosted reading dashboard and KOReader plugin: highlights, notes with page context, reading history, sessions and a yearly activity calendar.
 
-**Status:** implementation in progress. Shared contracts and the server/authentication foundation are implemented. Sync ingestion, reports, the production plugin and panel are pending. See [progress](PROGRESS.md) and the [feature registry](feature_list.json).
+**Status:** implementation in progress. Shared contracts, server/authentication, sync ingestion, uploads and annotation archive are implemented and unit-verified. Reports, the production plugin and panel are pending. Real PostgreSQL and device behavior remain unverified. See [progress](PROGRESS.md) and the [feature registry](feature_list.json).
 
 The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + Neon is the initial managed deployment; a standalone Node.js/container deployment with another PostgreSQL server is also required. Each installation has its own configuration, owner and device credentials.
 

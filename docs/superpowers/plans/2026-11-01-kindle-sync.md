@@ -120,12 +120,12 @@ Do not create empty files just to fill the list. Keep functions with a shared re
 
 **Owner:** backend. **Files:** sync/uploads/content, `tests/server/{sync,uploads,archive,reset}.test.js`. **Consumes:** C0/B1. **Produces:** an atomic packet/event API, persisted history and versioned content.
 
-- [ ] Write tests: a duplicate packet/event adds no volume/seconds; different JSON under the same ID=409; key order causes no conflict; an old snapshot does not override a new one; older independent progress is not lost after newer annotations. Verify concurrent first insert/update for one source.
-- [ ] Verify that full annotations=[] archives items, while an omitted section/source error does not. The archive contains text/note/context; identical quotes from another source are unaffected. Native reset does not clear the ledger. Owner reset + an old queue must not resurrect deleted data.
-- [ ] Implement validation, packet/event dedup and section versions in transactions, with COMMIT before ack. Do not store upload progress in function memory/local files.
-- [ ] Upload tests: interruption/restart/repeated commit; invalid hash/size/identity; a different chunk at the same index; UTF-8 across chunk boundaries; TTL=410; open-upload/byte limits exceeded. A partial set does not replace live annotations.
-- [ ] Implement private JPEG/WebP covers <=64 KiB and content cursors: long text is fully reconstructed from chunks, a version change returns 409 content_changed, and user HTML remains text.
-- [ ] Relevant server unit tests and coverage gate — PASS. Commit `feat(server): persist idempotent reading history and annotation archive`.
+- [x] Write tests: a duplicate packet/event adds no volume/seconds; different JSON under the same ID=409; key order causes no conflict; an old snapshot does not override a new one; older independent progress is not lost after newer annotations. Verify concurrent first insert/update for one source.
+- [x] Verify that full annotations=[] archives items, while an omitted section/source error does not. The archive contains text/note/context; identical quotes from another source are unaffected. Native reset does not clear the ledger. Owner reset + an old queue must not resurrect deleted data.
+- [x] Implement validation, packet/event dedup and section versions in transactions, with COMMIT before ack. Do not store upload progress in function memory/local files.
+- [x] Upload tests: interruption/restart/repeated commit; invalid hash/size/identity; a different chunk at the same index; UTF-8 across chunk boundaries; TTL=410; open-upload/byte limits exceeded. A partial set does not replace live annotations.
+- [x] Implement private JPEG/WebP covers <=64 KiB and content cursors: long text is fully reconstructed from chunks, a version change returns 409 content_changed, and user HTML remains text.
+- [x] Relevant server unit tests and coverage gate — PASS. Commit `feat(server): persist idempotent reading history and annotation archive`.
 
 ## Task 5: B3 — All reports, grouping and backup/restore
 

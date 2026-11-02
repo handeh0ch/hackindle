@@ -252,3 +252,31 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify(self.root)
         run.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_ingestion_and_foundation_share_one_server_gate(self, run, output):
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        foundation = feature("B1", "passing")
+        foundation["verification"] = "npm run test:server"
+        foundation["evidence"] = "previous server run"
+        ingestion = feature("B2")
+        ingestion["verification"] = "npm run test:server"
+        self.registry.write_text(json.dumps(self.items + [foundation, ingestion]), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual([c[1:] for c in commands if c[0] in {"npm", "npm.cmd"}],
+                         [["run", "test:server"]])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual([item["state"] for item in saved[-2:]], ["passing", "passing"])
+        self.assertIn("npm run test:server", saved[-1]["evidence"])
+
+    @patch("scripts.check.subprocess.run")
+    def test_unknown_ingestion_verifier_is_not_executed(self, run):
+        ingestion = feature("B2", "not_started")
+        ingestion["verification"] = "untrusted-ingestion-command"
+        self.registry.write_text(json.dumps(self.items + [ingestion]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()

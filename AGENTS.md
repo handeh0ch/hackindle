@@ -5,7 +5,7 @@ Read this file before working in the repository.
 ## Project
 
 Kindle Sync is a planned self-hosted KOReader archive and reading dashboard: notes with page context, reading history, sessions and calendar.
-Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. Shared contracts and the server/authentication foundation are implemented; sync ingestion, reports, the panel and production plugin are pending.
+Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. Shared contracts, server/authentication and sync ingestion/archive are implemented; reports, the panel and production plugin are pending.
 
 ## Commands
 

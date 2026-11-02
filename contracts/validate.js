@@ -26,6 +26,11 @@ export function validate(name, value) {
 }
 
 function unique(values) { return new Set(values).size === values.length; }
+function compareInstant(a, b) {
+  const parts = value => { const [whole, fraction = ''] = value.slice(0, -1).toUpperCase().split('.'); return [whole.slice(0, 10) + 'T' + whole.slice(11), fraction.replace(/0+$/, '')]; };
+  const [aw, af] = parts(a), [bw, bf] = parts(b);
+  return aw < bw ? -1 : aw > bw ? 1 : af < bf ? -1 : af > bf ? 1 : 0;
+}
 function validContext(annotation) {
   const c = annotation.context;
   if (annotation.end !== null && annotation.start.type !== annotation.end.type) return false;
@@ -47,7 +52,7 @@ function validSegment(event) {
   if (event.timing_quality === 'unavailable') return event.native_seconds === null && event.allocation.length === 0 && event.awake_windows.length === 0 && event.native_anchor === null;
   if (event.native_record_id === null || event.provenance === null || event.native_seconds === null || event.allocation.length === 0 || !event.allocation.every((a, i) => i === 0 || event.allocation[i - 1].date < a.date) || event.allocation.reduce((n, a) => n + a.seconds, 0) !== event.native_seconds) return false;
   if (event.timing_quality === 'estimated_native_anchor') return event.native_anchor !== null && event.awake_windows.length === 0;
-  return event.native_anchor === null && event.awake_windows.length > 0 && event.awake_windows.every((w, i) => Date.parse(w.start) < Date.parse(w.end) && (i === 0 || Date.parse(event.awake_windows[i - 1].end) <= Date.parse(w.start)));
+  return event.native_anchor === null && event.awake_windows.length > 0 && event.awake_windows.every((w, i) => compareInstant(w.start, w.end) < 0 && (i === 0 || compareInstant(event.awake_windows[i - 1].end, w.start) <= 0));
 }
 export function validateEnvelope(value) {
   if (!validate('envelope', value)) return false;
@@ -56,12 +61,12 @@ export function validateEnvelope(value) {
   if (value.kind === 'source_snapshot' && value.payload.progress) types.push(value.payload.progress.value.position.type);
   if (value.kind === 'source_snapshot' && value.payload.annotations) {
     const annotations = value.payload.annotations.value;
-    if (!unique(annotations.map(a => a.annotation_id)) || !annotations.every(validContext)) return false;
+    if (!unique(annotations.map(a => a.annotation_id.toLowerCase())) || !annotations.every(validContext)) return false;
     types.push(...annotations.map(a => a.start.type));
   }
   if (value.kind === 'reading_events') {
     const events = value.payload.events;
-    if (!unique(events.map(e => e.event_id)) || !events.every(e => e.source_id === value.source_id && (e.type !== 'reading_segment' || validSegment(e)))) return false;
+    if (!unique(events.map(e => e.event_id.toLowerCase())) || !events.every(e => e.source_id === value.source_id && (e.type !== 'reading_segment' || validSegment(e)))) return false;
     for (const event of events) {
       if (event.type === 'progress_sample') types.push(event.progress.position.type);
       if (event.type === 'reading_segment') types.push(...event.ranges.map(r => r.start.type));

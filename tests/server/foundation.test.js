@@ -208,3 +208,15 @@ test('provider retries rejected initialization while concurrent callers share th
   const a = handler('a', {}), b = handler('b', {}); release();
   assert.deepEqual(await Promise.all([a, b]), ['a', 'b']); assert.equal(calls, 2);
 });
+test('migration runner applies missing known versions in sequence exactly once', async () => {
+  const applied = new Set([1]), executed = [];
+  const db = { withTransaction: async work => work({ query: async (sql, args) => {
+    if (sql.startsWith('SELECT version')) return { rows: applied.has(args[0]) ? [{ version: args[0] }] : [] };
+    if (sql === 'MIGRATION TWO') executed.push(2);
+    if (sql.startsWith('INSERT INTO schema_migrations')) applied.add(args[0]);
+    return { rows: [] };
+  } }) };
+  const versions = [{ version: 1, sql: 'MIGRATION ONE' }, { version: 2, sql: 'MIGRATION TWO' }];
+  await runMigrations(db, versions); await runMigrations(db, versions);
+  assert.deepEqual(executed, [2]);
+});

@@ -1,6 +1,6 @@
 # Product requirements
 
-Status: decisions recorded from the user's design interview on 2026-11-01, including the public-repository requirement. These supersede earlier product assumptions in the research notes. The implementation plan was approved on 2026-11-02; contracts and the server/authentication foundation are implemented, while sync ingestion, reports, the production plugin and panel are pending.
+Status: decisions recorded from the user's design interview on 2026-11-01, including the public-repository requirement. These supersede earlier product assumptions in the research notes. The implementation plan was approved on 2026-11-02; contracts, server/authentication and sync ingestion/archive are implemented, while reports, the production plugin and panel are pending.
 
 ## Product and scope
 

@@ -1350,7 +1350,8 @@
             {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "Z$",
+              "maxLength": 24
             },
             {
               "type": "null"
@@ -1384,7 +1385,8 @@
         "context_reason": {
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "maxLength": 500
             },
             {
               "type": "null"

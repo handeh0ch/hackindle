@@ -5,7 +5,7 @@ function cookie(req) {
   const matches = parts.filter(part => part[0] === 'kindle_sync_session' && part.length === 2);
   return matches.length === 1 ? matches[0][1] : '';
 }
-function bearer(req) { return /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.get('authorization') ?? '')?.[1] ?? ''; }
+export function bearer(req) { return /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.get('authorization') ?? '')?.[1] ?? ''; }
 export function createHandlers({ auth, config, profile }) {
   const options = { httpOnly: true, sameSite: 'lax', secure: config.secureCookies, path: '/' };
   const allowed = req => req.get('origin') === config.origin;
