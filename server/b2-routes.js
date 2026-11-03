@@ -8,9 +8,15 @@ import { createContentService } from './content.js';
 import { createCoverService } from './cover.js';
 import { validate } from '../contracts/validate.js';
 import { vocabulary } from './vocabulary.js';
-import { bookDetail, listBooks } from './books.js';
+import { bookDetail, listBooks, listSources } from './books.js';
 import { mergeBooks, splitBook } from './grouping.js';
 import { listMatches, decideMatch } from './matches.js';
+import { progressHistory } from './progress-history.js';
+import { listAnnotations } from './annotation-list.js';
+import { listCycles } from './cycles.js';
+import { listSessions } from './sessions.js';
+import { statistics } from './reports.js';
+import { safeTotal } from './safe-total.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 function token(req) { const value = bearer(req); if (!value) fail(401, 'unauthorized'); return value; }
@@ -34,7 +40,7 @@ export function createB2Router({ db }) {
       FROM instance WHERE singleton = TRUE`, [year]);
       return result;
     });
-    res.set('Cache-Control', 'no-store').json({ year, target: Number(row.target), completed_unique_books: Number(row.completed_unique_books) });
+    res.set('Cache-Control', 'no-store').json({ year, target: safeTotal(row.target), completed_unique_books: safeTotal(row.completed_unique_books) });
   }
   router.get('/api/v1/owner/goals/:year', goal);
   router.put('/api/v1/owner/goals/:year', goal);
@@ -45,6 +51,13 @@ export function createB2Router({ db }) {
   router.get('/api/v1/owner/matches', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listMatches(db, req.query)); });
   router.post('/api/v1/owner/matches', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await decideMatch(db, req.body)); });
   router.get('/api/v1/owner/books/:id', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await bookDetail(db, req.params.id)); });
+  router.get('/api/v1/owner/books/:id/sources', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listSources(db, req.params.id, req.query)); });
+  router.get('/api/v1/owner/sources/:source/progress', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await progressHistory(db, req.params.source, req.query)); });
+  router.get('/api/v1/owner/annotations', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listAnnotations(db, req.query)); });
+  router.get('/api/v1/owner/cycles', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listCycles(db, req.query)); });
+  router.get('/api/v1/owner/sessions', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listSessions(db, req.query)); });
+  router.get('/api/v1/owner/statistics/daily', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await statistics(db, req.query, true)); });
+  router.get('/api/v1/owner/statistics/summary', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await statistics(db, req.query)); });
   router.post('/api/v1/sync', async (req, res) => { const key = token(req); json(req); res.set('Cache-Control', 'no-store').json(await sync.ingest(key, req.body)); });
   router.post('/api/v1/uploads', async (req, res) => { const key = token(req); json(req); res.status(201).set('Cache-Control', 'no-store').json(await uploads.create(key, req.body)); });
   router.put('/api/v1/uploads/:id/chunks/:index', express.raw({ type: 'application/octet-stream', limit: 1048576 }), async (req, res) => {

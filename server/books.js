@@ -97,3 +97,58 @@ export async function listBooks(db, raw) {
     }
   });
 }
+
+export async function listSources(db, id, raw) {
+  if (!uuid(id)) fail(400, 'invalid_id');
+  id = id.toLowerCase();
+  const request = { ...raw };
+  if (Object.keys(request).some(key => !['cursor', 'limit', 'byte_budget'].includes(key))) fail(400, 'invalid_request');
+  for (const key of ['limit', 'byte_budget']) if (request[key] !== undefined) {
+    if (typeof request[key] !== 'string' || !/^[1-9][0-9]*$/.test(request[key])) fail(400, 'invalid_request');
+    request[key] = Number(request[key]);
+  }
+  if (!validate('list_query', request)) fail(400, 'invalid_request');
+  let after = '';
+  if (request.cursor) {
+    try {
+      const cursor = JSON.parse(Buffer.from(request.cursor, 'base64url').toString('utf8'));
+      if (!Array.isArray(cursor) || cursor.length !== 2 || cursor[0] !== id || !/^[0-9a-f]{64}$/.test(cursor[1]) || encode(cursor) !== request.cursor) throw new Error();
+      after = cursor[1];
+    } catch { fail(400, 'invalid_cursor'); }
+  }
+  const limit = request.limit ?? 50, budget = request.byte_budget ?? 262144;
+  return db.withTransaction(async client => {
+    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    if (!(await client.query('SELECT book_id FROM books WHERE book_id = $1', [id])).rows.length) fail(404, 'book_not_found');
+    const size = `octet_length(s.metadata->>'title') + COALESCE((SELECT sum(octet_length(a) + 2) FROM jsonb_array_elements_text(s.metadata->'authors') a), 0)
+      + COALESCE(octet_length(chosen.progress->'position'->>'value'), 0) + COALESCE(octet_length(chosen.progress->'position'->>'geometry_version'), 0)
+      + COALESCE(jsonb_array_length(chosen.progress->'position'->'boxes'), 0) * 20`;
+    const { rows } = await client.query(`SELECT s.source_id, s.format, CASE WHEN ${size} > $4 THEN NULL ELSE s.metadata->>'title' END AS title,
+      CASE WHEN ${size} > $4 THEN NULL ELSE s.metadata->'authors' END AS authors, CASE WHEN ${size} > $4 THEN NULL ELSE chosen.progress END AS progress,
+      ${size} > $4 AS too_large, s.cover IS NOT NULL AS cover_available,
+      (SELECT e.content->>'occurred_at' FROM events e WHERE e.source_id = s.source_id AND e.content->>'type' = 'session_started'
+        ORDER BY ${eventKey} DESC, e.event_id DESC LIMIT 1) AS last_opened_at
+      FROM sources s JOIN book_sources bs ON bs.source_id = s.source_id ${sampleJoin} ${chosenJoin}
+      WHERE bs.book_id = $1 AND s.source_id > $2 ORDER BY s.source_id LIMIT $3`, [id, after, limit + 1, budget]);
+    const mapped = rows.map(({ too_large, event_progress, ...source }) => source);
+    const complete = { items: mapped, next_cursor: null };
+    if (mapped.length <= limit && !rows.some(row => row.too_large) && Buffer.byteLength(JSON.stringify(complete)) <= budget) return complete;
+    const items = [];
+    for (let i = 0; i < Math.min(limit, mapped.length); i++) {
+      if (rows[i].too_large) {
+        if (!items.length) fail(413, 'item_too_large');
+        return { items, next_cursor: encode([id, mapped[i - 1].source_id]) };
+      }
+      items.push(mapped[i]);
+      const next = i + 1 < mapped.length ? encode([id, mapped[i].source_id]) : null;
+      if (Buffer.byteLength(JSON.stringify({ items, next_cursor: next })) > budget) {
+        items.pop();
+        if (!items.length) fail(413, 'item_too_large');
+        return { items, next_cursor: encode([id, mapped[i - 1].source_id]) };
+      }
+    }
+    const result = { items, next_cursor: items.length < mapped.length ? encode([id, mapped[items.length - 1].source_id]) : null };
+    if (Buffer.byteLength(JSON.stringify(result)) > budget) fail(413, 'item_too_large');
+    return result;
+  });
+}

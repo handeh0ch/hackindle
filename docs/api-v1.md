@@ -28,6 +28,8 @@ The server validates before writes, applies an envelope atomically, and acknowle
 
 The `ack` repeats envelope schema version, instance, device, source, generation, seq and kind and includes `current_reset_generation`, status and exactly one result per supplied snapshot section; events use each event UUID as a result key; vocabulary and legacy use their kind as the sole result key. Normal immutable event results are `applied` or `duplicate`; a changed existing event is 409, and `stale` cannot acknowledge an event. Snapshot section, vocabulary and legacy results may also be `stale`. Obsolete-generation results are `discarded`. The client deletes a queue record only after `matchesAck` succeeds, including all identity and result keys. A malformed 200 is not an acknowledgement. Different content at an existing identity is 409, with no partial writes.
 
+Vocabulary lists and counts identify a saved word by its word and language after JavaScript Unicode default lowercasing. Null language is distinct from any string; whitespace and Unicode normalization forms are preserved. Source metadata does not affect uniqueness. Snapshot version digests still cover the complete supplied content, including source metadata.
+
 ## Reset barrier
 
 `POST /api/v1/owner/reset` accepts `reset_action` and atomically increments the durable instance-wide `reset_generation`, clears service data, and retains generation and identity/tombstone barriers. Old-generation packets receive an `obsolete_discarded` ack: it repeats the packet generation, reports the newer `current_reset_generation`, and marks every expected result `discarded`. They never modify data. A future-generation packet is 409. Old queued content is removed only on a matching discard acknowledgement.

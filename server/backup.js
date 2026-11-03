@@ -1,6 +1,7 @@
 import { SyncError } from './sync.js';
 import { canonicalDigest, validate, validateEnvelope } from '../contracts/validate.js';
 import { createHash } from 'node:crypto';
+import { validAllocation, validReportingInstant } from './allocation.js';
 const tables = {
   books: ['book_id', 'title', 'metadata'],
   sources: ['source_id', 'format', 'metadata', 'cover', 'cover_type', 'reset_generation', 'progress'],
@@ -50,6 +51,7 @@ function validateBackup(snapshot, config) {
   if (snapshot.instance.reporting_timezone !== config.reportingTimezone || Number(snapshot.instance.page_characters) !== config.pageCharacters) fail(409, 'policy_mismatch');
   if (snapshot.device !== null && (!exactKeys(snapshot.device, ['device_id', 'last_sync_at']) || (snapshot.device.device_id !== null && !uuid(snapshot.device.device_id)) || (snapshot.device.last_sync_at !== null && (typeof snapshot.device.last_sync_at !== 'string' || !Number.isFinite(Date.parse(snapshot.device.last_sync_at)))))) fail(400, 'invalid_backup');
   if (!exactKeys(snapshot.tables, Object.keys(tables))) fail(400, 'invalid_backup');
+  if (!Array.isArray(snapshot.tables.vocabulary) || Buffer.byteLength(JSON.stringify(snapshot.tables.vocabulary.map(row => row?.content))) > 16777216) fail(400, 'invalid_backup');
   const envelope = (kind, source, payload) => ({ schema_version: 1, instance_id: snapshot.instance.instance_id, device_id: snapshot.instance.instance_id, reset_generation: 0, seq: 1, captured_at: '2024-01-01T00:00:00Z', kind, source_id: source, payload });
   for (const [table, columns] of Object.entries(tables)) {
     if (!Array.isArray(snapshot.tables[table])) fail(400, 'invalid_backup');
@@ -84,7 +86,7 @@ function validateBackup(snapshot, config) {
       if (table === 'sources' && (!validateEnvelope(envelope('source_snapshot', row.source_id, { metadata: { version: 1, value: row.metadata }, ...(row.progress === null ? {} : { progress: { version: 1, value: row.progress } }) })) || row.metadata.format !== row.format)) fail(400, 'invalid_backup');
       if (table === 'books' && (typeof row.title !== 'string' || !row.metadata || typeof row.metadata !== 'object' || Array.isArray(row.metadata))) fail(400, 'invalid_backup');
       if (table === 'match_decisions' && !['confirm', 'reject'].includes(row.decision)) fail(400, 'invalid_backup');
-      if (table === 'events' && (!validateEnvelope(envelope('reading_events', row.source_id, { events: [row.content] })) || row.content.event_id.toLowerCase() !== row.event_id.toLowerCase() || canonicalDigest(row.content) !== row.digest)) fail(400, 'invalid_backup');
+      if (table === 'events' && (!validateEnvelope(envelope('reading_events', row.source_id, { events: [row.content] })) || row.content.event_id.toLowerCase() !== row.event_id.toLowerCase() || canonicalDigest(row.content) !== row.digest || Number(row.reset_generation) !== Number(snapshot.instance.reset_generation) || !validReportingInstant(row.content.occurred_at, config.reportingTimezone) || (row.content.type === 'reading_segment' && !validAllocation(row.content, config.reportingTimezone)))) fail(400, 'invalid_backup');
       if (table === 'uploads' && (!validate('manifest', row.manifest) || (row.committed_ack !== null && !validate('ack', row.committed_ack)))) fail(400, 'invalid_backup');
       if (table === 'packets' && !validate('ack', row.acknowledgement)) fail(400, 'invalid_backup');
       if (['annotations', 'annotation_versions'].includes(table) && (!validateEnvelope(envelope('source_snapshot', row.source_id, { annotations: { version: 1, value: [row.content] } })) || row.content.annotation_id.toLowerCase() !== row.annotation_id.toLowerCase())) fail(400, 'invalid_backup');

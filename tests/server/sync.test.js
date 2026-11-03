@@ -212,3 +212,17 @@ test('large valid sets of subsecond windows do not exhaust function arguments', 
   Object.assign(event, { native_seconds: 1, awake_windows: Array.from({ length: 70000 }, (_, i) => ({ start: stamp(i * 2), end: stamp(i * 2 + 1) })), allocation: [{ date: '2024-02-29', seconds: 1 }] });
   assert.equal(validAllocation(event, 'UTC'), true);
 });
+
+test('all history event reporting dates remain within the local date domain', async () => {
+  for (const [zone, occurred_at] of [['America/New_York', '0001-01-01T00:00:00Z'], ['Pacific/Kiritimati', '9999-12-31T23:59:59Z']]) {
+    const m = memory(zone), service = createSyncService({ db: m.db, createTx: m.tx });
+    await service.ingest('token', structuredClone(fixture.envelopes[0]));
+    const packet = structuredClone(fixture.envelopes[3]), segment = packet.payload.events[0];
+    Object.assign(segment, { occurred_at, timing_quality: 'unavailable', native_seconds: null, native_record_id: null, provenance: null, awake_windows: [], native_anchor: null, allocation: [] });
+    await assert.rejects(service.ingest('token', packet), error => error.code === 'invalid_allocation');
+    const lifecycle = { event_id: segment.event_id, source_id: segment.source_id, session_id: segment.session_id, occurred_at, type: 'session_started', cycle_id: segment.session_id };
+    packet.payload.events = [lifecycle];
+    await assert.rejects(service.ingest('token', packet), error => error.code === 'invalid_allocation');
+    assert.deepEqual(m.state().events, {});
+  }
+});

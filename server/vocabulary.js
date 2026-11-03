@@ -1,5 +1,6 @@
 import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
+import { vocabularyIdentity } from './vocabulary-identity.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 function parseQuery(raw) {
@@ -21,7 +22,7 @@ function cursorValue(cursor) {
     return value;
   } catch { fail(400, 'invalid_cursor'); }
 }
-export async function vocabulary(db, raw) {
+export async function vocabulary(db, raw, countOnly = false) {
   const request = parseQuery(raw), cursor = request.cursor ? cursorValue(request.cursor) : null;
   return db.withTransaction(async client => {
     const { rows: [instance] } = await client.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE FOR UPDATE');
@@ -31,10 +32,23 @@ export async function vocabulary(db, raw) {
     let result;
     if (!snapshot) result = { status: 'unavailable', count: null, items: [], next_cursor: null };
     else {
-      const { rows: [count] } = await client.query('SELECT count(*) AS count FROM vocabulary');
-      const { rows } = await client.query('SELECT word_key, content FROM vocabulary WHERE word_key > $1 ORDER BY word_key LIMIT $2', [cursor?.[3] ?? '', request.limit + 1]);
+      const seen = new Set(), rows = [];
+      let after = '';
+      while (true) {
+        const batch = (await client.query('SELECT word_key, content FROM vocabulary WHERE word_key > $1 ORDER BY word_key LIMIT $2', [after, 256])).rows;
+        for (const row of batch) {
+          const key = JSON.stringify(vocabularyIdentity(row.content));
+          if (!seen.has(key)) {
+            seen.add(key);
+            if (row.word_key > (cursor?.[3] ?? '') && rows.length <= request.limit) rows.push(row);
+          }
+        }
+        if (batch.length < 256) break;
+        after = batch.at(-1).word_key;
+      }
+      if (countOnly) return { count: seen.size };
       const items = [];
-      const response = (next = null) => ({ status: 'available', count: Number(count.count), items, next_cursor: next });
+      const response = (next = null) => ({ status: 'available', count: seen.size, items, next_cursor: next });
       result = response();
       const complete = response();
       complete.items = rows.map(row => row.content);

@@ -56,3 +56,33 @@ test('book list cursors bind search and byte budgets preserve complete escaped U
   await assert.rejects(listBooks(db, { search: ['invalid'] }), e => e.status === 400);
   await assert.rejects(listBooks(db, { cursor: '!' }), e => e.code === 'invalid_cursor');
 });
+
+test('book source list paginates and binds its cursor to a book', async () => {
+  const { listSources } = await import('../../server/books.js');
+  const sourceRows = ['a', 'b'].map(letter => ({ source_id: letter.repeat(64), format: 'epub', title: 'Synthetic', authors: [], progress: null, event_progress: null, last_opened_at: null, cover_available: false }));
+  const db = { withTransaction: async work => work({ query: async (sql, args = []) => {
+    if (sql.startsWith('SELECT instance_id')) return { rows: [{}] };
+    if (sql.startsWith('SELECT book_id FROM books')) return { rows: [{ book_id: id }] };
+    if (sql.startsWith('SELECT s.source_id')) return { rows: sourceRows.filter(row => row.source_id > (args[1] ?? '')).slice(0, args[2]) };
+    throw new Error('Unexpected query');
+  } }) };
+  const first = await listSources(db, id, { limit: '1' });
+  assert.equal(validate('sources', first), true); assert.equal(first.items.length, 1); assert.ok(first.next_cursor);
+  const second = await listSources(db, id, { cursor: first.next_cursor }); assert.equal(second.items[0].source_id, 'b'.repeat(64));
+  await assert.rejects(listSources(db, 'a92e58b4-851b-467b-a5ad-1eaaccc84c61', { cursor: first.next_cursor }), e => e.code === 'invalid_cursor');
+  await assert.rejects(listSources(db, id, { byte_budget: '1' }), e => e.status === 413);
+});
+
+test('source list stops before an oversized later item and rejects it on the next page', async () => {
+  const firstRow = { source_id: 'a'.repeat(64), format: 'epub', title: 'Synthetic', authors: [], progress: null, event_progress: null, last_opened_at: null, cover_available: false, too_large: false };
+  const oversized = { source_id: 'b'.repeat(64), too_large: true };
+  const db = { withTransaction: async work => work({ query: async (sql, args = []) => {
+    if (sql.startsWith('SELECT instance_id')) return { rows: [{}] };
+    if (sql.startsWith('SELECT book_id FROM books')) return { rows: [{ book_id: id }] };
+    if (sql.startsWith('SELECT s.source_id')) return { rows: args[1] ? [oversized] : [firstRow, oversized] };
+    throw new Error('Unexpected query');
+  } }) };
+  const first = await (await import('../../server/books.js')).listSources(db, id, {});
+  assert.equal(first.items.length, 1); assert.equal(first.items[0].source_id, firstRow.source_id);
+  await assert.rejects((await import('../../server/books.js')).listSources(db, id, { cursor: first.next_cursor }), e => e.status === 413);
+});

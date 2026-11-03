@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { canonicalDigest } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { legacyUpdate } from './legacy.js';
+import { vocabularyIdentity } from './vocabulary-identity.js';
 const bodyDigest = annotation => { const { context, ...body } = annotation; return canonicalDigest({ ...body, annotation_id: body.annotation_id.toLowerCase() }); };
 export function createSyncTx(client) {
   const query = (sql, args) => client.query(sql, args);
@@ -88,9 +89,13 @@ export function createSyncTx(client) {
     },
     async vocabulary(words) {
       await query('DELETE FROM vocabulary');
+      const keys = words.map(word => canonicalDigest(word));
+      const identities = words.map(word => canonicalDigest(vocabularyIdentity(word)));
+      await query("UPDATE reset_tombstones SET digest = entity_id WHERE entity_type = 'vocabulary' AND NOT (entity_id = ANY($1::text[]))", [keys]);
+      await query("UPDATE reset_tombstones SET digest = entity_id WHERE entity_type = 'vocabulary_identity' AND NOT (entity_id = ANY($1::text[]))", [identities]);
       for (const word of words) {
         const key = canonicalDigest(word);
-        const { rows } = await query("SELECT 1 FROM reset_tombstones WHERE entity_type = 'vocabulary' AND entity_id = $1 LIMIT 1", [key]);
+        const { rows } = await query("SELECT 1 FROM reset_tombstones WHERE ((entity_type = 'vocabulary_identity' AND entity_id = $1) OR (entity_type = 'vocabulary' AND entity_id = $2)) AND digest IS NULL LIMIT 1", [canonicalDigest(vocabularyIdentity(word)), key]);
         if (!rows.length) await query('INSERT INTO vocabulary (word_key, content) VALUES ($1,$2) ON CONFLICT (word_key) DO NOTHING', [key, JSON.stringify(word)]);
       }
     },
@@ -130,6 +135,8 @@ export function createSyncTx(client) {
     async saveCover(id, type, bytes) { await query('UPDATE sources SET cover_type = $2, cover = $3 WHERE source_id = $1', [id, type, bytes]); },
     async clear(generation) {
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary', word_key FROM vocabulary ON CONFLICT DO NOTHING", [generation]);
+      const { rows: vocabulary } = await query('SELECT word_key, content FROM vocabulary');
+      await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary_identity', unnest($2::text[]) ON CONFLICT DO NOTHING", [generation, vocabulary.map(row => canonicalDigest(vocabularyIdentity(row.content)))]);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'upload', upload_id::text FROM uploads ON CONFLICT DO NOTHING", [generation]);
       await query('UPDATE annotation_identities SET barrier_generation = $1', [generation]);
       await query('DELETE FROM legacy_reset_baseline');

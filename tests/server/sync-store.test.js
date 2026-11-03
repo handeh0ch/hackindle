@@ -175,3 +175,44 @@ test('merging sources retains their data and removes empty groups', async () => 
   assert.equal(result, target); assert.equal(memberships.get(b), target); assert.equal(books.has(old), false); assert.deepEqual(history.get(b), ['synthetic event']);
   await assert.rejects(tx.mergeSources(target, ['c'.repeat(64)]), error => error.code === 'source_not_found');
 });
+
+test('vocabulary reset barrier permits saving a word after an empty baseline', async () => {
+  const live = new Map(), tombstones = new Map();
+  const client = { async query(sql, args = []) {
+    if (sql === 'DELETE FROM vocabulary') live.clear();
+    else if (sql.startsWith("INSERT INTO reset_tombstones") && sql.includes("'vocabulary'")) { for (const key of live.keys()) tombstones.set(key, null); }
+    else if (sql.startsWith("SELECT 1 FROM reset_tombstones") && sql.includes("'vocabulary'")) return { rows: tombstones.has(args[1]) && tombstones.get(args[1]) === null ? [{}] : [] };
+    else if (sql.startsWith("UPDATE reset_tombstones") && sql.includes("'vocabulary'")) { for (const key of tombstones.keys()) if (!args[0].includes(key)) tombstones.set(key, key); }
+    else if (sql.startsWith('INSERT INTO vocabulary ')) live.set(args[0], JSON.parse(args[1]));
+    return { rows: [] };
+  } };
+  const tx = createSyncTx(client), word = { word: 'synthetic', language: null, source: null };
+  await tx.vocabulary([word]); await tx.clear(1); await tx.vocabulary([word]);
+  assert.equal(live.size, 0);
+  await tx.vocabulary([]); await tx.vocabulary([word]);
+  assert.deepEqual([...live.values()], [word]);
+  assert.equal(tombstones.size, 1); assert.equal([...tombstones.entries()][0][0], [...tombstones.entries()][0][1]);
+});
+
+test('vocabulary identity barrier survives case and source changes and a second reset', async () => {
+  const { canonicalDigest } = await import('../../contracts/validate.js');
+  const live = new Map(), barriers = new Map();
+  const client = { async query(sql, args = []) {
+    if (sql === 'DELETE FROM vocabulary') live.clear();
+    else if (sql.startsWith("INSERT INTO reset_tombstones") && sql.includes("'vocabulary'")) for (const key of live.keys()) barriers.set(`vocabulary:${key}`, null);
+    else if (sql.startsWith("INSERT INTO reset_tombstones") && sql.includes("'vocabulary_identity'")) for (const word of live.values()) barriers.set(`vocabulary_identity:${canonicalDigest([word.word.toLowerCase(), word.language?.toLowerCase() ?? null])}`, null);
+    else if (sql.startsWith('UPDATE reset_tombstones') && sql.includes("'vocabulary_identity'")) { for (const key of barriers.keys()) if (key.startsWith('vocabulary_identity:') && !args[0].includes(key.slice(20))) barriers.set(key, key.slice(20)); }
+    else if (sql.startsWith('UPDATE reset_tombstones') && sql.includes("'vocabulary'")) { for (const key of barriers.keys()) if (key.startsWith('vocabulary:') && !args[0].includes(key.slice(11))) barriers.set(key, key.slice(11)); }
+    else if (sql.startsWith('SELECT 1 FROM reset_tombstones') && sql.includes("'vocabulary_identity'")) return { rows: barriers.get(`vocabulary_identity:${args[0]}`) === null || barriers.get(`vocabulary:${args[1]}`) === null ? [{}] : [] };
+    else if (sql.startsWith('SELECT 1 FROM reset_tombstones') && sql.includes("'vocabulary'")) return { rows: barriers.get(`vocabulary:${args[0]}`) === null ? [{}] : [] };
+    else if (sql.startsWith('SELECT word_key, content FROM vocabulary')) return { rows: [...live].map(([word_key, content]) => ({ word_key, content })) };
+    else if (sql.startsWith('INSERT INTO vocabulary ')) live.set(args[0], JSON.parse(args[1]));
+    return { rows: [] };
+  } };
+  const tx = createSyncTx(client), old = { word: 'Apple', language: 'en', source: 'one' }, changed = { word: 'apple', language: 'EN', source: 'two' };
+  await tx.vocabulary([old]); await tx.clear(1); await tx.vocabulary([changed]); assert.equal(live.size, 0);
+  await tx.vocabulary([old]); assert.equal(live.size, 0);
+  await tx.vocabulary([]); await tx.vocabulary([changed]); assert.equal(live.size, 1);
+  await tx.clear(2); await tx.vocabulary([old]); assert.equal(live.size, 0);
+  await tx.vocabulary([]); await tx.vocabulary([old]); assert.equal(live.size, 1);
+});

@@ -4,6 +4,7 @@ const localDate = (formatter, seconds) => {
   if (parts.era !== 'AD' || Number(parts.year) > 9999) return null;
   return `${parts.year.padStart(4, '0')}-${parts.month}-${parts.day}`;
 };
+export const validReportingInstant = (instant, zone) => localDate(dateFormatter(zone), Math.floor(Date.parse(instant) / 1000)) !== null;
 const offsetFormatter = zone => new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' });
 function offsetAt(formatter, second) {
   const name = formatter.formatToParts(new Date(second * 1000)).find(part => part.type === 'timeZoneName').value;
