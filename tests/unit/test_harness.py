@@ -280,3 +280,31 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify(self.root)
         run.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_reports_share_the_reviewed_server_gate(self, run, output):
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        backend = [feature(identity, "passing") for identity in ("B1", "B2")]
+        backend.append(feature("B3"))
+        for item in backend:
+            item["verification"] = "npm run test:server"
+            item["evidence"] = "previous server run" if item["state"] == "passing" else None
+        self.registry.write_text(json.dumps(self.items + backend), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual([c[1:] for c in commands if c[0] in {"npm", "npm.cmd"}],
+                         [["run", "test:server"]])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual([item["state"] for item in saved[-3:]], ["passing"] * 3)
+        self.assertIn("npm run test:server", saved[-1]["evidence"])
+
+    @patch("scripts.check.subprocess.run")
+    def test_unknown_reports_verifier_is_rejected_before_tools(self, run):
+        reports = feature("B3", "not_started")
+        reports["verification"] = "untrusted-report-command"
+        self.registry.write_text(json.dumps(self.items + [reports]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()

@@ -144,3 +144,15 @@ test('database login boundary returns remaining lockout from oldest retained fai
   const auth = createAuth({ store: createStore({ withTransaction: async work => work(client) }), now: () => now });
   assert.deepEqual(await auth.login('synthetic', 'unused', '127.0.0.1'), { status: 429, retryAfter: 47 });
 });
+
+test('restored device has no usable token until rotation and retains its identity', async () => {
+  let device = { token_hash: null, device_id: 'synthetic-device' };
+  const db = { query: async (sql, args) => {
+    if (sql.startsWith('SELECT token_hash')) return { rows: [device].filter(row => row.token_hash !== null && row.token_hash === args[0]) };
+    if (sql.startsWith('INSERT INTO device')) { device = { ...device, token_hash: args[0] }; return { rows: [] }; }
+    throw new Error('Unexpected query');
+  } };
+  const auth = createAuth({ store: createStore(db) });
+  assert.equal(await auth.device('arbitrary-token'), null);
+  const token = await auth.rotateDevice(); assert.equal((await auth.device(token)).deviceId, 'synthetic-device');
+});

@@ -6,6 +6,11 @@ import { createUploadService } from './uploads.js';
 import { createResetService } from './reset.js';
 import { createContentService } from './content.js';
 import { createCoverService } from './cover.js';
+import { validate } from '../contracts/validate.js';
+import { vocabulary } from './vocabulary.js';
+import { bookDetail, listBooks } from './books.js';
+import { mergeBooks, splitBook } from './grouping.js';
+import { listMatches, decideMatch } from './matches.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 function token(req) { const value = bearer(req); if (!value) fail(401, 'unauthorized'); return value; }
@@ -15,6 +20,31 @@ export function createB2Router({ db }) {
   const router = express.Router(), sync = createSyncService({ db, createTx: createSyncTx });
   const uploads = createUploadService({ db, createTx: createSyncTx, apply: sync.apply });
   const reset = createResetService({ db, createTx: createSyncTx }), content = createContentService(db), cover = createCoverService({ db, createTx: createSyncTx });
+  async function goal(req, res) {
+    if (!/^[0-9]{4}$/.test(req.params.year) || Number(req.params.year) === 0) fail(400, 'invalid_request');
+    const year = Number(req.params.year);
+    if (req.method === 'PUT' && !validate('goal_action', req.body)) fail(400, 'invalid_request');
+    const row = await db.withTransaction(async client => {
+      await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+      if (req.method === 'PUT') await client.query('INSERT INTO goals (year, target) VALUES ($1,$2) ON CONFLICT (year) DO UPDATE SET target = EXCLUDED.target', [year, req.body.target]);
+      const { rows: [result] } = await client.query(`SELECT COALESCE((SELECT target FROM goals WHERE year = $1), 0) AS target,
+      (SELECT count(DISTINCT bs.book_id) FROM events e JOIN book_sources bs ON bs.source_id = e.source_id
+       WHERE e.content->>'type' = 'book_finished' AND EXTRACT(YEAR FROM
+       ((substring(e.content->>'occurred_at' FROM 1 FOR 19)::timestamp AT TIME ZONE 'UTC') AT TIME ZONE instance.reporting_timezone)) = $1) AS completed_unique_books
+      FROM instance WHERE singleton = TRUE`, [year]);
+      return result;
+    });
+    res.set('Cache-Control', 'no-store').json({ year, target: Number(row.target), completed_unique_books: Number(row.completed_unique_books) });
+  }
+  router.get('/api/v1/owner/goals/:year', goal);
+  router.put('/api/v1/owner/goals/:year', goal);
+  router.get('/api/v1/owner/vocabulary', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await vocabulary(db, req.query)); });
+  router.get('/api/v1/owner/books', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listBooks(db, req.query)); });
+  router.post('/api/v1/owner/books/merge', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await mergeBooks(db, req.body)); });
+  router.post('/api/v1/owner/books/:id/split', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await splitBook(db, req.params.id, req.body)); });
+  router.get('/api/v1/owner/matches', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await listMatches(db, req.query)); });
+  router.post('/api/v1/owner/matches', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await decideMatch(db, req.body)); });
+  router.get('/api/v1/owner/books/:id', async (req, res) => { res.set('Cache-Control', 'private, no-store').json(await bookDetail(db, req.params.id)); });
   router.post('/api/v1/sync', async (req, res) => { const key = token(req); json(req); res.set('Cache-Control', 'no-store').json(await sync.ingest(key, req.body)); });
   router.post('/api/v1/uploads', async (req, res) => { const key = token(req); json(req); res.status(201).set('Cache-Control', 'no-store').json(await uploads.create(key, req.body)); });
   router.put('/api/v1/uploads/:id/chunks/:index', express.raw({ type: 'application/octet-stream', limit: 1048576 }), async (req, res) => {

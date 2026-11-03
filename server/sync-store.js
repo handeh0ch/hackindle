@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { canonicalDigest } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { legacyUpdate } from './legacy.js';
@@ -5,7 +6,7 @@ const bodyDigest = annotation => { const { context, ...body } = annotation; retu
 export function createSyncTx(client) {
   const query = (sql, args) => client.query(sql, args);
   return {
-    async lock() { const { rows: [row] } = await query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE FOR UPDATE'); return row; },
+    async lock() { const { rows: [row] } = await query('SELECT instance_id, reset_generation, reporting_timezone FROM instance WHERE singleton = TRUE FOR UPDATE'); return row; },
     async device(hash) { const { rows: [row] } = await query('SELECT device_id FROM device WHERE token_hash = $1 FOR UPDATE', [hash]); return row; },
     async bind(hash, id) { const { rows } = await query('UPDATE device SET device_id = COALESCE(device_id, $2) WHERE token_hash = $1 AND (device_id IS NULL OR device_id = $2) RETURNING device_id', [hash, id]); return rows.length === 1; },
     async packet(device, seq) { const { rows: [row] } = await query('SELECT digest, acknowledgement AS ack FROM packets WHERE device_id = $1 AND seq = $2', [device, seq]); return row; },
@@ -21,7 +22,37 @@ export function createSyncTx(client) {
       if (name === 'vocabulary_snapshot') await query('INSERT INTO vocabulary_versions (device_id, reset_generation, version, digest) VALUES ($1,$2,$3,$4) ON CONFLICT (device_id, reset_generation) DO UPDATE SET version = EXCLUDED.version, digest = EXCLUDED.digest', [device, generation, version, digest]);
       else await query('INSERT INTO snapshot_versions (device_id, source_id, section, reset_generation, version, digest) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (device_id, source_id, section, reset_generation) DO UPDATE SET version = EXCLUDED.version, digest = EXCLUDED.digest', [device, source, name, generation, version, digest]);
     },
-    async metadata(id, value, generation) { await query('INSERT INTO sources (source_id, format, metadata, reset_generation) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id) DO UPDATE SET metadata = EXCLUDED.metadata, reset_generation = EXCLUDED.reset_generation', [id, value.format, JSON.stringify(value), generation]); },
+    async metadata(id, value, generation) {
+      await query('INSERT INTO sources (source_id, format, metadata, reset_generation) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id) DO UPDATE SET metadata = EXCLUDED.metadata, reset_generation = EXCLUDED.reset_generation', [id, value.format, JSON.stringify(value), generation]);
+      const { rows } = await query('SELECT book_id FROM book_sources WHERE source_id = $1', [id]);
+      if (!rows.length) {
+        const book = randomUUID();
+        await query('INSERT INTO books (book_id, title) VALUES ($1,$2)', [book, value.title]);
+        await query('INSERT INTO book_sources (source_id, book_id) VALUES ($1,$2)', [id, book]);
+      }
+    },
+    async splitSources(bookId, sourceIds) {
+      const { rows: [book] } = await query('SELECT book_id, title FROM books WHERE book_id = $1 FOR UPDATE', [bookId]);
+      if (!book) throw new SyncError(404, 'book_not_found');
+      const { rows } = await query('SELECT source_id FROM book_sources WHERE book_id = $1 FOR UPDATE', [bookId]);
+      const current = new Set(rows.map(row => row.source_id));
+      if (sourceIds.some(id => !current.has(id))) throw new SyncError(409, 'source_not_in_book');
+      if (sourceIds.length === 0 || sourceIds.length === current.size) throw new SyncError(409, 'nothing_to_split');
+      const created = randomUUID();
+      await query('INSERT INTO books (book_id, title) VALUES ($1,$2)', [created, book.title]);
+      await query('UPDATE book_sources SET book_id = $2 WHERE source_id = ANY($1::text[]) AND book_id = $3', [sourceIds, created, bookId]);
+      return { original: bookId, created };
+    },
+    async mergeSources(target, sourceIds) {
+      const { rows: [book] } = await query('SELECT book_id FROM books WHERE book_id = $1 FOR UPDATE', [target]);
+      if (!book) throw new SyncError(404, 'book_not_found');
+      const { rows } = await query('SELECT source_id, book_id FROM book_sources WHERE source_id = ANY($1::text[]) FOR UPDATE', [sourceIds]);
+      if (rows.length !== sourceIds.length) throw new SyncError(404, 'source_not_found');
+      const previous = [...new Set(rows.map(row => row.book_id).filter(id => id !== target))];
+      await query('UPDATE book_sources SET book_id = $2 WHERE source_id = ANY($1::text[])', [sourceIds, target]);
+      await query('DELETE FROM books WHERE book_id = ANY($1::uuid[]) AND NOT EXISTS (SELECT 1 FROM book_sources WHERE book_id = books.book_id)', [previous]);
+      return target;
+    },
     async progress(id, value) { await query('UPDATE sources SET progress = $2 WHERE source_id = $1', [id, JSON.stringify(value)]); },
     async annotations(source, annotations) {
       const { rows: current } = await query('SELECT annotation_id, version, archived, content FROM annotations WHERE source_id = $1', [source]);

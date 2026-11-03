@@ -108,3 +108,19 @@ test('malformed assembled envelope returns 400 before applying or binding new so
   await assert.rejects(uploads.commit('token', created.upload_id), error => error.status === 400);
   assert.equal(applied, false);
 });
+
+test('uploaded event allocation is checked by the same ingestion path before event writes', async () => {
+  const m = memory(), fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
+  const packet = structuredClone(fixture.envelopes[3]);
+  packet.payload.events[0].allocation = [{ date: '2024-02-28', seconds: 5 }, { date: '2024-02-29', seconds: 5 }];
+  const bytes = Buffer.from(JSON.stringify(packet));
+  const manifest = { schema_version: 1, instance_id: packet.instance_id, device_id: packet.device_id, source_id: packet.source_id, reset_generation: 0, seq: packet.seq, kind: packet.kind, byte_length: bytes.length, sha256: sha(bytes), chunk_count: 1 };
+  let writes = 0;
+  const tx = draft => ({ ...m.tx(draft), lock: async () => ({ instance_id: packet.instance_id, reset_generation: 0, reporting_timezone: 'UTC' }), packet: async () => null, source: async () => fixture.envelopes[0].payload.metadata.value, saveEvent: async () => { writes++; } });
+  const { createSyncService } = await import('../../server/sync.js');
+  const sync = createSyncService({ db: m.db, createTx: tx });
+  const upload = createUploadService({ db: m.db, createTx: tx, apply: sync.apply, now: m.now, uuid: m.uuid });
+  const created = await upload.create('token', manifest); await upload.put('token', created.upload_id, 0, bytes);
+  await assert.rejects(upload.commit('token', created.upload_id), error => error.code === 'invalid_allocation');
+  assert.equal(writes, 0);
+});

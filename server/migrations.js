@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 export async function runMigrations(db, migration) {
   const versions = typeof migration === 'string' ? [{ version: 1, sql: migration }] : migration ?? await Promise.all(
-    ['001_initial.sql', '002_sync.sql'].map(async (name, index) => ({ version: index + 1, sql: await readFile(new URL(`../db/migrations/${name}`, import.meta.url), 'utf8') }))
+    ['001_initial.sql', '002_sync.sql', '003_group_sources.sql'].map(async (name, index) => ({ version: index + 1, sql: await readFile(new URL(`../db/migrations/${name}`, import.meta.url), 'utf8') }))
   );
   return db.withTransaction(async client => {
     await client.query('SELECT pg_advisory_xact_lock(729037041)');

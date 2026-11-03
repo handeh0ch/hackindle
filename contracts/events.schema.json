@@ -13,7 +13,7 @@
     "instant": {
       "type": "string",
       "format": "date-time",
-      "pattern": "Z$"
+      "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
     },
     "locator": {
       "oneOf": [
@@ -208,7 +208,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "reading_segment"
@@ -260,12 +260,14 @@
             },
             "allocation": {
               "type": "array",
+              "maxItems": 366,
               "items": {
                 "type": "object",
                 "properties": {
                   "date": {
                     "type": "string",
-                    "format": "date"
+                    "format": "date",
+          "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
                   },
                   "seconds": {
                     "type": "integer",
@@ -326,12 +328,12 @@
                   "start": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "Z$"
+                    "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
                   },
                   "end": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "Z$"
+                    "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
                   }
                 },
                 "required": [
@@ -346,7 +348,7 @@
                 {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "Z$"
+                  "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
                 },
                 {
                   "type": "null"
@@ -363,7 +365,8 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "format": "date"
+                  "format": "date",
+          "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
                 },
                 {
                   "type": "null"
@@ -410,7 +413,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "progress_sample"
@@ -429,7 +432,7 @@
                 "observed_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "Z$"
+                  "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
                 },
                 "session_id": {
                   "type": "string",
@@ -473,7 +476,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "session_started"
@@ -511,7 +514,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "session_ended"
@@ -549,7 +552,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "cycle_started"
@@ -587,7 +590,7 @@
             "occurred_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "type": {
               "const": "book_finished"
@@ -649,7 +652,7 @@
             "captured_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "page_basis": {
               "enum": [

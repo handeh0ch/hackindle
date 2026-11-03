@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { canonicalDigest, validateEnvelope } from '../contracts/validate.js';
+import { validAllocation } from './allocation.js';
 export class SyncError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
 }
@@ -42,6 +43,7 @@ export function createSyncService({ db, createTx }) {
       ...(envelope.payload.progress ? [envelope.payload.progress.value.position] : []),
     ] : envelope.kind === 'reading_events' ? envelope.payload.events.flatMap(event => event.type === 'progress_sample' ? [event.progress.position] : event.type === 'reading_segment' ? event.ranges.map(range => range.start) : []) : [];
     if (locators.some(locator => (locator.type === 'pdf') !== (format === 'pdf'))) fail(400, 'source_format_mismatch');
+    if (envelope.kind === 'reading_events' && envelope.payload.events.some(event => event.type === 'reading_segment' && !validAllocation(event, instance.reporting_timezone))) fail(400, 'invalid_allocation');
     if (!await tx.bind(hash, envelope.device_id)) fail(403, 'device_mismatch');
     const results = {};
     async function section(name, section, applyValue) {

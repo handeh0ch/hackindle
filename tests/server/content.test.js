@@ -52,7 +52,7 @@ test('detail truncates long captured timestamp while paged context preserves exa
   const { validate } = await import('../../contracts/validate.js');
   const { readFileSync } = await import('node:fs');
   const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url))).envelopes[0].payload.annotations.value[0];
-  assert.equal(validate('annotation', { ...fixture, context }), true);
+  assert.equal(validate('annotation', { ...fixture, context }), false);
   const service = createContentService({ query: async () => ({ rows: [row] }) });
   const detail = await service.detail(id);
   assert.equal(detail.context_captured_at, '2024-02-29T23:59:60.123Z');

@@ -37,3 +37,7 @@ Dockerfile and compose.example.yaml are generic examples using external PostgreS
 ## Verification boundary
 
 `make check` runs Python harness, contract and server unit gates. `npm run test:server` requires >=90% lines, branches and functions across implemented server JavaScript and included entry/CLI modules. SQL files, PostgreSQL locking/syntax/concurrency, real terminal input, direct CLI process branches, Node 24, containers and provider/device operation are not established by that percentage.
+
+## Allocation implementation assumption (B3 in progress)
+
+The planned Intl-based allocator probes timezone offsets hourly, bisects offset changes and splits constant-offset intervals at local midnight. It assumes IANA offset changes occur on whole seconds and are at least one hour apart. This is a conservative inference from the official Temporal polyfill's offset-search strategy and known shorter search windows of several days, not a complete audit of every timezone transition: [primary implementation](https://github.com/js-temporal/temporal-polyfill/blob/main/lib/ecmascript.ts). Local Node 22.14 reports ICU 76.1 and tzdata 2024b. Other runtime/tzdata versions, including the Node 24 deployment target, remain release acceptance work. Regression tests include a historical rollback with a short-lived local date; this section does not establish complete B3 delivery.

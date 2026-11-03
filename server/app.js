@@ -19,6 +19,7 @@ export function createApp({ db, config }) {
   app.post('/api/v1/auth/logout', handlers.logout);
   app.get('/api/v1/sync/config', handlers.profile);
   app.use('/api/v1/owner', handlers.owner);
+  app.get('/api/v1/owner/config', async (req, res) => res.set('Cache-Control', 'private, no-store').json(await buildProfile(db, config)));
   app.use(createB2Router({ db }));
   app.post('/api/v1/owner/device/token', handlers.rotate);
   app.use((req, res) => res.status(404).json({ schema_version: 1, error: { code: 'not_found', message: 'not_found' } }));

@@ -43,7 +43,7 @@ def verify(root):
     harness = next((item for item in items if item["id"] == "H01"), None)
     if harness is None:
         raise ValueError("Register the H01 harness gate before verification")
-    unit_gates = {"C0": "test:contracts", "B1": "test:server", "B2": "test:server"}
+    unit_gates = {"C0": "test:contracts", "B1": "test:server", "B2": "test:server", "B3": "test:server"}
     enabled = []
     for identity, script in unit_gates.items():
         item = next((entry for entry in items if entry["id"] == identity), None)

@@ -38,7 +38,7 @@
     "id": "B3",
     "behavior": "Expose reading reports, reversible source grouping, annual goals and data backup/restore preserving identities and totals.",
     "verification": null,
-    "state": "not_started",
+    "state": "active",
     "evidence": null
   },
   {

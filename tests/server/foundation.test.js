@@ -220,3 +220,13 @@ test('migration runner applies missing known versions in sequence exactly once',
   await runMigrations(db, versions); await runMigrations(db, versions);
   assert.deepEqual(executed, [2]);
 });
+
+test('default migrations include a third sequential migration', async () => {
+  const applied = new Set(), versions = [];
+  const db = { withTransaction: async work => work({ query: async (sql, args) => {
+    if (sql.startsWith('SELECT version')) return { rows: [] };
+    if (sql.startsWith('INSERT INTO schema_migrations')) { versions.push(args[0]); applied.add(args[0]); }
+    return { rows: [] };
+  } }) };
+  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3]);
+});

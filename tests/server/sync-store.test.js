@@ -123,3 +123,55 @@ test('annotation version remains monotonic after reset and invalidates old curso
   await assert.rejects(content.content(a.annotation_id, { field: 'quote', cursor: old.next_cursor }), e => e.code === 'content_changed');
   await assert.rejects(content.content(a.annotation_id, { field: 'quote', version: old.version }), e => e.code === 'content_changed');
 });
+
+test('new source receives a distinct book membership, existing metadata updates preserve it', async () => {
+  const sources = new Set(), books = new Map(), memberships = new Map();
+  const client = { async query(sql, args) {
+    if (sql.startsWith('INSERT INTO sources')) { sources.add(args[0]); return { rows: [] }; }
+    if (sql.startsWith('SELECT book_id FROM book_sources')) return { rows: memberships.has(args[0]) ? [{ book_id: memberships.get(args[0]) }] : [] };
+    if (sql.startsWith('INSERT INTO books')) { books.set(args[0], args[1]); return { rows: [] }; }
+    if (sql.startsWith('INSERT INTO book_sources')) { memberships.set(args[0], args[1]); return { rows: [] }; }
+    return { rows: [] };
+  } };
+  const tx = createSyncTx(client), metadata = fixtures.envelopes[0].payload.metadata.value;
+  await tx.metadata('a'.repeat(64), metadata, 0); await tx.metadata('b'.repeat(64), metadata, 0);
+  assert.equal(memberships.size, 2); assert.notEqual(memberships.get('a'.repeat(64)), memberships.get('b'.repeat(64)));
+  const first = memberships.get('a'.repeat(64)); await tx.metadata('a'.repeat(64), metadata, 0);
+  assert.equal(memberships.get('a'.repeat(64)), first); assert.equal(books.size, 2);
+});
+
+test('splitting selected sources creates one group and preserves source-owned data', async () => {
+  const original = '48bc0344-efad-4c68-adb6-dc0f0ba57276', sources = ['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)];
+  const memberships = new Map(sources.map(source => [source, original])), books = new Map([[original, 'Synthetic']]);
+  const annotations = new Map([[sources[1], ['synthetic annotation']]]);
+  const client = { query: async (sql, args = []) => {
+    if (sql.startsWith('SELECT book_id, title FROM books')) return { rows: books.has(args[0]) ? [{ book_id: args[0], title: books.get(args[0]) }] : [] };
+    if (sql.startsWith('SELECT source_id FROM book_sources')) return { rows: [...memberships].filter(([, book]) => book === args[0]).map(([source_id]) => ({ source_id })) };
+    if (sql.startsWith('INSERT INTO books')) { books.set(args[0], args[1]); return { rows: [] }; }
+    if (sql.startsWith('UPDATE book_sources')) { for (const source of args[0]) memberships.set(source, args[1]); return { rows: [] }; }
+    throw new Error('Unexpected query');
+  } };
+  const tx = createSyncTx(client);
+  const result = await tx.splitSources?.(original, [sources[1], sources[2]]);
+  assert.equal(result?.original, original); assert.ok(result?.created); assert.notEqual(result.created, original);
+  assert.equal(memberships.get(sources[0]), original); assert.equal(memberships.get(sources[1]), result.created); assert.equal(memberships.get(sources[2]), result.created);
+  assert.deepEqual(annotations.get(sources[1]), ['synthetic annotation']);
+  await assert.rejects(tx.splitSources(original, [sources[0]]), error => error.code === 'nothing_to_split');
+  await assert.rejects(tx.splitSources(original, [sources[1]]), error => error.code === 'source_not_in_book');
+});
+
+test('merging sources retains their data and removes empty groups', async () => {
+  const target = '48bc0344-efad-4c68-adb6-dc0f0ba57276', old = 'cf451aa3-6d2d-42be-a859-8ac21da94732';
+  const a = 'a'.repeat(64), b = 'b'.repeat(64), memberships = new Map([[a, target], [b, old]]), books = new Set([target, old]);
+  const history = new Map([[b, ['synthetic event']]]);
+  const client = { query: async (sql, args = []) => {
+    if (sql.startsWith('SELECT book_id FROM books')) return { rows: books.has(args[0]) ? [{ book_id: args[0] }] : [] };
+    if (sql.startsWith('SELECT source_id, book_id FROM book_sources')) return { rows: args[0].filter(id => memberships.has(id)).map(id => ({ source_id: id, book_id: memberships.get(id) })) };
+    if (sql.startsWith('UPDATE book_sources')) { for (const id of args[0]) memberships.set(id, args[1]); return { rows: [] }; }
+    if (sql.startsWith('DELETE FROM books')) { for (const id of args[0]) if (![...memberships.values()].includes(id)) books.delete(id); return { rows: [] }; }
+    throw new Error('Unexpected query');
+  } };
+  const tx = createSyncTx(client), result = await tx.mergeSources?.(target, [b]);
+  assert.equal(result, target); assert.equal(memberships.get(b), target); assert.equal(books.has(old), false); assert.deepEqual(history.get(b), ['synthetic event']);
+  await assert.rejects(tx.mergeSources(target, ['c'.repeat(64)]), error => error.code === 'source_not_found');
+});

@@ -31,7 +31,7 @@
             "captured_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "kind": {
               "const": "source_snapshot"
@@ -159,7 +159,7 @@
                         "observed_at": {
                           "type": "string",
                           "format": "date-time",
-                          "pattern": "Z$"
+                          "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
                         },
                         "session_id": {
                           "type": "string",
@@ -227,7 +227,7 @@
             "captured_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "kind": {
               "const": "reading_events"
@@ -293,7 +293,7 @@
             "captured_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "kind": {
               "const": "vocabulary_snapshot"
@@ -386,7 +386,7 @@
             "captured_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "Z$"
+              "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ][0-9]{2}:[0-9]{2}:[0-5][0-9]([.][0-9]{1,9})?Z$"
             },
             "kind": {
               "const": "legacy_statistics"
@@ -410,7 +410,8 @@
                     "properties": {
                       "date": {
                         "type": "string",
-                        "format": "date"
+                        "format": "date",
+          "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
                       },
                       "native_pages": {
                         "type": "integer",

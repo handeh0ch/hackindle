@@ -265,3 +265,14 @@ test('annotation detail timestamp is at most 24 characters', () => {
   assert.equal(validate('annotation_detail', detail), true);
   assert.equal(validate('annotation_detail', { ...detail, context_captured_at: '2024-02-29T00:00:00.1234Z' }), false);
 });
+
+test('wire timestamps and reporting dates reject unsupported precision and calendar bounds', () => {
+  for (const timestamp of ['0000-01-01T00:00:00Z', '2024-12-31T23:59:60Z', '2024-01-01T00:00:00.1234567890Z']) {
+    assert.equal(validateEnvelope({ ...envelope(), captured_at: timestamp }), false, timestamp);
+  }
+  assert.equal(validateEnvelope({ ...envelope(), captured_at: '2024-01-01T00:00:00.123456789Z' }), true);
+  assert.equal(validate('daily_query', { from: '0000-01-01', to: '0000-01-02' }), false);
+  const many = Array.from({ length: 367 }, (_, i) => ({ date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10), seconds: 0 }));
+  assert.equal(validateEnvelope({ ...eventEnvelope(), payload: { events: [{ ...segment(), native_seconds: 0, allocation: many.slice(0, 366) }] } }), true);
+  assert.equal(validateEnvelope({ ...eventEnvelope(), payload: { events: [{ ...segment(), native_seconds: 0, allocation: many }] } }), false);
+});
