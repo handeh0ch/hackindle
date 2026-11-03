@@ -22,4 +22,4 @@ The [foundation setup](docs/server-setup.md) describes implemented migration/boo
 
 ## Local harness
 
-Run `make check` for harness, contract and server unit tests with blocking 90% coverage thresholds. These do not verify real PostgreSQL, deployment or device compatibility. See [harness setup and coverage scope](docs/harness.md), [current progress](PROGRESS.md) and [feature states](feature_list.json). The checker installs nothing; dependencies are pinned in `requirements-harness.txt` and `package-lock.json`.
+Run `make check` for harness, contract and server unit tests with blocking 80% coverage thresholds. These do not verify real PostgreSQL, deployment or device compatibility. See [harness setup and coverage scope](docs/harness.md), [current progress](PROGRESS.md) and [feature states](feature_list.json). The checker installs nothing; dependencies are pinned in `requirements-harness.txt` and `package-lock.json`.

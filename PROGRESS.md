@@ -2,6 +2,9 @@
 
 ## Current state
 
+- Coverage policy update (2026-11-03): the owner lowered all blocking coverage thresholds to 80%, including Python combined statement/branch and JavaScript lines/branches/functions. Historical 90% results below remain historical; B3 completion still requires implementation and independent review.
+- Fresh verification after the threshold update: `make check` PASSED; 26 Python, 34 contract and 111 server tests passed. Server coverage: 98.11% lines / 86.83% branches / 94.33% functions. B3 remains active with a null verifier and no passing evidence.
+
 - Updated: 2026-11-03. Harness baseline: `fe8f580`; local integration into `main` was requested by the owner. See Git history for the integration commit.
 - Product: Kindle Sync, one owner's self-hosted reading dashboard and KOReader plugin.
 - The server/authentication foundation and sync ingestion/archive have implemented migration/bootstrap/start commands. Reports, the production plugin and panel are pending; the complete reading service is not ready.
@@ -36,7 +39,7 @@
 ## Decisions
 
 - The application plan was approved on 2026-11-02; deployment/publication still require separate instruction.
-- The owner requested unit tests only, with about 90% coverage. The harness enforces >=90% statement/branch coverage; this overrides older automated E2E/integration test steps in the application plan.
+- The owner requested unit tests only, with about 90% coverage. On 2026-11-03 the owner lowered the requirement to >=80% for all coverage gates; this overrides older automated E2E/integration test steps in the application plan.
 - coverage.py 7.16.2 is approved only for this project's `.local/harness-venv` on P:. Cache and temporary setup files also stay under `.local` on P:.
 - Coverage scopes are Python under `scripts/`, executable contracts, and implemented server/entry JavaScript. Lua, SQL and the older standalone diagnostic are not measured by these gates.
 - Product constraints remain in AGENTS.md and linked specifications: portable Express/PostgreSQL, private settings, stable source identities and no device writes by agents.
@@ -47,7 +50,7 @@
 ## Next steps
 
 1. Proceed to B3 reports, grouping, goals and backup/restore under the one-active-feature rule. Existing approved dependencies suffice; no additional download is authorized.
-2. B3 checkpoint contains allocation validation, book list/detail, grouping/matching, goals, vocabulary and draft backup/restore with migration 003. Finish reporting and source/progress/session/cycle/annotation list APIs, strengthen backup validation/tests and restore the >=90% gate. File presence is not completion; the private task-5 report predates several changes.
+2. B3 checkpoint contains allocation validation, book list/detail, grouping/matching, goals, vocabulary and draft backup/restore with migration 003. Finish reporting and source/progress/session/cycle/annotation list APIs, strengthen backup validation/tests and satisfy the current >=80% gate. File presence is not completion; the private task-5 report predates several changes.
 3. Reproduce the vocabulary reset issue: a word saved again after an empty new-generation baseline may remain permanently filtered by reset tombstones in sync-store.js. Confirm word identity/count semantics when only source metadata differs before changing persistence or migration behavior.
 4. Complete full B3 self-review and independent review, register its verifier only after review, then run a fresh combined gate. Keep SQL persistence and device evidence distinct from unit coverage.
 5. Continue the approved plan in order: P1/P2 plugin, F1/F2 panel, I1 assembled delivery and owner-run Kindle/database acceptance, I2 portable deployment and public-release checks. Deployment/publication still require separate instructions.

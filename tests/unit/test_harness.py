@@ -67,12 +67,12 @@ class GateTests(unittest.TestCase):
         saved = json.loads(self.registry.read_text(encoding="utf-8"))
         self.assertEqual(saved[0]["state"], "passing")
         self.assertIn("make check", saved[0]["evidence"])
-        self.assertIn("90%", saved[0]["evidence"])
+        self.assertIn("80%", saved[0]["evidence"])
         self.assertEqual(saved[1], self.items[1])
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn("unittest", commands[0])
         self.assertIn("report", commands[1])
-        self.assertIn("--fail-under=90", commands[1])
+        self.assertIn("--fail-under=80", commands[1])
         self.assertEqual(commands[2], ["git", "diff", "--check"])
         for call in run.call_args_list:
             self.assertTrue(call.kwargs["check"])

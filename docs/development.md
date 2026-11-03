@@ -36,7 +36,7 @@ For library, framework, SDK, API, CLI or cloud-service setup and usage, fetch cu
 - [Product requirements](requirements.md): product behavior and accepted scope.
 - [Data contract](kindle-sync-data-spec.md): identities, reading accounting, sync and API rules.
 - [Configuration and publication policy](configuration.md): private settings/data, portability, staged review, redacted secret scans and intentional Git authorship metadata. Read before configuration changes, commits or publication; preserve every applicable rule.
-- [Harness guide](harness.md): unit-only testing, >=90% coverage, registry states, verifier-owned passing evidence and cold-start instructions.
+- [Harness guide](harness.md): unit-only testing, >=80% coverage, registry states, verifier-owned passing evidence and cold-start instructions.
 - [Application implementation plan](superpowers/plans/2026-11-01-kindle-sync.md): authorized application work and team coordination. Its older automated E2E/integration test steps are superseded by the owner's unit-only policy.
 - [Harness implementation plan](superpowers/plans/2026-11-02-minimal-harness.md): the minimal harness design.
 - [Session handoff](session-handoff.md): required when transferring work between agents; at most 70 lines including headings and blank lines.

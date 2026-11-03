@@ -12,7 +12,7 @@ Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. Sh
 - Setup: follow [docs/harness.md](docs/harness.md); obtain approval before downloading dependencies.
 - Start: `npm start` with private environment configuration; migrations and owner bootstrap are required first. See [docs/server-setup.md](docs/server-setup.md). The complete service is not implemented yet.
 - Unit tests (Windows): `.local/harness-venv/Scripts/python.exe -B -m unittest discover -s tests/unit -p "test_*.py"`.
-- Full verification: `make check` — harness and contract unit tests, >=90% coverage gates, registry/handoff validation and diff checks.
+- Full verification: `make check` — harness and contract unit tests, >=80% coverage gates, registry/handoff validation and diff checks.
 - Without Make: `.local/harness-venv/Scripts/python.exe -B scripts/check.py`.
 
 ## Hard constraints (MUST)
@@ -25,7 +25,7 @@ Stack: Node.js/Express, PostgreSQL, HTML/CSS/JavaScript/SVG and Lua/KOReader. Sh
 
 ## Definition of Done
 
-- A feature is complete only after a fresh green `make check` and its implemented unit verifier; require >=90% coverage for the implemented code being tested.
+- A feature is complete only after a fresh green `make check` and its implemented unit verifier; require >=80% coverage for the implemented code being tested.
 - Automated testing is unit-only. This overrides older E2E/integration test steps in the application plan.
 - Only a verifier may record `passing` and successful evidence after its checks pass. A missing verifier cannot establish completion.
 - Current coverage measures harness Python, contract JavaScript and server/entry JavaScript. SQL, real PostgreSQL, provider/device operation and later application features remain unverified. Owner-run hardware observations remain separate evidence.

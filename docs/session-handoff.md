@@ -12,16 +12,19 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 
 ## Verification
 
-- Run `make check`: unit tests, >=90% harness statement/branch coverage, registry/handoff validation and diff checks.
+- On 2026-11-03 the owner lowered all coverage gates to 80%. This supersedes the previous 90% policy; B3 remains unfinished and unreviewed.
+- Fresh `make check` after this update PASSED: 26 Python / 34 contract / 111 server tests; server 98.11% lines / 86.83% branches / 94.33% functions. B3 is still active, its verifier/evidence remain null.
+
+- Run `make check`: unit tests, >=80% harness statement/branch coverage, registry/handoff validation and diff checks.
 - See [../feature_list.json](../feature_list.json) for verifier-written evidence and [../PROGRESS.md](../PROGRESS.md) for verified results and blockers.
 - Coverage measures harness Python, executable contracts and implemented server/entry JavaScript separately. SQL, diagnostic Lua and hardware behavior remain outside those percentages.
-- Checkpoint verification: `make check` FAILED the server branch gate (86.83%, required 90%); lines 98.11%, functions 94.33%. Python: 26 passed, 98.10% combined coverage. See PROGRESS.md for counts. No B3 passing evidence was recorded.
+- Historical checkpoint verification (before the owner lowered the threshold): `make check` FAILED the server branch gate (86.83%, required 90%); lines 98.11%, functions 94.33%. Python: 26 passed, 98.10% combined coverage. See PROGRESS.md for counts. No B3 passing evidence was recorded.
 
 ## Next action
 
 1. B2 is committed at 45e6f21 after clean review, 24 Python/33 contract/74 server units and staged secret scan. B3 reports/grouping/goals/backup is the sole active feature. Read task-5-brief.md in the private task directory; no plugin or panel implementation yet.
 2. The owner deferred manual Kindle checks until the assembled application is ready. P0 remains open hardware evidence, not a dependency blocking C0; unverified adapters must remain explicit.
-3. Apply the unit-only testing policy and >=90% coverage gate to new executable code. No automated browser, database integration or E2E suites.
+3. Apply the unit-only testing policy and >=80% coverage gate to new executable code. No automated browser, database integration or E2E suites.
 4. Backend role continues sequentially in P:/Code/hackindle to reuse the approved node_modules location. Backend owns server/, db/, application scripts/tests and package files; coordinator reserves scripts/check.py, tests/unit/, registry, docs and Git. No concurrent Git mutations.
 5. B3 must recompute allocation against the initialized policy. The pre-release checkpoint bounds service UTC instants to years 0001-9999, seconds 00-59, up to 9 fractional digits; each segment has at most 366 allocation dates. See API v1; preserve exact accepted fractions, reject local dates outside the domain.
 6. B3 worker has temporary narrow contract/schema/test ownership for this timestamp checkpoint. Data/identity/reset barriers must survive export/import without credentials. Detail timestamp remains a bounded display value; full exact timestamp stays in paged context.
@@ -29,7 +32,7 @@ Hard limit: this file MUST contain at most 70 lines, including headings and blan
 8. The requested gpt-6.1-terra/high backend subagent stopped at its usage limit. Its report is stale; inspect actual code/tests. No paid upgrade or model substitution is authorized. Resume the original B3 task rather than restarting completed work.
 9. Checkpoint includes book list/detail, grouping/matching, goals, vocabulary, allocation, migration 003 and draft backup/restore CLI. Remaining B3: reporting APIs; source/progress/session/cycle/annotation lists; backup validation/coverage, full self-review and independent review. Confirm completeness against the approved plan, not file presence.
 10. Investigate vocabulary reset regression before completion: save W, reset, accept new-generation empty baseline, then explicitly save W again. sync-store vocabulary currently filters reset_tombstones forever; this may suppress legitimate post-baseline saves. Reproduce first. Unique saved-word count must not inflate merely from differing source metadata; finalize identity semantics before changing hashes/migrations.
-11. Next sequence: finish B3 and reach coverage >=90%; independent review/fixes; register its verifier only after review; fresh make check and commit. Then P1/P2 plugin, F1/F2 panel, I1 owner-run acceptance and I2 release/deployment guides. The approved detailed plan remains docs/superpowers/plans/2026-11-01-kindle-sync.md (relative to repository root).
+11. Next sequence: finish B3 with coverage >=80%; independent review/fixes; register its verifier only after review; fresh make check and commit. Then P1/P2 plugin, F1/F2 panel, I1 owner-run acceptance and I2 release/deployment guides. The approved detailed plan remains docs/superpowers/plans/2026-11-01-kindle-sync.md (relative to repository root).
 
 ## Boundaries and references
 

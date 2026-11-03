@@ -9,13 +9,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:contracts": "node --test --experimental-test-coverage --test-coverage-include=contracts/**/*.js --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/contracts/*.test.js",
+    "test:contracts": "node --test --experimental-test-coverage --test-coverage-include=contracts/**/*.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/contracts/*.test.js",
     "start": "node index.js",
     "dev": "node index.js",
     "migrate": "node scripts/migrate.js",
     "setup:owner": "node scripts/setup-owner.js",
     "backup:export": "node scripts/export-backup.js",
     "backup:import": "node scripts/import-backup.js",
-    "test:server": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=server/**/*.js --test-coverage-include=scripts/*.js --test-coverage-include=index.js --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 tests/server/*.test.js"
+    "test:server": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=server/**/*.js --test-coverage-include=scripts/*.js --test-coverage-include=index.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/server/*.test.js"
   }
 }

@@ -57,7 +57,7 @@ def verify(root):
     commands = [
         [sys.executable, "-B", "-m", "coverage", "run", "-m", "unittest",
          "discover", "-s", "tests/unit", "-p", "test_*.py"],
-        [sys.executable, "-B", "-m", "coverage", "report", "--fail-under=90"],
+        [sys.executable, "-B", "-m", "coverage", "report", "--fail-under=80"],
     ]
     for script in dict.fromkeys(script for _, script in enabled):
         commands.append(["npm.cmd" if sys.platform == "win32" else "npm",
@@ -75,16 +75,16 @@ def verify(root):
     harness["verification"] = "make check"
     harness["evidence"] = (
         datetime.now(timezone.utc).isoformat(timespec="seconds")
-        + "; make check: unit tests PASS, statement/branch coverage >=90%, git diff --check PASS"
+        + "; make check: unit tests PASS, statement/branch coverage >=80%, git diff --check PASS"
     )
     for item, script in enabled:
         item["state"] = "passing"
         item["evidence"] = (
             datetime.now(timezone.utc).isoformat(timespec="seconds")
-            + f"; npm run {script}: unit tests PASS, executable coverage >=90%"
+            + f"; npm run {script}: unit tests PASS, executable coverage >=80%"
         )
     registry.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print("ALL CHECKS PASSED (unit tests, coverage >=90%, registry, handoff <=70 lines, diff)")
+    print("ALL CHECKS PASSED (unit tests, coverage >=80%, registry, handoff <=70 lines, diff)")
 
 
 def main(root):

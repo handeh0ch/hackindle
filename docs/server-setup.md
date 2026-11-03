@@ -36,7 +36,7 @@ Dockerfile and compose.example.yaml are generic examples using external PostgreS
 
 ## Verification boundary
 
-`make check` runs Python harness, contract and server unit gates. `npm run test:server` requires >=90% lines, branches and functions across implemented server JavaScript and included entry/CLI modules. SQL files, PostgreSQL locking/syntax/concurrency, real terminal input, direct CLI process branches, Node 24, containers and provider/device operation are not established by that percentage.
+`make check` runs Python harness, contract and server unit gates. `npm run test:server` requires >=80% lines, branches and functions across implemented server JavaScript and included entry/CLI modules. SQL files, PostgreSQL locking/syntax/concurrency, real terminal input, direct CLI process branches, Node 24, containers and provider/device operation are not established by that percentage.
 
 ## Allocation implementation assumption (B3 in progress)
 
