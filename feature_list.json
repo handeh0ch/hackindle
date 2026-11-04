@@ -45,7 +45,7 @@
     "id": "P1",
     "behavior": "Capture source-specific reading history, native active time, durable annotation context and saved vocabulary without fabricated data.",
     "verification": null,
-    "state": "not_started",
+    "state": "active",
     "evidence": null
   },
   {

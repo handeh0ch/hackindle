@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createSyncService } from '../../server/sync.js';
 const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
 function memory(timezone = 'UTC') {
-  let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {} };
+  let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {}, legacyBaselines: {} };
   const db = { async withTransaction(work) { const draft = structuredClone(state); const result = await work(draft); state = draft; return result; } };
   const tx = draft => ({
     async lock() { return { instance_id: fixture.envelopes[0].instance_id, reset_generation: draft.generation, reporting_timezone: timezone }; },
@@ -22,6 +22,8 @@ function memory(timezone = 'UTC') {
     async saveEvent(event, digest) { draft.events[event.event_id] = { digest }; },
     async vocabulary(value) { draft.values.vocabulary = value; },
     async legacy(id, value) { draft.values[`${id}:legacy`] = value; },
+    async legacyBaseline(device, source, generation) { return draft.legacyBaselines[`${device}:${source}:${generation}`]; },
+    async establishLegacyBaseline(device, source, generation, baselineId, digest, records) { draft.legacyBaselines[`${device}:${source}:${generation}`] = { baseline_id: baselineId, digest }; draft.values[`${source}:baseline`] = records; },
     async touch() {},
   });
   return { db, tx, state: () => state, reset() { state.generation++; state.sources = {}; state.sections = {}; state.values = {}; } };
@@ -136,6 +138,11 @@ test('vocabulary and legacy snapshots are independently versioned and deduplicat
   await service.ingest('token', structuredClone(fixture.envelopes[0]));
   for (const original of [fixture.envelopes[4], fixture.envelopes[5]]) {
     const packet = structuredClone(original), key = packet.kind;
+    if (key === 'legacy_statistics') {
+      const baseline = { ...structuredClone(packet), seq: 99, payload: { mode: 'baseline', baseline_id: packet.instance_id, version: 1, records: [] } };
+      await service.ingest('token', baseline);
+      packet.payload.mode = 'snapshot'; packet.payload.baseline_id = packet.instance_id;
+    }
     assert.equal((await service.ingest('token', packet)).results[key], 'applied');
     assert.equal((await service.ingest('token', { ...packet, seq: packet.seq + 50 })).results[key], 'duplicate');
   }
@@ -225,4 +232,22 @@ test('all history event reporting dates remain within the local date domain', as
     await assert.rejects(service.ingest('token', packet), error => error.code === 'invalid_allocation');
     assert.deepEqual(m.state().events, {});
   }
+});
+
+test('legacy reset handshake requires baseline before raw snapshots and preserves retry identity', async () => {
+  const m = memory(), source = structuredClone(fixture.envelopes[0]), old = structuredClone(fixture.envelopes[5]);
+  const service = createSyncService({ db: m.db, createTx: m.tx }); await service.ingest('token', source);
+  await assert.rejects(service.ingest('token', old), e => e.code === 'legacy_upgrade_required');
+  const baseline = { ...structuredClone(old), seq: 100, payload: { mode: 'baseline', baseline_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', version: 1, records: [{ date: '2024-02-29', native_pages: 100, native_seconds: 100 }] } };
+  const snapshot = { ...structuredClone(baseline), seq: 101, payload: { ...baseline.payload, mode: 'snapshot', version: 1, records: [{ date: '2024-02-29', native_pages: 110, native_seconds: 110 }] } };
+  await assert.rejects(service.ingest('token', snapshot), e => e.code === 'legacy_baseline_required');
+  const ack = await service.ingest('token', baseline); assert.equal(ack.results.legacy_statistics, 'applied');
+  assert.deepEqual(await service.ingest('token', baseline), ack);
+  const changed = structuredClone(baseline); changed.seq++; changed.payload.records[0].native_pages++;
+  await assert.rejects(service.ingest('token', changed), e => e.code === 'legacy_baseline_conflict');
+  assert.equal((await service.ingest('token', snapshot)).results.legacy_statistics, 'applied');
+  assert.deepEqual(m.state().values[`${source.source_id}:legacy`], snapshot.payload.records);
+  const wrong = structuredClone(snapshot); wrong.seq++; wrong.payload.baseline_id = 'a92e58b4-851b-467b-a5ad-1eaaccc84c61';
+  await assert.rejects(service.ingest('token', wrong), e => e.code === 'legacy_baseline_conflict');
+  m.reset(); assert.equal((await service.ingest('token', snapshot)).status, 'obsolete_discarded');
 });

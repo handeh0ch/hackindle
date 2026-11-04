@@ -398,6 +398,8 @@
             "payload": {
               "type": "object",
               "properties": {
+                "mode": { "enum": ["baseline", "snapshot"] },
+                "baseline_id": { "type": "string", "format": "uuid" },
                 "version": {
                   "type": "integer",
                   "minimum": 1,
@@ -437,6 +439,7 @@
                 "version",
                 "records"
               ],
+              "dependentRequired": { "mode": ["baseline_id"], "baseline_id": ["mode"] },
               "additionalProperties": false
             }
           },

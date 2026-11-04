@@ -1,0 +1,12 @@
+package.path = "plugin/?.lua;" .. package.path
+local utc = require("utc")
+assert(utc.due("2026-01-01T00:01:00Z", "2026-01-01T00:00:00Z", false))
+assert(not utc.due("2026-01-01T00:00:59.999999999Z", "2026-01-01T00:00:00Z", false))
+assert(not utc.due("2026-01-01T00:01:00.1Z", "2026-01-01T00:00:00.2Z", false))
+assert(utc.due("2024-03-01T00:00:30Z", "2024-02-29T23:59:30Z", false))
+assert(utc.due("2026-01-01T00:00:05Z", "2026-01-01T00:00:00Z", true))
+assert(utc.due("2025-12-31T23:59:59Z", "2026-01-01T00:00:00Z", true))
+assert(not pcall(function() utc.due("2025-12-31T23:59:59Z", "2026-01-01T00:00:00Z", false) end))
+assert(utc.due("2026-01-01T00:00:00.1Z", "2026-01-01T00:00:00.2Z", true))
+assert(not pcall(function() utc.due("2025-02-29T00:00:00Z", nil, false) end))
+print("UTC cadence assertions passed")

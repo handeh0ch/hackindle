@@ -216,3 +216,27 @@ test('vocabulary identity barrier survives case and source changes and a second 
   await tx.clear(2); await tx.vocabulary([old]); assert.equal(live.size, 0);
   await tx.vocabulary([]); await tx.vocabulary([old]); assert.equal(live.size, 1);
 });
+
+test('legacy baseline merges offline raw highwater, retains carry, and rejects regressions', async () => {
+  const raw = new Map([['2024-02-28', { native_pages: 100, native_seconds: 100 }]]), base = new Map(), live = new Map([['2024-02-28', { native_pages: 100, native_seconds: 100 }]]), carry = new Map();
+  const client = { async query(sql, args = []) {
+    const key = args[1];
+    if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_raw_highwater')) return { rows: raw.has(key) ? [raw.get(key)] : [] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_reset_baseline')) return { rows: base.has(key) ? [base.get(key)] : [] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_statistics')) return { rows: live.has(key) ? [live.get(key)] : [] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_carry')) return { rows: carry.has(key) ? [carry.get(key)] : [] };
+    if (sql.startsWith('INSERT INTO legacy_reset_baseline SELECT')) { for (const [date, row] of raw) base.set(date, { ...row }); }
+    else if (sql.startsWith('INSERT INTO legacy_carry SELECT')) { for (const [date, row] of live) carry.set(date, { ...row }); }
+    else if (sql.startsWith('INSERT INTO legacy_raw_highwater')) raw.set(key, { native_pages: args[2], native_seconds: args[3] });
+    else if (sql.startsWith('INSERT INTO legacy_reset_baseline')) base.set(key, { native_pages: args[2], native_seconds: args[3] });
+    else if (sql.startsWith('INSERT INTO legacy_statistics')) live.set(key, { native_pages: args[2], native_seconds: args[3] });
+    else if (sql.startsWith('INSERT INTO legacy_carry ')) carry.set(key, { native_pages: args[2], native_seconds: args[3] });
+    return { rows: [] };
+  } };
+  const tx = createSyncTx(client), source = 'a'.repeat(64), rec = (date, n) => ({ date, native_pages: n, native_seconds: n });
+  await tx.establishLegacyBaseline('48bc0344-efad-4c68-adb6-dc0f0ba57276', source, 0, 'a92e58b4-851b-467b-a5ad-1eaaccc84c61', 'a'.repeat(64), [rec('2024-02-28', 120), rec('2024-02-29', 50)]);
+  assert.equal(live.get('2024-02-28').native_pages, 120); assert.equal(live.get('2024-02-29').native_pages, 50);
+  await tx.legacy(source, [rec('2024-02-28', 125), rec('2024-02-29', 52)]);
+  assert.equal(live.get('2024-02-28').native_pages, 125); assert.equal(live.get('2024-02-29').native_pages, 52);
+  await assert.rejects(tx.legacy(source, [rec('2024-02-28', 119)]), e => e.code === 'legacy_counter_regressed');
+});

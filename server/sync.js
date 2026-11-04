@@ -69,6 +69,23 @@ export function createSyncService({ db, createTx }) {
         if (!old) await tx.saveEvent(event, eventDigest, envelope, generation);
         results[event.event_id] = old ? 'duplicate' : 'applied';
       }
+    } else if (envelope.kind === 'legacy_statistics') {
+      const payload = envelope.payload;
+      if (!payload.mode) fail(409, 'legacy_upgrade_required');
+      const id = payload.baseline_id.toLowerCase(), device = envelope.device_id.toLowerCase();
+      const baseline = await tx.legacyBaseline(device, envelope.source_id, generation);
+      if (payload.mode === 'baseline') {
+        const baselineDigest = canonicalDigest(payload);
+        if (baseline && (baseline.baseline_id.toLowerCase() !== id || baseline.digest !== baselineDigest)) fail(409, 'legacy_baseline_conflict');
+        if (!baseline) await tx.establishLegacyBaseline(device, envelope.source_id, generation, id, baselineDigest, payload.records);
+        results.legacy_statistics = baseline ? 'duplicate' : 'applied';
+      } else {
+        if (!baseline) fail(409, 'legacy_baseline_required');
+        if (baseline.baseline_id.toLowerCase() !== id) fail(409, 'legacy_baseline_conflict');
+        await section('legacy_statistics_v2', { version: payload.version, value: payload }, v => tx.legacy(envelope.source_id, v.records));
+        results.legacy_statistics = results.legacy_statistics_v2;
+        delete results.legacy_statistics_v2;
+      }
     } else {
       const name = envelope.kind;
       const value = name === 'vocabulary_snapshot' ? envelope.payload.words : envelope.payload.records;

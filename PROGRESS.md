@@ -2,6 +2,15 @@
 
 ## Current state
 
+- Fresh `make check` on the P1 WIP state failed: all 35 contract tests passed; 133 of 134 server tests passed. The failure is `tx.establishLegacyBaseline is not a function`. P1 has no verifier or passing evidence.
+
+- P1 continuation on 2026-11-04 is unfinished and saved as a WIP checkpoint; see Git history. The gpt-6.1-terra/high backend implementer hit its usage limit during the legacy baseline protocol change. Do not substitute a model or enable paid options without owner instruction.
+- Legacy handshake changes are partial: the schema/service branch and migration 004 are present, but `server/sync-store.js` does not yet implement `legacyBaseline` or `establishLegacyBaseline`; backup/restore and full review remain outstanding. Do not treat current legacy ingestion as working or run this checkout as a service.
+- Owner selected an explicit legacy baseline/epoch protocol. Finish and review server/contract/backup first, then plugin integration; preserve generation-0 initial archive and reject unsafe legacy writes. Exact old packet retry and obsolete generation semantics must remain intact.
+- P1 plugin has provisional Lua capture, validation, timezone and reset primitives. Vocabulary reset ordering received scoped review; P1 still lacks complete reset recovery, all-Unicode identity, native device hooks, trusted entropy/file hashing, verified native-counter epoch, metadata ack wiring and device acceptance. P1 verifier/evidence remain null.
+
+- P1 is active as of 2026-11-03. Implement the KOReader capture layer using the approved plan and existing P:-local Lua tooling; device observations remain deferred to I1. Verifier and passing evidence remain null until implementation and independent review.
+
 - B3 implementation and independent review completed on 2026-11-03. A fresh `make check` passed: 26 Python, 34 contract and 132 server unit tests; server coverage 97.84% lines / 86.31% branches / 93.29% functions. The verifier registered B3 passing evidence in `feature_list.json`.
 - B3 includes reports, source/history/session/cycle/annotation lists, grouping, goals and credential-free backup/restore. Vocabulary uniqueness uses case-insensitive word and language; source is metadata. Reset regression, backup allocation validation, date boundaries, aggregate overflow and bounded projections were covered by unit tests and reviewed.
 - Historical full-object-only vocabulary reset fingerprints cannot identify changed metadata or case. Correct client baseline remains necessary for those older barriers. Actual PostgreSQL SQL/concurrency, cross-database restore, Node 24 and device operation remain unverified.
