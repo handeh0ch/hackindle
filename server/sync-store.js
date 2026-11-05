@@ -3,6 +3,7 @@ import { canonicalDigest } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { legacyUpdate } from './legacy.js';
 import { vocabularyIdentity } from './vocabulary-identity.js';
+import { UNICODE_VERSION } from './unicode-lower.js';
 const bodyDigest = annotation => { const { context, ...body } = annotation; return canonicalDigest({ ...body, annotation_id: body.annotation_id.toLowerCase() }); };
 export function createSyncTx(client) {
   const query = (sql, args) => client.query(sql, args);
@@ -169,10 +170,10 @@ export function createSyncTx(client) {
     async saveCover(id, type, bytes) { await query('UPDATE sources SET cover_type = $2, cover = $3 WHERE source_id = $1', [id, type, bytes]); },
     async clear(generation) {
       const unicode = await this.vocabularyUnicode();
-      if (unicode.version && unicode.version !== process.versions.unicode) throw new SyncError(409, 'unicode_version_mismatch');
+      if (unicode.version && unicode.version !== UNICODE_VERSION) throw new SyncError(409, 'unicode_version_mismatch');
       if (!unicode.version && unicode.unknown) throw new SyncError(409, 'unicode_version_unknown');
       const { rows: vocabulary } = await query('SELECT word_key, content FROM vocabulary');
-      if (!unicode.version && vocabulary.length) await this.rememberVocabularyUnicode(process.versions.unicode);
+      if (!unicode.version && vocabulary.length) await this.rememberVocabularyUnicode(UNICODE_VERSION);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary', word_key FROM vocabulary ON CONFLICT DO NOTHING", [generation]);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary_identity', unnest($2::text[]) ON CONFLICT DO NOTHING", [generation, vocabulary.map(row => canonicalDigest(vocabularyIdentity(row.content)))]);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'upload', upload_id::text FROM uploads ON CONFLICT DO NOTHING", [generation]);

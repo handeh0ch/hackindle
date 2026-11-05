@@ -156,4 +156,19 @@ local mixed_adapter={source=failing.source,begin_page=function() return {verifie
 assert(mixed:attach(app,mixed_adapter)); mixed:onReaderReady(); mixed:onPageUpdate(1)
 local before_mixed=#events; mixed:onPageUpdate(2)
 assert(#events==before_mixed and mixed.pending_page and mixed.status=="capture_unavailable")
+-- Failures are logged through KOReader's optional logger and never raise a second error.
+local warnings={}
+package.loaded["logger"]=nil
+package.preload["logger"]=function() return {warn=function(...) warnings[#warnings+1]=table.concat({...}," ") end} end
+local Logged=dofile("plugin/main.lua")
+local logged=setmetatable({ui={}},Logged); logged:init()
+assert(logged:call(function() error("synthetic failure",0) end)==false)
+assert(logged.status=="capture_unavailable" and logged.last_error=="synthetic failure" and warnings[1]:find("KindleSync:",1,true) and warnings[1]:find("synthetic failure",1,true))
+assert(logged:configure({},{})==false and logged.status=="initialization_unavailable" and #warnings==2)
+package.loaded["logger"]=nil
+package.preload["logger"]=function() return {warn=function() error("logger failed") end} end
+local Noisy=dofile("plugin/main.lua")
+local noisy=setmetatable({ui={}},Noisy); noisy:init()
+assert(noisy:call(function() error("synthetic failure",0) end)==false and noisy.status=="capture_unavailable")
+package.loaded["logger"]=nil; package.preload["logger"]=nil
 print("KOReader entry event assertions passed")

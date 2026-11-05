@@ -5,7 +5,7 @@ import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), book = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const cycles = [1, 2].map(i => ({ cycle_id: `00000000-0000-0000-0000-00000000000${i}`, source_id: source, started_at: '2024-01-01T00:00:00Z', finished_at: i === 1 ? '2024-02-01T00:00:00Z' : null }));
 const db = { withTransaction: async work => work({ query: async (sql, args = []) => {
-  if (sql.startsWith('SELECT instance_id')) return { rows: [{}] };
+  if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{}] };
   if (sql.startsWith('SELECT e.content')) return { rows: cycles.filter(row => !args[2] || row.cycle_id > args[2] || (row.cycle_id === args[2] && row.source_id > args[3])).slice(0, args[4]) };
   throw new Error('Unexpected query');
 } }) };

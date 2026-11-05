@@ -17,6 +17,7 @@ import { listCycles } from './cycles.js';
 import { listSessions } from './sessions.js';
 import { statistics } from './reports.js';
 import { safeTotal } from './safe-total.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 function token(req) { const value = bearer(req); if (!value) fail(401, 'unauthorized'); return value; }
@@ -31,7 +32,7 @@ export function createB2Router({ db }) {
     const year = Number(req.params.year);
     if (req.method === 'PUT' && !validate('goal_action', req.body)) fail(400, 'invalid_request');
     const row = await db.withTransaction(async client => {
-      await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+      await client.query(req.method === 'PUT' ? 'SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE' : READ_SNAPSHOT);
       if (req.method === 'PUT') await client.query('INSERT INTO goals (year, target) VALUES ($1,$2) ON CONFLICT (year) DO UPDATE SET target = EXCLUDED.target', [year, req.body.target]);
       const { rows: [result] } = await client.query(`SELECT COALESCE((SELECT target FROM goals WHERE year = $1), 0) AS target,
       (SELECT count(DISTINCT bs.book_id) FROM events e JOIN book_sources bs ON bs.source_id = e.source_id

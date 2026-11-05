@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createSyncService } from '../../server/sync.js';
+import { UNICODE_VERSION } from '../../server/unicode-lower.js';
 const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
 function memory(timezone = 'UTC') {
   let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {}, legacyBaselines: {}, vocabularyUnicode: null };
@@ -271,7 +272,7 @@ test('post-reset vocabulary packets require the server Unicode version', async (
   await assert.rejects(service.ingest('token',packet),e=>e.code==='unicode_version_mismatch');
   packet.payload.unicode_version='0.0';
   await assert.rejects(service.ingest('token',packet),e=>e.code==='unicode_version_mismatch');
-  packet.payload.unicode_version=process.versions.unicode;
+  packet.payload.unicode_version=UNICODE_VERSION;
   assert.equal((await service.ingest('token',packet)).results.vocabulary_snapshot,'applied');
   m.state().vocabularyUnicode='0.0';
   const later=structuredClone(packet); later.seq++;

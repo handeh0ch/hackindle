@@ -2,6 +2,7 @@ import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { vocabulary } from './vocabulary.js';
 import { safeTotal } from './safe-total.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const dateNumber = date => Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400000);
 const dateString = number => new Date(number * 86400000).toISOString().slice(0, 10);
 const status = (measured, unknown) => unknown ? (measured ? 'partial' : 'unavailable') : 'available';
@@ -43,8 +44,9 @@ export async function statistics(db, request, daily = false) {
   if (!validate(daily ? 'daily_query' : 'summary_query', request)) fail();
   if (request.from && (request.from > request.to || (daily && dateNumber(request.to) - dateNumber(request.from) >= 366))) fail();
   return db.withTransaction(async client => {
+    await client.query(READ_SNAPSHOT);
     const { rows: [instance] } = await client.query(`SELECT instance_id, reset_generation, reporting_timezone, page_characters,
-      (CURRENT_TIMESTAMP AT TIME ZONE reporting_timezone)::date::text AS today FROM instance WHERE singleton = TRUE FOR UPDATE`);
+      (CURRENT_TIMESTAMP AT TIME ZONE reporting_timezone)::date::text AS today FROM instance WHERE singleton = TRUE`);
     const scope = [request.book_id ?? null], localDate = `((substring(e.content->>'occurred_at' FROM 1 FOR 19)::timestamp AT TIME ZONE 'UTC') AT TIME ZONE $2)::date::text`;
     const { rows } = await client.query(`WITH scoped AS (SELECT e.* FROM events e JOIN book_sources bs ON bs.source_id = e.source_id WHERE ($1::uuid IS NULL OR bs.book_id = $1)), contributions AS (
       SELECT e.content->>'volume_date' AS date, (e.content->>'credited_characters')::numeric AS characters, 0::numeric AS seconds, 1 AS vm, 0 AS vu, 0 AS tm, 0 AS tu FROM scoped e WHERE e.content->>'type' = 'reading_segment' AND e.content->>'volume_quality' = 'measured'

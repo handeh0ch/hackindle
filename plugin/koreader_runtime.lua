@@ -1,6 +1,10 @@
 local state=require("state")
 local identity=require("identity")
 local M={}
+local has_logger,logger=pcall(require,"logger")
+local function warn(...)
+    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn,"KindleSync:",...) end
+end
 
 local function valid_uuid(value)
     return type(value)=="string" and value:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$")
@@ -51,13 +55,14 @@ function M.open(config,deps)
             local begin=deps.begin_file or require("koreader_hash").begin_file
             return begin(ui.document.file,format.format,{format_verified=true}),ui.document.file,format.format
         end)
-        if not success then callback(nil,"source_unavailable"); return end
+        if not success then warn("source could not be opened:",job); callback(nil,"source_unavailable"); return end
         -- Capture the document identity independently of later UI mutations.
         self.job=job
         local function next_step()
             if serial~=runtime.serial then return end
             local ran,value=pcall(function() return job:step(32768) end)
             if not ran or value==nil or type(ui.document)~="table" or ui.document.file~=path then
+                if not ran then warn("source hashing failed:",value) end
                 runtime:cancel_source(); callback(nil,"source_unavailable"); return
             end
             if value==false then

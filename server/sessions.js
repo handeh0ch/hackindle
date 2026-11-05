@@ -1,6 +1,7 @@
 import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { safeTotal } from './safe-total.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -24,7 +25,7 @@ export async function listSessions(db, raw) {
   }
   const limit = request.limit ?? 50, budget = request.byte_budget ?? 262144;
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     const { rows: rawRows } = await client.query(`SELECT e.content->>'session_id' AS session_id, e.source_id, e.content->>'occurred_at' AS started_at, e.content->>'cycle_id' AS cycle_id,
       (SELECT f.content->>'occurred_at' FROM events f WHERE f.source_id = e.source_id AND f.content->>'type' = 'session_ended'
         AND (f.content->>'session_id')::uuid = (e.content->>'session_id')::uuid ORDER BY ${timeKey("f.content->>'occurred_at'")}, f.event_id LIMIT 1) AS ended_at,

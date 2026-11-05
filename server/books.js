@@ -1,5 +1,6 @@
 import { SyncError } from './sync.js';
 import { validate } from '../contracts/validate.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const instantKey = value => {
@@ -52,7 +53,7 @@ export async function readBook(client, id, budget = 262144) {
 }
 export async function bookDetail(db, id) {
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     return readBook(client, id);
   });
 }
@@ -76,7 +77,7 @@ export async function listBooks(db, raw) {
     } catch { fail(400, 'invalid_cursor'); }
   }
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     const { rows } = await client.query(`SELECT b.book_id FROM books b WHERE ($1 = '' OR position(lower($1) IN lower(b.title)) > 0)
       AND ($2::uuid IS NULL OR b.book_id > $2::uuid) AND EXISTS (SELECT 1 FROM book_sources bs WHERE bs.book_id = b.book_id)
       ORDER BY b.book_id LIMIT $3`, [search, after, limit + 1]);
@@ -118,7 +119,7 @@ export async function listSources(db, id, raw) {
   }
   const limit = request.limit ?? 50, budget = request.byte_budget ?? 262144;
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     if (!(await client.query('SELECT book_id FROM books WHERE book_id = $1', [id])).rows.length) fail(404, 'book_not_found');
     const size = `octet_length(s.metadata->>'title') + COALESCE((SELECT sum(octet_length(a) + 2) FROM jsonb_array_elements_text(s.metadata->'authors') a), 0)
       + COALESCE(octet_length(chosen.progress->'position'->>'value'), 0) + COALESCE(octet_length(chosen.progress->'position'->>'geometry_version'), 0)

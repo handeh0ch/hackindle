@@ -48,6 +48,7 @@ export function createAuth({ store, now = Date.now }) {
     },
     async logout(token) { if (typeof token === 'string' && token) await store.revokeSession(digest(token)); },
     async rotateDevice() { const token = secret(); await store.rotateDevice(digest(token)); return token; },
+    async unbindDevice() { await store.unbindDevice(); },
     async device(token) { return typeof token === 'string' && token ? store.getDevice(digest(token)) : null; },
     async bindDevice(token, deviceId) { return typeof token === 'string' && !!token && store.bindDevice(digest(token), deviceId); },
   };

@@ -5,7 +5,7 @@ import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), cycle = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const rows = [1, 2].map(i => ({ session_id: `00000000-0000-0000-0000-00000000000${i}`, source_id: source, started_at: '2024-01-01T00:00:00Z', ended_at: i === 1 ? '2024-01-01T01:00:00Z' : null, cycle_id: cycle, characters: i === 1 ? '0' : null, active_seconds: i === 1 ? '60' : null, volume_measured: i === 1 ? '1' : '0', volume_unknown: i === 1 ? '0' : '1', time_measured: i === 1 ? '1' : '0', time_unknown: i === 1 ? '1' : '1' }));
 const db = { withTransaction: async work => work({ query: async (sql, args = []) => {
-  if (sql.startsWith('SELECT instance_id')) return { rows: [{}] };
+  if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{}] };
   if (sql.startsWith('SELECT e.content')) return { rows: rows.filter(row => !args[2] || row.session_id > args[2]).slice(0, args[4]) };
   throw new Error('Unexpected query');
 } }) };
@@ -18,6 +18,6 @@ test('sessions expose measured reread time and distinguish partial or unavailabl
 });
 
 test('session totals reject unsafe integer values', async () => {
-  const unsafe = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{}] } : { rows: [{ ...rows[0], characters: '9007199254740992' }] } }) };
+  const unsafe = { withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{}] } : { rows: [{ ...rows[0], characters: '9007199254740992' }] } }) };
   await assert.rejects(listSessions(unsafe, {}), e => e.code === 'totals_overflow');
 });

@@ -28,7 +28,7 @@ test('B2 routes enforce input validation and expose only owner-authorized detail
     if (sql.startsWith('SELECT cover,')) return { rows: [{ cover: Buffer.from([255,216,255,217]), cover_type: 'image/jpeg' }] };
     if (sql.startsWith('SELECT instance.reset_generation')) return { rows: [{ reset_generation: 0, device_id: null, last_sync_at: null }] };
     return { rows: [] };
-  }, withTransaction: async fn => fn({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: annotationId, reset_generation: 0 }] } : { rows: [] } }) };
+  }, withTransaction: async fn => fn({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{ instance_id: annotationId, reset_generation: 0 }] } : { rows: [] } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
   const jsonHeaders = { authorization: 'Bearer token', 'content-type': 'application/json', 'content-length': '2' };
   assert.equal((await dispatch(app, 'POST', '/api/v1/sync', jsonHeaders, '{}')).statusCode, 400);
@@ -49,7 +49,7 @@ test('goal route accepts an authenticated owner and requires CSRF for changes', 
   const csrf = csrfFor('session'); let target = 0, locked = false;
   const db = { query: async (sql, args) => {
     if (sql.startsWith('SELECT username, csrf_hash')) return { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] };
-    if (sql.startsWith('SELECT instance_id')) { locked = true; return { rows: [{ reset_generation: 0 }] }; }
+    if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) { locked = true; return { rows: [{ reset_generation: 0 }] }; }
     if (sql.startsWith('INSERT INTO goals')) { assert.equal(locked, true); target = args[1]; return { rows: [] }; }
     return { rows: [{ target, completed_unique_books: '2' }] };
   }, withTransaction: async work => { locked = false; return work(db); } };
@@ -68,7 +68,7 @@ test('goal route accepts an authenticated owner and requires CSRF for changes', 
 test('vocabulary reports unavailable before the first successful snapshot', async () => {
   const csrf = csrfFor('session');
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
-    withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
+    withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
   const result = await dispatch(app, 'GET', '/api/v1/owner/vocabulary', { cookie: 'kindle_sync_session=session' });
   assert.equal(result.statusCode, 200); assert.deepEqual(JSON.parse(result.raw), { status: 'unavailable', count: null, items: [], next_cursor: null });
@@ -78,7 +78,7 @@ test('book detail returns tracked source data for an authenticated owner', async
   const csrf = csrfFor('session'), bookId = '48bc0344-efad-4c68-adb6-dc0f0ba57276', sourceId = 'a'.repeat(64);
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
     withTransaction: async work => work({ query: async sql => {
-      if (sql.startsWith('SELECT instance_id')) return { rows: [{ reset_generation: 0 }] };
+      if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{ reset_generation: 0 }] };
       if (sql.startsWith('SELECT b.book_id')) return { rows: [{ book_id: bookId, title: 'Synthetic', minimum_bytes: 73 }] };
       if (sql.startsWith('SELECT s.source_id')) return { rows: [{ source_id: sourceId, format: 'epub', title: 'Synthetic', authors: ['Example'], progress: null, last_opened_at: null, cover_available: false }] };
       if (sql.startsWith('SELECT COALESCE')) return { rows: [{ active_annotations: '0', archived_annotations: '0', active_days: '0', first_tracked_at: null, last_tracked_at: null }] };
@@ -95,7 +95,7 @@ test('owner config exposes the same nonsecret profile only to owner sessions', a
   const csrf = csrfFor('session'), id = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
   const db = { query: async sql => {
     if (sql.startsWith('SELECT username, csrf_hash')) return { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] };
-    if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: id, reset_generation: 0 }] };
+    if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{ instance_id: id, reset_generation: 0 }] };
     if (sql.startsWith('SELECT token_hash, device_id')) return { rows: [{ device_id: id }] };
     return { rows: [] };
   } };
@@ -111,7 +111,7 @@ test('book library returns a bounded page through the owner route', async () => 
   const csrf = csrfFor('session'), bookId = '48bc0344-efad-4c68-adb6-dc0f0ba57276', sourceId = 'a'.repeat(64);
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
     withTransaction: async work => work({ query: async sql => {
-      if (sql.startsWith('SELECT instance_id')) return { rows: [{ reset_generation: 0 }] };
+      if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{ reset_generation: 0 }] };
       if (sql.startsWith('SELECT b.book_id FROM books')) return { rows: [{ book_id: bookId }] };
       if (sql.startsWith('SELECT b.book_id')) return { rows: [{ book_id: bookId, title: 'Synthetic', minimum_bytes: 73 }] };
       if (sql.startsWith('SELECT s.source_id')) return { rows: [{ source_id: sourceId, format: 'epub', title: 'Synthetic', authors: [], progress: null, last_opened_at: null, cover_available: false }] };
@@ -135,7 +135,7 @@ test('grouping mutations validate inputs after owner CSRF protection', async () 
 test('match candidates are owner-only and reject malformed decisions', async () => {
   const csrf = csrfFor('session');
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
-    withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
+    withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
   const owner = { cookie: 'kindle_sync_session=session' }, headers = { ...owner, origin: 'https://example.invalid', 'x-csrf-token': csrf, 'content-type': 'application/json', 'content-length': '2' };
   assert.equal((await dispatch(app, 'GET', '/api/v1/owner/matches')).statusCode, 401);

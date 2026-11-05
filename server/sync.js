@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { canonicalDigest, validateEnvelope } from '../contracts/validate.js';
 import { validAllocation, validReportingInstant } from './allocation.js';
+import { UNICODE_VERSION } from './unicode-lower.js';
 export class SyncError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
 }
@@ -33,12 +34,12 @@ export function createSyncService({ db, createTx }) {
       return discarded;
     }
     if (previous) return previous.ack;
-    if (envelope.kind === 'vocabulary_snapshot' && generation > 0 && envelope.payload.unicode_version !== process.versions.unicode) fail(409, 'unicode_version_mismatch');
+    if (envelope.kind === 'vocabulary_snapshot' && generation > 0 && envelope.payload.unicode_version !== UNICODE_VERSION) fail(409, 'unicode_version_mismatch');
     if (envelope.kind === 'vocabulary_snapshot') {
       const unicode = await tx.vocabularyUnicode();
-      if (unicode.version && unicode.version !== process.versions.unicode) fail(409, 'unicode_version_mismatch');
+      if (unicode.version && unicode.version !== UNICODE_VERSION) fail(409, 'unicode_version_mismatch');
       if (!unicode.version && unicode.unknown) fail(409, 'unicode_version_unknown');
-      if (!unicode.version) await tx.rememberVocabularyUnicode(process.versions.unicode);
+      if (!unicode.version) await tx.rememberVocabularyUnicode(UNICODE_VERSION);
     }
     const source = envelope.source_id === null ? null : await tx.source(envelope.source_id);
     if (envelope.source_id !== null && !source && !(envelope.kind === 'source_snapshot' && envelope.payload.metadata)) fail(400, 'source_metadata_required');

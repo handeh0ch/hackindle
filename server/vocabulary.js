@@ -1,6 +1,7 @@
 import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { vocabularyIdentity } from './vocabulary-identity.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 function parseQuery(raw) {
@@ -25,7 +26,9 @@ function cursorValue(cursor) {
 export async function vocabulary(db, raw, countOnly = false) {
   const request = parseQuery(raw), cursor = request.cursor ? cursorValue(request.cursor) : null;
   return db.withTransaction(async client => {
-    const { rows: [instance] } = await client.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE FOR UPDATE');
+    // countOnly runs inside the statistics snapshot, which already set the isolation level.
+    if (!countOnly) await client.query(READ_SNAPSHOT);
+    const { rows: [instance] } = await client.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE');
     const generation = Number(instance.reset_generation);
     const { rows: [snapshot] } = await client.query('SELECT v.device_id, v.version FROM vocabulary_versions v JOIN device d ON d.device_id = v.device_id WHERE d.singleton = TRUE AND v.reset_generation = $1', [generation]);
     if (cursor && (!snapshot || cursor[0] !== generation || cursor[1] !== snapshot.device_id || cursor[2] !== Number(snapshot.version))) fail(400, 'invalid_cursor');

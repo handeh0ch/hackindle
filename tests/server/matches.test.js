@@ -8,7 +8,7 @@ function database() {
   return { state: () => state, withTransaction: async work => {
     const draft = structuredClone(state);
     const result = await work({ query: async (sql, args = []) => {
-      if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: first, reset_generation: 0 }] };
+      if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{ instance_id: first, reset_generation: 0 }] };
       if (sql.startsWith('SELECT s.source_id, target.book_id')) return { rows: draft.decisions[`${a}:${second}`] ? [] : [{ source_id: a, candidate_book_id: second, reason: 'same_title' }] };
       if (sql.startsWith('SELECT book_id FROM book_sources')) return { rows: draft.memberships[args[0]] ? [{ book_id: draft.memberships[args[0]] }] : [] };
       if (sql.startsWith('SELECT book_id FROM books')) return { rows: draft.books[args[0]] ? [{ book_id: args[0] }] : [] };

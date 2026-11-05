@@ -75,6 +75,7 @@ All routes are relative to `/api/v1/owner`. The following response and request n
 | POST `/matches` | `match_action` | updated `book` |
 | PUT `/goals/{year}` | `goal_action` | `goal` |
 | POST `/device/token` | empty object; rotate existing token | `token_result`, secret returned once |
+| POST `/device/unbind` | empty object; clears the device binding so a replacement installation can bind with the current token | 204 |
 | POST `/reset` | `reset_action` | `reset_result` |
 
 ## Reporting semantics

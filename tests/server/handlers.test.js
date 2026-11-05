@@ -49,3 +49,11 @@ test('login throttle response carries the remaining Retry-After seconds', async 
   const res = { headers: {}, status(code) { this.statusCode = code; return this; }, json() { return this; }, set(name, value) { this.headers[name] = value; return this; } };
   await handler.login(req, res); assert.equal(res.statusCode, 429); assert.equal(res.headers['Retry-After'], '47');
 });
+test('device unbind accepts only an empty object and answers 204 without a body', async () => {
+  let unbinds = 0;
+  const handler = createHandlers({ auth: { unbindDevice: async () => { unbinds++; } }, config: {}, profile: async () => ({}) });
+  const response = () => ({ statusCode: 200, ended: false, status(value) { this.statusCode = value; return this; }, json(body) { this.body = body; return this; }, set() { return this; }, end() { this.ended = true; return this; } });
+  for (const body of [undefined, null, [], { unexpected: true }]) { const res = response(); await handler.unbind({ body }, res); assert.equal(res.statusCode, 400); }
+  assert.equal(unbinds, 0);
+  const res = response(); await handler.unbind({ body: {} }, res); assert.equal(res.statusCode, 204); assert.equal(res.ended, true); assert.equal(unbinds, 1);
+});

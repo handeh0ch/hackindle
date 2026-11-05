@@ -2,6 +2,7 @@ import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
 import { createSyncTx } from './sync-store.js';
 import { readBook } from './books.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -23,7 +24,7 @@ export async function listMatches(db, raw) {
   }
   const limit = request.limit ?? 50, budget = request.byte_budget ?? 262144;
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     const { rows } = await client.query(`SELECT s.source_id, target.book_id AS candidate_book_id, 'same_title' AS reason
       FROM sources s JOIN book_sources own ON own.source_id = s.source_id
       JOIN sources other ON other.source_id <> s.source_id AND trim(s.metadata->>'title') <> '' AND lower(trim(other.metadata->>'title')) = lower(trim(s.metadata->>'title'))

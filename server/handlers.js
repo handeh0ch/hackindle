@@ -5,6 +5,7 @@ function cookie(req) {
   const matches = parts.filter(part => part[0] === 'kindle_sync_session' && part.length === 2);
   return matches.length === 1 ? matches[0][1] : '';
 }
+const emptyObject = body => !!body && !Array.isArray(body) && typeof body === 'object' && Object.keys(body).length === 0;
 export function bearer(req) { return /^Bearer ([A-Za-z0-9_-]+)$/.exec(req.get('authorization') ?? '')?.[1] ?? ''; }
 export function createHandlers({ auth, config, profile }) {
   const options = { httpOnly: true, sameSite: 'lax', secure: config.secureCookies, path: '/' };
@@ -50,8 +51,14 @@ export function createHandlers({ auth, config, profile }) {
       return res.set('Cache-Control', 'no-store').json(await profile());
     },
     async rotate(req, res) {
-      if (!req.body || Array.isArray(req.body) || typeof req.body !== 'object' || Object.keys(req.body).length !== 0) return error(res, 400, 'invalid_request');
+      if (!emptyObject(req.body)) return error(res, 400, 'invalid_request');
       return res.set('Cache-Control', 'no-store').json({ device_token: await auth.rotateDevice() });
+    },
+    // Lets a replacement device (lost or reinstalled plugin state) bind to the instance.
+    async unbind(req, res) {
+      if (!emptyObject(req.body)) return error(res, 400, 'invalid_request');
+      await auth.unbindDevice();
+      return res.set('Cache-Control', 'no-store').status(204).end();
     },
   };
 }

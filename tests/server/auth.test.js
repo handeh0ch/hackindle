@@ -156,3 +156,22 @@ test('restored device has no usable token until rotation and retains its identit
   assert.equal(await auth.device('arbitrary-token'), null);
   const token = await auth.rotateDevice(); assert.equal((await auth.device(token)).deviceId, 'synthetic-device');
 });
+test('owner can unbind the device so a replacement installation can bind with the same token', async () => {
+  let bound = null, tokenHash = null;
+  const db = { query: async (sql, args) => {
+    if (sql.startsWith('INSERT INTO device')) { tokenHash = args[0]; return { rows: [] }; }
+    if (sql.startsWith('UPDATE device SET device_id = NULL')) { assert.deepEqual(args, undefined); bound = null; return { rows: [] }; }
+    if (sql.startsWith('UPDATE device SET device_id = COALESCE')) {
+      if (tokenHash !== args[0] || (bound && bound !== args[1])) return { rows: [] };
+      bound = args[1]; return { rows: [{ device_id: bound }] };
+    }
+    throw new Error('Unexpected query');
+  } };
+  const auth = createAuth({ store: createStore(db) });
+  const token = await auth.rotateDevice(), first = 'a', replacement = 'b';
+  assert.equal(await auth.bindDevice(token, first), true);
+  assert.equal(await auth.bindDevice(token, replacement), false);
+  await auth.unbindDevice();
+  assert.equal(await auth.bindDevice(token, replacement), true);
+  assert.equal(bound, replacement);
+});

@@ -6,7 +6,7 @@ function database() {
   let version = 1;
   const words = ['a', 'b', 'c'].map((x, i) => ({ word_key: String(i + 1).repeat(64), content: { word: x.repeat(50), language: null, source: null } }));
   return { words, change() { version++; }, async withTransaction(work) { return work({ query: async (sql, args) => {
-    if (sql.startsWith('SELECT instance_id')) return { rows: [{ reset_generation: 2 }] };
+    if ((sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION'))) return { rows: [{ reset_generation: 2 }] };
     if (sql.startsWith('SELECT v.device_id')) return { rows: [{ device_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', version }] };
     if (sql.startsWith('SELECT count')) return { rows: [{ count: String(words.length) }] };
     if (sql.startsWith('SELECT word_key')) return { rows: words.filter(w => w.word_key > args[0]).slice(0, args[1]) };

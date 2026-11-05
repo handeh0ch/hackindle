@@ -24,6 +24,8 @@ test('reports retain unavailable as null and use no fabricated average when peri
 test('statistics endpoint validates date bounds and uses scoped aggregate results', async () => {
   const { statistics } = await import('../../server/reports.js');
   const db = { withTransaction: async work => work({ query: async (sql, args) => {
+    assert.ok(!sql.includes('FOR UPDATE'), 'read endpoints must not lock the instance row');
+    if (sql === 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY') return { rows: [] };
     if (sql.startsWith('SELECT instance_id')) return { rows: [{ reporting_timezone: 'UTC', page_characters: '2000', today: '2024-03-01' }] };
     if (sql.startsWith('WITH scoped')) return { rows: [{ date: '2024-02-29', characters: '4000', active_seconds: '60', volume_measured: '1', volume_unknown: '0', time_measured: '1', time_unknown: '0' }] };
     if (sql.startsWith('SELECT min(')) return { rows: [{ earliest: '2024-02-29' }] };

@@ -29,6 +29,7 @@ export function createStore(db) {
     },
     async revokeSession(tokenHash) { await db.query('DELETE FROM owner_sessions WHERE token_hash = $1', [tokenHash]); },
     async rotateDevice(tokenHash) { await db.query('INSERT INTO device (singleton, token_hash) VALUES (TRUE, $1) ON CONFLICT (singleton) DO UPDATE SET token_hash = EXCLUDED.token_hash', [tokenHash]); },
+    async unbindDevice() { await db.query('UPDATE device SET device_id = NULL, last_sync_at = NULL WHERE singleton = TRUE'); },
     async getDevice(tokenHash) {
       const { rows: [row] } = await db.query('SELECT token_hash, device_id FROM device WHERE token_hash = $1', [tokenHash]);
       return row ? { deviceId: row.device_id } : null;

@@ -2,6 +2,12 @@
 -- provisioning remain injected; missing adapters never generate measurements.
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local Entry = WidgetContainer:extend{ name = "kindle_sync", is_doc_only = true }
+-- KOReader's logger is optional so that errors never become a second failure.
+-- Only error text is logged: assertions here carry no credentials or book content.
+local has_logger,logger = pcall(require, "logger")
+local function warn(...)
+    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn, "KindleSync:", ...) end
+end
 
 function Entry:init()
     self.status = "adapter_unavailable"
@@ -32,7 +38,7 @@ end
 function Entry:configure(config,deps)
     if self.runtime or self.pending_page then self.status="initialization_unavailable"; return false end
     local ok,runtime=pcall(function() return require("koreader_runtime").open(config,deps) end)
-    if not ok then self.status="initialization_unavailable"; return false end
+    if not ok then self.status="initialization_unavailable"; self.last_error=tostring(runtime); warn("initialization failed:",runtime); return false end
     self.runtime=runtime
     if runtime:has_gap() then self.capture_gap=true end
     self.status="source_pending"
@@ -40,8 +46,8 @@ function Entry:configure(config,deps)
 end
 
 function Entry:call(fn)
-    local ok = pcall(fn)
-    if not ok then self.status="capture_unavailable" end
+    local ok,err = pcall(fn)
+    if not ok then self.status="capture_unavailable"; self.last_error=tostring(err); warn("capture step failed:",err) end
     return ok
 end
 
@@ -147,7 +153,8 @@ end
 function Entry:markCaptureGap()
     self.capture_gap=true
     if self.runtime and type(self.runtime.record_gap)=="function" then
-        if not pcall(self.runtime.record_gap,self.runtime) then self.status="capture_unavailable" end
+        local ok,err=pcall(self.runtime.record_gap,self.runtime)
+        if not ok then self.status="capture_unavailable"; self.last_error=tostring(err); warn("gap could not be recorded:",err) end
     end
 end
 

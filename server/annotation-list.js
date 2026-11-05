@@ -1,5 +1,6 @@
 import { validate } from '../contracts/validate.js';
 import { SyncError } from './sync.js';
+import { READ_SNAPSHOT } from './read-snapshot.js';
 const fail = (status, code) => { throw new SyncError(status, code); };
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -22,7 +23,7 @@ export async function listAnnotations(db, raw) {
   }
   const limit = request.limit ?? 50, budget = request.byte_budget ?? 262144;
   return db.withTransaction(async client => {
-    await client.query('SELECT instance_id FROM instance WHERE singleton = TRUE FOR UPDATE');
+    await client.query(READ_SNAPSHOT);
     const { rows } = await client.query(`SELECT a.annotation_id, a.source_id, a.version, a.content->>'kind' AS kind, a.archived,
       left(a.content->>'quote', 500) AS quote_preview, left(a.content->>'note', 500) AS note_preview,
       COALESCE(a.content->'context'->>'status', 'none') AS context_status
