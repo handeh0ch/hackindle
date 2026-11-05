@@ -76,3 +76,12 @@ assert(capture.record(store, codec, compare, measure, sample, no_volume) == nil)
 
 saved.capture_generation = "blocked"
 assert(not pcall(function() capture.record(store, codec, compare, measure, sample, unavailable) end))
+
+saved.capture_generation = "0"
+assert(capture.establish_epoch(store,codec,"source-z",{verified=true,epoch="epoch-z"}))
+assert(not pcall(function() capture.establish_epoch(store,codec,"source-a",{verified=true,epoch="unknown"}) end))
+sample.source="source-z"; sample.seconds=1; sample.native_id="z"; sample.first=0; sample.last=1
+sample.timing={from=0,to=1,quality="estimated_native_anchor",anchor="2026-01-01T00:00:00Z"}
+assert(not pcall(function() capture.record(store,codec,compare,measure,sample,packet) end))
+sample.native_epoch="epoch-z"; sample.reset_verified=true
+assert(capture.record(store,codec,compare,measure,sample,packet))

@@ -1,23 +1,23 @@
 # Session handoff
 
-Read AGENTS.md first, then this file, PROGRESS.md and feature_list.json; inspect Git status. Limit: 70 lines including blanks.
+Read AGENTS.md first, then PROGRESS.md and feature_list.json; inspect Git status and history.
 
 ## Current state
 
-- Updated 2026-11-04. B3 baseline is commit 95e7d17; the subsequent WIP checkpoint saves unfinished P1 and legacy changes. Check actual Git history and status. P1 is active; verifier and evidence are null.
-- The requested gpt-6.1-terra/high backend implementer hit its usage limit while changing the legacy reset protocol. No different model or paid option is authorized. Resume the same model when available.
-- CRITICAL: legacy implementation is partial. `server/sync.js` calls `legacyBaseline` and `establishLegacyBaseline`, but `server/sync-store.js` does not implement them. Migration 004, schema and tests are incomplete; backup/restore and end-to-end unit coverage are incomplete. Do not run/deploy this checkout as a service or claim B3 remains unaffected without verification.
-- Fresh `make check` on the WIP state FAILED: 35 contract tests passed; 133 of 134 server tests passed, with `tx.establishLegacyBaseline is not a function`. P1 is not registered and no passing evidence was written.
-- Owner chose an explicit baseline/epoch extension for legacy after reset. A complete, durable per-source baseline must precede raw snapshots; for the same verified native lineage use componentwise max of server highwater and client baseline. Preserve generation-0 initial legacy import, pause on unknown native epoch/regression, reject unsafe new untagged writes, and preserve old exact retry/conflict/obsolete-generation behavior. Never accept partial or oversized baselines.
-- Review baseline identity/digest/version, reset ordering, unavailable and unseen rows, 16 MiB limits, integer safety, multiple resets, backups/restores and compatibility. Contract and service edits need independent review and a fresh complete gate before any passing claim.
-- P1 has synthetic-tested Lua primitives: validator, timezone TZif allocation, SQLite/KOReader adapters, snapshots, reading and lifecycle, and an opt-in vocabulary reset barrier. Last focused review addressed read-ticket races; app/reset/P2 integration remains incomplete.
-- Important open P1 gaps: device-local/native adapters and hooks, actual SHA/entropy and stable file reading, verified native epoch, full Unicode identity, reset resume for all datasets, annotation identical re-save proof, and authenticated source metadata acknowledgements. Real SQLite, timezone data and device behavior are unverified. Do not register P1 verifier before completion and independent review.
-- Older vocabulary reset full-object fingerprints cannot identify altered metadata; correct native baselines are essential. An annotation identical re-save remains blocked by retained server fingerprints and needs an explicit safe evidence protocol and verified native signal.
+- 2026-11-06: owner requested a local WIP checkpoint of all current changes. P1 remains active with null verifier/evidence; P2 is not started. This checkpoint is not a completed feature and must not run as a service.
+- B3 baseline is 95e7d17; previous unfinished P1 checkpoint is 24a6d12. Inspect the current commit and diff before continuing. No push, deployment, publication or Kindle writes are authorized.
+- Fresh `scripts/check.py` passed the existing unit gates on this WIP; P1 is not registered. The separate unregistered `tests/plugin/verify.py` passed synthetic tests and oracles with 98.29% aggregate Lua lines (2,527 hit / 44 missed), every executable module >=80%; Lua branches, SQL and device behavior are unverified.
+- Legacy reset baseline/epoch, server storage, migration and backup handling are provisional. Generation-zero untagged high-water is a conservative exclusion floor and can under-credit; exact source binding and continuous native epoch require evidence. Old queues, resets, backup/restore, limits and races need independent re-review.
+- The KOReader entrypoint and adapters are WIP. Rolling text has tentative page tokens, context extraction and synthetic time capture. PDF has a guarded native-time path but no character-volume implementation. Native seconds require an exact source/book/epoch binding and a unique native tuple; real ordering and device behavior are unverified.
+- Reading reset has a ticketed injected complete-baseline path; legacy reset has baseline/ACK/snapshot orchestration. Neither has a production provider that proves all required native baseline and epoch evidence. Annotation and vocabulary reset paths need reliable save signals and offline reset chronology; identical re-saves remain at risk of being unclassified.
+- Native association is injected; source mutation after hashing, same-attribute changes, selection safety, final CRE page boundary, and cross-process locking remain unresolved. Durable gap counts do not recover lost reading during hash, ACK delays, crashes or close failures. See docs/koreader-adapter.md, noting that some descriptions predate the newest native-time code.
+- Authenticated ACK transport/configuration remains P2; default entrypoint is unconfigured. Do not infer device support from synthetic adapters. Owner-run hardware observations are deferred to I1.
+- The latest native-time/PDF-time and reading-reset changes have focused synthetic tests but have not received independent review. P1 verifier must stay null until implementation and independent review are complete; only a verifier can record passing evidence.
 
 ## Next steps
 
-1. Resume the requested model; finish legacy server/contract implementation and backup migration; test with unit doubles only. Preserve all current changes and inspect the actual diff before continuing.
-2. Independently review and repair the protocol and P1 implementation; finish plugin wiring, register an implemented >=80% verifier only after review, run fresh `make check`, staged diff and redacted secret scans before the owner-requested local commit.
-3. Then P2, F1/F2, I1 owner-run acceptance, I2 release/deployment guidance. One active feature at a time.
-4. No downloads without specific approval; all tooling/cache/temp on agreed P: paths. No actual database, server, browser E2E or container tests. Owner performs every Kindle write.
-5. No push, publication or deployment without separate owner instruction. Keep private data and credentials out of Git; maintain repository documents in English.
+1. Resume with gpt-6.1-terra/high implementer and separate independent reviewer; do not substitute models or buy access. Read docs/development.md, requirements, data spec, api-v1, configuration, harness and the approved P1/P2 plan before implementing.
+2. Finish P1 capture and reset correctness, including PDF visible text, native time/epoch, stable annotation identity/context, durable observation recovery and verified source binding. Keep uncertain device API assumptions explicit for I1; do not fabricate measurements.
+3. Independently review the entire P1 WIP and repair findings; register the implemented Lua verifier only after completion and review, run a fresh full gate, and follow staged diff/redacted secret scan before the P1 commit.
+4. Only then implement and independently review P2, run its verifier and a fresh full gate, and commit locally. Unit tests only; never start a real database, service, container, browser E2E or device.
+5. No downloads without specific approval. Use agreed P: paths, keep private data out of Git, and maintain repository documentation in English.

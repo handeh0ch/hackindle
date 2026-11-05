@@ -183,12 +183,17 @@ local function validate(v)
         end
     elseif v.kind == "reading_events" then events(v.payload,v.source_id,types)
     elseif v.kind == "vocabulary_snapshot" then
-        object(v.payload,{"version","words"}); integer(v.payload.version,1); array(v.payload.words)
+        object(v.payload,{"version","words"},{"unicode_version"}); integer(v.payload.version,1); array(v.payload.words)
+        if v.payload.unicode_version~=nil then string_(v.payload.unicode_version); require_(v.payload.unicode_version:match("^%d+%.%d+$")) end
         for _, word in ipairs(v.payload.words) do
             object(word,{"word","language","source"}); string_(word.word); nullable_string(word.language); nullable_string(word.source)
         end
     elseif v.kind == "legacy_statistics" then
-        object(v.payload,{"version","records"}); integer(v.payload.version,1); array(v.payload.records)
+        object(v.payload,{"version","records"},{"mode","baseline_id","native_epoch"}); integer(v.payload.version,1); array(v.payload.records)
+        if v.payload.mode ~= nil or v.payload.baseline_id ~= nil or v.payload.native_epoch ~= nil then
+            require_(v.payload.mode == "baseline" or v.payload.mode == "snapshot")
+            uuid(v.payload.baseline_id); uuid(v.payload.native_epoch)
+        end
         local seen={}
         for _, record in ipairs(v.payload.records) do
             object(record,{"date","native_pages","native_seconds"}); date(record.date)

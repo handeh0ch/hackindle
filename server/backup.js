@@ -22,6 +22,9 @@ const tables = {
   event_identities: ['event_id', 'digest'],
   legacy_raw_highwater: ['source_id', 'reporting_date', 'native_pages', 'native_seconds'],
   legacy_reset_baseline: ['source_id', 'reporting_date', 'native_pages', 'native_seconds'],
+  legacy_handshakes: ['device_id', 'source_id', 'reset_generation', 'baseline_id', 'native_epoch', 'digest'],
+  legacy_carry: ['source_id', 'reporting_date', 'native_pages', 'native_seconds'],
+  legacy_lineages: ['source_id', 'native_epoch'],
   match_decisions: ['source_id', 'candidate_book_id', 'decision'],
 };
 const binary = { sources: 'cover', upload_chunks: 'content' };
@@ -45,7 +48,7 @@ const safeInteger = value => /^(0|[1-9][0-9]*)$/.test(String(value)) && Number.i
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const sourceId = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 const nullable = { sources: ['cover', 'cover_type', 'progress'], uploads: ['source_id', 'committed_ack'], reset_tombstones: ['digest'], annotation_identities: ['barrier_generation'] };
-const primary = { books: ['book_id'], sources: ['source_id'], book_sources: ['source_id'], annotations: ['source_id', 'annotation_id'], annotation_versions: ['source_id', 'annotation_id', 'version'], packets: ['device_id', 'seq'], events: ['event_id'], snapshot_versions: ['device_id', 'source_id', 'section', 'reset_generation'], vocabulary_versions: ['device_id', 'reset_generation'], vocabulary: ['word_key'], legacy_statistics: ['source_id', 'reporting_date'], uploads: ['upload_id'], upload_chunks: ['upload_id', 'chunk_index'], goals: ['year'], reset_tombstones: ['reset_generation', 'entity_type', 'entity_id'], annotation_identities: ['annotation_id'], event_identities: ['event_id'], legacy_raw_highwater: ['source_id', 'reporting_date'], legacy_reset_baseline: ['source_id', 'reporting_date'], match_decisions: ['source_id', 'candidate_book_id'] };
+const primary = { books: ['book_id'], sources: ['source_id'], book_sources: ['source_id'], annotations: ['source_id', 'annotation_id'], annotation_versions: ['source_id', 'annotation_id', 'version'], packets: ['device_id', 'seq'], events: ['event_id'], snapshot_versions: ['device_id', 'source_id', 'section', 'reset_generation'], vocabulary_versions: ['device_id', 'reset_generation'], vocabulary: ['word_key'], legacy_statistics: ['source_id', 'reporting_date'], uploads: ['upload_id'], upload_chunks: ['upload_id', 'chunk_index'], goals: ['year'], reset_tombstones: ['reset_generation', 'entity_type', 'entity_id'], annotation_identities: ['annotation_id'], event_identities: ['event_id'], legacy_raw_highwater: ['source_id', 'reporting_date'], legacy_reset_baseline: ['source_id', 'reporting_date'], legacy_handshakes: ['device_id', 'source_id', 'reset_generation'], legacy_carry: ['source_id', 'reporting_date'], legacy_lineages: ['source_id'], match_decisions: ['source_id', 'candidate_book_id'] };
 function validateBackup(snapshot, config) {
   if (!exactKeys(snapshot, ['format_version', 'instance', 'device', 'tables']) || snapshot.format_version !== 1 || !exactKeys(snapshot.instance, ['instance_id', 'reporting_timezone', 'page_characters', 'reset_generation']) || !uuid(snapshot.instance.instance_id) || !safeInteger(snapshot.instance.page_characters) || Number(snapshot.instance.page_characters) < 1 || !safeInteger(snapshot.instance.reset_generation)) fail(400, 'invalid_backup');
   if (snapshot.instance.reporting_timezone !== config.reportingTimezone || Number(snapshot.instance.page_characters) !== config.pageCharacters) fail(409, 'policy_mismatch');
@@ -64,7 +67,7 @@ function validateBackup(snapshot, config) {
       for (const column of columns) {
         const value = row[column];
         if (value === null) { if (!nullable[table]?.includes(column)) fail(400, 'invalid_backup'); continue; }
-        if (['book_id', 'candidate_book_id', 'annotation_id', 'device_id', 'event_id', 'upload_id'].includes(column) && !uuid(value)) fail(400, 'invalid_backup');
+        if (['book_id', 'candidate_book_id', 'annotation_id', 'device_id', 'event_id', 'upload_id', 'baseline_id', 'native_epoch'].includes(column) && !uuid(value)) fail(400, 'invalid_backup');
         if (column === 'source_id' && !sourceId(value)) fail(400, 'invalid_backup');
         if (['digest', 'word_key'].includes(column) && !sourceId(value)) fail(400, 'invalid_backup');
         if (['seq', 'version', 'content_version', 'reset_generation', 'barrier_generation', 'native_pages', 'native_seconds', 'chunk_index', 'year', 'target'].includes(column) && (!safeInteger(value) || (['seq', 'version', 'content_version', 'year'].includes(column) && Number(value) === 0) || (column === 'year' && Number(value) > 9999))) fail(400, 'invalid_backup');
@@ -96,6 +99,10 @@ function validateBackup(snapshot, config) {
     }
   }
   const values = table => new Set(snapshot.tables[table].map(row => String(row[primary[table][0]]).toLowerCase()));
+  const unicodeMarkers = snapshot.tables.reset_tombstones.filter(row => row.entity_type === 'unicode_version');
+  if (unicodeMarkers.length > 1 || unicodeMarkers.some(row => Number(row.reset_generation) !== 0 || row.digest !== null || typeof row.entity_id !== 'string' || !/^[0-9]+[.][0-9]+$/.test(row.entity_id))) fail(400, 'invalid_backup');
+  const lineages = new Map(snapshot.tables.legacy_lineages.map(row => [row.source_id, row.native_epoch.toLowerCase()]));
+  for (const row of snapshot.tables.legacy_handshakes) if (lineages.get(row.source_id) !== row.native_epoch.toLowerCase() || Number(row.reset_generation) > Number(snapshot.instance.reset_generation)) fail(400, 'invalid_backup');
   const books = values('books'), sources = values('sources'), uploads = values('uploads');
   const annotations = new Set(snapshot.tables.annotations.map(row => `${row.source_id}:${row.annotation_id.toLowerCase()}`));
   if (new Set(snapshot.tables.annotations.map(row => row.annotation_id.toLowerCase())).size !== snapshot.tables.annotations.length) fail(400, 'invalid_backup');
@@ -114,6 +121,9 @@ function validateBackup(snapshot, config) {
   }
 }
 export async function restoreBackup(db, config, snapshot) {
+  if (snapshot?.tables && ['legacy_handshakes', 'legacy_carry', 'legacy_lineages'].every(key => !Object.hasOwn(snapshot.tables, key))) {
+    snapshot = { ...snapshot, tables: { ...snapshot.tables, legacy_handshakes: [], legacy_carry: [], legacy_lineages: [] } };
+  }
   validateBackup(snapshot, config);
   return db.withTransaction(async client => {
     await client.query('LOCK TABLE instance IN EXCLUSIVE MODE');

@@ -3,34 +3,17 @@ local state=require("state")
 local validator=require("validator")
 local json=require("wire_json")
 local M={}
--- JS lowercasing is supported for ASCII and Russian Cyrillic letters only.
--- All other non-ASCII characters fail closed until full Unicode casing exists.
-local function safe_lower(value)
-    assert(type(value)=="string", "vocabulary identity unavailable")
-    local out,i={},1
-    while i<=#value do
-        local a,b=value:byte(i,i+1)
-        if a<128 then
-            out[#out+1]=string.char(a>=65 and a<=90 and a+32 or a); i=i+1
-        elseif a==0xD0 and b then
-            if b==0x81 then out[#out+1]=string.char(0xD1,0x91)
-            elseif b>=0x90 and b<=0x9F then out[#out+1]=string.char(0xD0,b+0x20)
-            elseif b>=0xA0 and b<=0xAF then out[#out+1]=string.char(0xD1,b-0x20)
-            elseif b>=0xB0 and b<=0xBF then out[#out+1]=string.char(a,b)
-            else error("Unicode vocabulary identity unsupported") end
-            i=i+2
-        elseif a==0xD1 and b and ((b>=0x80 and b<=0x8F) or b==0x91) then
-            out[#out+1]=string.char(a,b); i=i+2
-        else error("Unicode vocabulary identity unsupported") end
-    end
-    return table.concat(out)
-end
+local safe_lower=require("unicode_lower").lower
 function M.vocabulary_identity(item)
     local word=safe_lower(item.word)
     local language=item.language==json.null and json.null or safe_lower(item.language)
     return require("codec").encode(json.array({word,language}))
 end
 local function vocabulary_records(records)
+    assert(type(records)=="table", "vocabulary read unavailable")
+    local count=0
+    for key in pairs(records) do assert(type(key)=="number" and key>=1 and key==math.floor(key), "incomplete vocabulary read"); count=count+1 end
+    for i=1,count do assert(records[i]~=nil, "incomplete vocabulary read") end
     local result={}
     for _,item in ipairs(records) do
         result[#result+1]={id=M.vocabulary_identity(item),word=item.word,language=item.language,source=item.source}
@@ -41,20 +24,32 @@ local function identity_marker() return "baseline" end
 local function policy(tx,codec,generation)
     local value=profile.policy_tx(tx,codec)
     assert(value.baseline_required and value.generation==generation and value.device_id, "reset generation changed")
+    assert(value.unicode_version==require("unicode_lower").version, "server Unicode version unsupported")
     return value
 end
-local function packet_ok(bytes,p,generation,seq,version,words)
+local function packet_ok(bytes,p,generation,seq,version,words,expected)
     assert(validator.validate(bytes), "invalid baseline packet")
     local packet=require("codec").decode(bytes)
     assert(packet.kind=="vocabulary_snapshot" and packet.instance_id==p.instance_id and packet.device_id==p.device_id
         and packet.reset_generation==generation and packet.seq==seq and packet.payload.version==version
-        and require("codec").encode(packet.payload.words)==require("codec").encode(json.array(words)), "baseline packet identity mismatch")
+        and packet.payload.unicode_version==p.unicode_version
+        and require("codec").encode(packet.payload.words)==(expected or require("codec").encode(json.array(words))), "baseline packet identity mismatch")
     return packet
 end
-function M.vocabulary_baseline(store,codec,generation,records,build_packet)
+function M.vocabulary_begin_baseline(store,codec,generation)
+    return store:transaction(function(tx)
+        policy(tx,codec,generation)
+        local ticket=state.next_counter(tx,"vocabulary_baseline_ticket")
+        tx:put("vocabulary_pending_baseline",codec.encode({generation=generation,ticket=ticket}))
+        return ticket
+    end)
+end
+function M.vocabulary_baseline(store,codec,generation,records,build_packet,ticket)
     if records==nil then return nil end
     return store:transaction(function(tx)
         local p=policy(tx,codec,generation)
+        local pending=tx:get("vocabulary_pending_baseline"); local issued=pending and codec.decode(pending)
+        assert(issued and issued.generation==generation and issued.ticket==ticket, "vocabulary baseline ticket invalid")
         local encoded=tx:get("reset_vocabulary")
         local previous=encoded and codec.decode(encoded)
         if previous and previous.generation==generation then
@@ -64,7 +59,7 @@ function M.vocabulary_baseline(store,codec,generation,records,build_packet)
         profile.baseline_tx(tx,codec,"vocabulary","global",generation,vocabulary_records(records),identity_marker)
         local version=state.next_counter(tx,"vocabulary_version")
         local seq=state.next_sequence(tx)
-        local bytes=build_packet(seq,{version=version,words={}})
+        local bytes=build_packet(seq,{version=version,words={},unicode_version=p.unicode_version})
         packet_ok(bytes,p,generation,seq,version,{})
         tx:put("reset_vocabulary",codec.encode({generation=generation,seq=seq,packet=bytes,acknowledged=false}))
         tx:enqueue(seq,bytes)
@@ -108,7 +103,6 @@ function M.vocabulary_saved(store,codec,generation,item,event_id)
     local identity=M.vocabulary_identity(item)
     return store:transaction(function(tx)
         policy(tx,codec,generation)
-        assert(profile.ready_tx(tx,codec,"vocabulary","global"), "vocabulary baseline pending")
         local key="vocabulary_save_event:"..event_id
         local prior=tx:get(key)
         if prior then
@@ -176,8 +170,9 @@ function M.vocabulary_snapshot(store,codec,generation,records,watermark,build_pa
         for _,item in ipairs(filtered) do words[#words+1]={word=item.word,language=item.language,source=item.source} end
         local version=state.next_counter(tx,"vocabulary_version")
         local seq=state.next_sequence(tx)
-        local bytes=build_packet(seq,{version=version,words=words})
-        packet_ok(bytes,p,generation,seq,version,words)
+        local expected=require("codec").encode(json.array(words))
+        local bytes=build_packet(seq,{version=version,words=words,unicode_version=p.unicode_version})
+        packet_ok(bytes,p,generation,seq,version,words,expected)
         for identity, saved_order in pairs(saves.ids) do
             if saved_order<=save_order and present[identity] then saves.ids[identity]=nil end
         end

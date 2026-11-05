@@ -277,10 +277,11 @@ test('wire timestamps and reporting dates reject unsupported precision and calen
   assert.equal(validateEnvelope({ ...eventEnvelope(), payload: { events: [{ ...segment(), native_seconds: 0, allocation: many }] } }), false);
 });
 
-test('legacy baseline and snapshot require paired mode and baseline identity', () => {
-  const base = { ...envelope(), kind: 'legacy_statistics', payload: { mode: 'baseline', baseline_id: id, version: 1, records: [] } };
+test('legacy baseline and snapshot require paired mode, baseline identity and native epoch', () => {
+  const base = { ...envelope(), kind: 'legacy_statistics', payload: { mode: 'baseline', baseline_id: id, native_epoch: id, version: 1, records: [] } };
   assert.equal(validateEnvelope(base), true);
   assert.equal(validateEnvelope({ ...base, payload: { ...base.payload, mode: 'snapshot' } }), true);
   assert.equal(validateEnvelope({ ...base, payload: { version: 1, records: [], mode: 'baseline' } }), false);
   assert.equal(validateEnvelope({ ...base, payload: { version: 1, records: [], baseline_id: id } }), false);
+  assert.equal(validateEnvelope({ ...base, payload: { version: 1, records: [], mode: 'baseline', baseline_id: id } }), false);
 });

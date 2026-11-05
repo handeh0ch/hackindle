@@ -6,7 +6,7 @@ import { createB2Router } from './b2-routes.js';
 import { SyncError } from './sync.js';
 export async function buildProfile(db, config) {
   const { rows: [row] } = await db.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE');
-  return { schema_version: 1, instance_id: row.instance_id, reset_generation: Number(row.reset_generation), reporting_timezone: config.reportingTimezone, characters_per_page: config.pageCharacters, limits: { direct_bytes: 1048576, envelope_bytes: 16777216, chunk_bytes: 1048576, upload_ttl_seconds: 604800, open_uploads: 2 } };
+  return { schema_version: 1, instance_id: row.instance_id, reset_generation: Number(row.reset_generation), reporting_timezone: config.reportingTimezone, characters_per_page: config.pageCharacters, unicode_version: process.versions.unicode, limits: { direct_bytes: 1048576, envelope_bytes: 16777216, chunk_bytes: 1048576, upload_ttl_seconds: 604800, open_uploads: 2 } };
 }
 export function createApp({ db, config }) {
   const app = express();

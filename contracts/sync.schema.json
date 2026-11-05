@@ -304,6 +304,7 @@
             "payload": {
               "type": "object",
               "properties": {
+                "unicode_version": { "type": "string", "pattern": "^[0-9]+[.][0-9]+$" },
                 "version": {
                   "type": "integer",
                   "minimum": 1,
@@ -400,6 +401,7 @@
               "properties": {
                 "mode": { "enum": ["baseline", "snapshot"] },
                 "baseline_id": { "type": "string", "format": "uuid" },
+                "native_epoch": { "type": "string", "format": "uuid" },
                 "version": {
                   "type": "integer",
                   "minimum": 1,
@@ -439,7 +441,7 @@
                 "version",
                 "records"
               ],
-              "dependentRequired": { "mode": ["baseline_id"], "baseline_id": ["mode"] },
+              "dependentRequired": { "mode": ["baseline_id", "native_epoch"], "baseline_id": ["mode", "native_epoch"], "native_epoch": ["mode", "baseline_id"] },
               "additionalProperties": false
             }
           },
@@ -476,6 +478,10 @@
         "reporting_timezone": {
           "type": "string",
           "format": "iana-timezone"
+        },
+        "unicode_version": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+$"
         },
         "characters_per_page": {
           "type": "integer",

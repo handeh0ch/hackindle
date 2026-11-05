@@ -13,7 +13,7 @@ local objects,n={},0
 local codec={}
 function codec.encode(value) n=n+1; local key="encoded-"..n; objects[key]=clone(value); return key end
 function codec.decode(value) return clone(assert(objects[value])) end
-local config={schema_version=1,instance_id="48bc0344-efad-4c68-adb6-dc0f0ba57276",reporting_timezone="UTC",characters_per_page=2000,reset_generation=0}
+local config={schema_version=1,instance_id="48bc0344-efad-4c68-adb6-dc0f0ba57276",reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("unicode_lower").version}
 local device="a92e58b4-851b-467b-a5ad-1eaaccc84c61"
 local function u32(n) return string.char(math.floor(n/16777216)%256,math.floor(n/65536)%256,math.floor(n/256)%256,n%256) end
 local function header() return "TZif2"..string.rep("\0",15)..u32(0)..u32(0)..u32(0)..u32(0)..u32(1)..u32(4) end
@@ -21,6 +21,8 @@ local block=u32(0)..string.char(0,0).."UTC\0"
 local utc_bytes=header()..block..header()..block.."\nUTC0\n"
 local provider={root="/synthetic",read_file=function(path,limit) assert(path=="/synthetic/UTC" and limit==1048576); return utc_bytes end}
 local valid=function() return true end
+local verified_ack_bytes
+local function authenticated(bytes) return bytes==verified_ack_bytes end
 local a=app.open(db,codec,config,device,valid,provider)
 local metadata={format="epub",title="Synthetic",authors={},language=require("wire_json").null,identifiers={}}
 local id=("a"):rep(64)
@@ -33,10 +35,42 @@ local wrong=clone(config); wrong.instance_id="wrong"
 assert(not pcall(function() app.open(db,codec,wrong,device,valid,provider) end))
 assert(not pcall(function() app.open(db,codec,config,"different-device",valid,provider) end))
 local reset=clone(config); reset.reset_generation=1
-local paused=app.open(db,codec,reset,device,valid,provider)
+local paused=app.open(db,codec,reset,device,valid,provider,authenticated)
 assert(not pcall(function() paused:source_snapshot(id,metadata,nil,"2026-01-01T00:00:02Z") end))
 assert(not pcall(function() a:source_snapshot(id,metadata,nil,"2026-01-01T00:00:02Z") end))
 assert(db.outbox[3] == nil)
+local reset_meta=paused:reset_source_metadata(id,metadata,"2026-01-01T00:00:02Z")
+assert(reset_meta and reset_meta.seq==3)
+local reset_ack={schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=1,current_reset_generation=1,seq=3,kind="source_snapshot",status="applied",results={metadata="applied"}}
+local reset_ack_bytes=require("codec").encode(reset_ack)
+assert(not paused:reset_source_metadata_ack(reset_ack_bytes))
+verified_ack_bytes=reset_ack_bytes
+assert(paused:reset_source_metadata_ack(reset_ack_bytes))
+assert(paused:begin_legacy_baseline(id))
+local annotation_ticket=paused:begin_annotation_reset(id)
+local ann={key="native",selection="selection",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="synthetic",note="",chapter=require("wire_json").null,native_timestamp=require("wire_json").null}
+assert(paused:annotation_reset_baseline(id,annotation_ticket,{ann}))
+local read_ticket=paused:begin_annotation_read(id)
+assert(paused:annotation_reset_snapshot(id,read_ticket,{ann},function() return config.instance_id end,function() return {status="pending",reason="unavailable"} end,"2026-01-01T00:00:03Z"))
+local reading_ticket=paused:begin_reading_reset(id)
+assert(paused:reading_reset_baseline(id,reading_ticket,{verified=true,epoch=config.instance_id,native={},ranges={}},function(a,b) return a-b end))
+local reset_progress={fraction=0.5,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:04Z",session_id=config.instance_id}
+assert(not pcall(function() paused:source_snapshot(id,nil,reset_progress,"2026-01-01T00:00:04Z",true) end))
+assert(paused:source_snapshot(id,nil,reset_progress,"2026-01-01T00:00:04Z",true,true))
+local after_reset_sample={source=id,source_id=id,day="2026-01-01",native_id="native-new",seconds=2,first=0,last=1,
+    native_epoch=config.instance_id,reset_verified=true,event_id=config.instance_id,session_id=config.instance_id,
+    occurred_at="2026-01-01T00:00:04Z",measurement_version="v1",provenance="native",
+    timing={from=0,to=2,quality="estimated_native_anchor",anchor="2026-01-01T00:00:04Z"}}
+local reading_adapter={compare=function(a,b) return a-b end,measure=function(a,b) return b-a end,locator=function(n) return {type="xpointer",value=tostring(n)} end}
+assert(paused:reading_sample(after_reset_sample,reading_adapter,"2026-01-01T00:00:04Z"))
+local reset_uuid_counter=0
+local function reset_uuid() reset_uuid_counter=reset_uuid_counter+1; return string.format("10000000-0000-4000-8000-%012d",reset_uuid_counter) end
+assert(not pcall(function() paused:session_open(id,reset_uuid(),"2026-01-01T00:00:05Z",reset_uuid) end))
+assert(paused:session_open(id,reset_uuid(),"2026-01-01T00:00:05Z",reset_uuid,true))
+assert(paused:session_close("2026-01-01T00:00:06Z",reset_uuid,true))
+local vocab_ticket=paused:begin_vocabulary_reset()
+local vocab_base=paused:vocabulary_reset_baseline(vocab_ticket,{},"2026-01-01T00:00:05Z")
+assert(vocab_base and vocab_base.packet)
 print("application factory assertions passed")
 
 
@@ -45,10 +79,16 @@ setmetatable(preexisting,{__index=db})
 assert(not pcall(function() app.open(preexisting,codec,config,device,valid,provider) end))
 local builtin_db={rows={},outbox={}}
 setmetatable(builtin_db,{__index=db})
-local first=app.open(builtin_db,nil,config,device,valid,provider)
+local first=app.open(builtin_db,nil,config,device,valid,provider,authenticated)
 assert(first:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
+assert(not first:source_metadata_ready(id))
 assert(not pcall(function() first:source_snapshot(id,nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))
-builtin_db.rows["source_ack:"..id]="epub"
+local initial_ack={schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}}
+local initial_ack_bytes=require("codec").encode(initial_ack)
+assert(not first:source_metadata_ack(initial_ack_bytes))
+verified_ack_bytes=initial_ack_bytes
+assert(first:source_metadata_ack(initial_ack_bytes))
+assert(first:source_metadata_ready(id))
 local pdf_position={type="pdf",page=1,boxes={{x=1,y=2,width=3,height=4}},geometry_version="provisional"}
 assert(not pcall(function() first:source_snapshot(id,nil,{fraction=0.4,position=pdf_position,observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))
 local wrong_metadata=clone(metadata); wrong_metadata.format="pdf"
@@ -86,6 +126,29 @@ setmetatable(validated_db,{__index=db})
 local vapp=app.open(validated_db,nil,config,device,bad_validator,provider)
 assert(not pcall(function() vapp:source_snapshot(id,metadata,nil,"bad-time") end))
 assert(validated_db.rows.seq == nil and validated_db.outbox[1] == nil)
+
+local ordinary_db={rows={},outbox={}}; setmetatable(ordinary_db,{__index=db})
+local ordinary=app.open(ordinary_db,nil,config,device,valid,provider,authenticated)
+assert(ordinary:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
+local ordinary_ack=require("codec").encode({schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
+verified_ack_bytes=ordinary_ack; assert(ordinary:source_metadata_ack(ordinary_ack))
+local record={key="note",selection="r",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="x",note="",chapter=require("wire_json").null,native_timestamp=require("wire_json").null}
+assert(ordinary:annotations_snapshot(id,{record},function() return config.instance_id end,function() return {status="pending",reason="unavailable"} end,"2026-01-01T00:00:01Z"))
+assert(ordinary:vocabulary_snapshot(function() return {{word="word",language=require("wire_json").null,source=require("wire_json").null}} end,"2026-01-01T00:00:02Z"))
+assert(ordinary:legacy_initial(id,function() return {{date="2026-01-01",native_pages=1,native_seconds=2}} end,"2026-01-01T00:00:03Z"))
+local native_connection={prepare=function(_,sql)
+    local done=false
+    return {bind1=function() end,step=function() if done then return nil end; done=true; return {1,1767225600,3,100} end,close=function() end}
+end}
+local native_binding={verified=true,readonly=true,source_id=id,native_book_id=1}
+assert(ordinary:legacy_native_initial(id,native_connection,native_binding,"2026-01-01T00:00:03Z"))
+assert(not pcall(function() ordinary:legacy_native_initial(("b"):rep(64),native_connection,native_binding,"2026-01-01T00:00:03Z") end))
+local next_uuid=0
+local function uuid() next_uuid=next_uuid+1; return string.format("00000000-0000-4000-8000-%012d",next_uuid) end
+assert(ordinary:session_open(id,uuid(),"2026-01-01T00:00:04Z",uuid))
+assert(ordinary:finish_book("2026-01-01T00:00:05Z",uuid))
+assert(ordinary:begin_cycle("2026-01-01T00:00:06Z",uuid))
+assert(ordinary:session_close("2026-01-01T00:00:07Z",uuid))
 
 
 local cadence_db={rows={},outbox={}}; setmetatable(cadence_db,{__index=db})

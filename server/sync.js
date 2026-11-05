@@ -33,6 +33,13 @@ export function createSyncService({ db, createTx }) {
       return discarded;
     }
     if (previous) return previous.ack;
+    if (envelope.kind === 'vocabulary_snapshot' && generation > 0 && envelope.payload.unicode_version !== process.versions.unicode) fail(409, 'unicode_version_mismatch');
+    if (envelope.kind === 'vocabulary_snapshot') {
+      const unicode = await tx.vocabularyUnicode();
+      if (unicode.version && unicode.version !== process.versions.unicode) fail(409, 'unicode_version_mismatch');
+      if (!unicode.version && unicode.unknown) fail(409, 'unicode_version_unknown');
+      if (!unicode.version) await tx.rememberVocabularyUnicode(process.versions.unicode);
+    }
     const source = envelope.source_id === null ? null : await tx.source(envelope.source_id);
     if (envelope.source_id !== null && !source && !(envelope.kind === 'source_snapshot' && envelope.payload.metadata)) fail(400, 'source_metadata_required');
     const supplied = envelope.kind === 'source_snapshot' ? envelope.payload.metadata?.value : null;
@@ -71,20 +78,25 @@ export function createSyncService({ db, createTx }) {
       }
     } else if (envelope.kind === 'legacy_statistics') {
       const payload = envelope.payload;
-      if (!payload.mode) fail(409, 'legacy_upgrade_required');
+      if (!payload.mode) {
+        if (generation !== 0) fail(409, 'legacy_upgrade_required');
+        await section('legacy_statistics', { version: payload.version, value: payload.records }, v => tx.legacy(envelope.source_id, v, false));
+      } else {
       const id = payload.baseline_id.toLowerCase(), device = envelope.device_id.toLowerCase();
       const baseline = await tx.legacyBaseline(device, envelope.source_id, generation);
       if (payload.mode === 'baseline') {
         const baselineDigest = canonicalDigest(payload);
         if (baseline && (baseline.baseline_id.toLowerCase() !== id || baseline.digest !== baselineDigest)) fail(409, 'legacy_baseline_conflict');
-        if (!baseline) await tx.establishLegacyBaseline(device, envelope.source_id, generation, id, baselineDigest, payload.records);
+        if (!baseline) await tx.establishLegacyBaseline(device, envelope.source_id, generation, id, baselineDigest, payload.records, payload.native_epoch.toLowerCase());
         results.legacy_statistics = baseline ? 'duplicate' : 'applied';
       } else {
         if (!baseline) fail(409, 'legacy_baseline_required');
         if (baseline.baseline_id.toLowerCase() !== id) fail(409, 'legacy_baseline_conflict');
+        if (baseline.native_epoch.toLowerCase() !== payload.native_epoch.toLowerCase()) fail(409, 'legacy_epoch_conflict');
         await section('legacy_statistics_v2', { version: payload.version, value: payload }, v => tx.legacy(envelope.source_id, v.records));
         results.legacy_statistics = results.legacy_statistics_v2;
         delete results.legacy_statistics_v2;
+      }
       }
     } else {
       const name = envelope.kind;

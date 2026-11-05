@@ -77,6 +77,16 @@ test('reset adapter removes live tables while retaining identity and raw high-wa
   assert.ok(statements.some(item => item.sql === 'DELETE FROM annotations'));
   assert.equal(statements.some(item => item.sql === 'DELETE FROM event_identities' || item.sql === 'DELETE FROM packets' || item.sql === 'DELETE FROM legacy_raw_highwater'), false);
 });
+test('reset refuses a changed Unicode runtime before writing vocabulary barriers', async () => {
+  const writes=[];
+  const tx=createSyncTx({ query: async (sql,args=[]) => {
+    if (sql.startsWith('SELECT entity_id FROM reset_tombstones')) return {rows:[{entity_id:'0.0'}]};
+    if (/^(INSERT|UPDATE|DELETE)/.test(sql)) writes.push({sql,args});
+    return {rows:[]};
+  } });
+  await assert.rejects(tx.clear(1),e=>e.code==='unicode_version_mismatch');
+  assert.deepEqual(writes,[]);
+});
 test('legacy adapter keeps cumulative raw baseline across two resets', async () => {
   let raw, baseline, live;
   const db = { query: async (sql, args = []) => {
@@ -219,24 +229,72 @@ test('vocabulary identity barrier survives case and source changes and a second 
 
 test('legacy baseline merges offline raw highwater, retains carry, and rejects regressions', async () => {
   const raw = new Map([['2024-02-28', { native_pages: 100, native_seconds: 100 }]]), base = new Map(), live = new Map([['2024-02-28', { native_pages: 100, native_seconds: 100 }]]), carry = new Map();
+  const epoch = 'a92e58b4-851b-467b-a5ad-1eaaccc84c61';
   const client = { async query(sql, args = []) {
     const key = args[1];
     if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_raw_highwater')) return { rows: raw.has(key) ? [raw.get(key)] : [] };
     if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_reset_baseline')) return { rows: base.has(key) ? [base.get(key)] : [] };
     if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_statistics')) return { rows: live.has(key) ? [live.get(key)] : [] };
     if (sql.startsWith('SELECT native_pages') && sql.includes('FROM legacy_carry')) return { rows: carry.has(key) ? [carry.get(key)] : [] };
+    if (sql.startsWith('SELECT native_epoch FROM legacy_lineages')) return { rows: [{ native_epoch: epoch }] };
     if (sql.startsWith('INSERT INTO legacy_reset_baseline SELECT')) { for (const [date, row] of raw) base.set(date, { ...row }); }
     else if (sql.startsWith('INSERT INTO legacy_carry SELECT')) { for (const [date, row] of live) carry.set(date, { ...row }); }
     else if (sql.startsWith('INSERT INTO legacy_raw_highwater')) raw.set(key, { native_pages: args[2], native_seconds: args[3] });
     else if (sql.startsWith('INSERT INTO legacy_reset_baseline')) base.set(key, { native_pages: args[2], native_seconds: args[3] });
     else if (sql.startsWith('INSERT INTO legacy_statistics')) live.set(key, { native_pages: args[2], native_seconds: args[3] });
     else if (sql.startsWith('INSERT INTO legacy_carry ')) carry.set(key, { native_pages: args[2], native_seconds: args[3] });
+    else if (sql === 'DELETE FROM legacy_statistics') live.clear();
     return { rows: [] };
   } };
   const tx = createSyncTx(client), source = 'a'.repeat(64), rec = (date, n) => ({ date, native_pages: n, native_seconds: n });
-  await tx.establishLegacyBaseline('48bc0344-efad-4c68-adb6-dc0f0ba57276', source, 0, 'a92e58b4-851b-467b-a5ad-1eaaccc84c61', 'a'.repeat(64), [rec('2024-02-28', 120), rec('2024-02-29', 50)]);
-  assert.equal(live.get('2024-02-28').native_pages, 120); assert.equal(live.get('2024-02-29').native_pages, 50);
+  await assert.rejects(tx.establishLegacyBaseline('48bc0344-efad-4c68-adb6-dc0f0ba57276', source, 0, epoch, 'a'.repeat(64), [], '48bc0344-efad-4c68-adb6-dc0f0ba57276'), e => e.code === 'legacy_epoch_conflict');
+  await tx.establishLegacyBaseline('48bc0344-efad-4c68-adb6-dc0f0ba57276', source, 0, epoch, 'a'.repeat(64), [rec('2024-02-28', 90), rec('2024-02-29', 50)], epoch);
+  assert.equal(live.get('2024-02-28').native_pages, 100); assert.equal(live.get('2024-02-29').native_pages, 50);
   await tx.legacy(source, [rec('2024-02-28', 125), rec('2024-02-29', 52)]);
   assert.equal(live.get('2024-02-28').native_pages, 125); assert.equal(live.get('2024-02-29').native_pages, 52);
   await assert.rejects(tx.legacy(source, [rec('2024-02-28', 119)]), e => e.code === 'legacy_counter_regressed');
+  await tx.clear(1);
+  await tx.establishLegacyBaseline('48bc0344-efad-4c68-adb6-dc0f0ba57276', source, 1, epoch, 'a'.repeat(64), [rec('2024-02-28', 130), rec('2024-03-01', 70)], epoch);
+  assert.equal(live.size, 0);
+  await tx.legacy(source, [rec('2024-02-28', 132), rec('2024-02-29', 53), rec('2024-03-01', 71)]);
+  assert.equal(live.get('2024-02-28').native_pages, 2);
+  assert.equal(live.get('2024-02-29').native_pages, 1);
+  assert.equal(live.get('2024-03-01').native_pages, 1);
+});
+
+test('unknown legacy highwater is a conservative reset baseline, not evidence of lineage', async () => {
+  const statements=[], raw={native_pages:100,native_seconds:200}, base={native_pages:100,native_seconds:200};
+  let live;
+  const tx = createSyncTx({ query: async (sql,args=[]) => {
+    statements.push({sql,args});
+    if (sql.startsWith('SELECT 1 FROM legacy_raw_highwater')) return { rows: [{}] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('legacy_raw_highwater')) return { rows: [raw] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('legacy_reset_baseline')) return { rows: [base] };
+    if (sql.startsWith('SELECT native_pages') && sql.includes('legacy_statistics')) return { rows: live?[live]:[] };
+    if (sql.startsWith('INSERT INTO legacy_raw_highwater')) Object.assign(raw,{native_pages:args[2],native_seconds:args[3]});
+    if (sql.startsWith('INSERT INTO legacy_reset_baseline (')) Object.assign(base,{native_pages:args[2],native_seconds:args[3]});
+    if (sql.startsWith('INSERT INTO legacy_statistics')) live={native_pages:args[2],native_seconds:args[3]};
+    return { rows: [] };
+  } });
+  const id = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
+  await tx.establishLegacyBaseline(id, 'a'.repeat(64), 1, id, 'b'.repeat(64), [{date:'2024-02-29',native_pages:10,native_seconds:20}], id);
+  const baselineWrite=statements.find(x=>x.sql.startsWith('INSERT INTO legacy_reset_baseline ('));
+  assert.deepEqual(baselineWrite.args.slice(2),[100,200]);
+  assert.equal(statements.some(x=>x.sql.startsWith('INSERT INTO legacy_statistics')),false);
+  await tx.legacy('a'.repeat(64),[{date:'2024-02-29',native_pages:101,native_seconds:201}]);
+  assert.deepEqual(live,{native_pages:1,native_seconds:1});
+});
+
+test('vocabulary casing version rejects unknown historical barriers and retains a version marker', async () => {
+  let markers=[], old=true;
+  const tx=createSyncTx({ query: async (sql,args=[]) => {
+    if (sql.startsWith('SELECT entity_id FROM reset_tombstones')) return {rows:markers.map(entity_id=>({entity_id}))};
+    if (sql.startsWith('SELECT 1 FROM reset_tombstones')) return {rows:old?[{}]:[]};
+    if (sql.startsWith('INSERT INTO reset_tombstones')) markers.push(args[0]);
+    return {rows:[]};
+  } });
+  assert.deepEqual(await tx.vocabularyUnicode(),{version:null,unknown:true});
+  old=false; assert.deepEqual(await tx.vocabularyUnicode(),{version:null,unknown:false});
+  await tx.rememberVocabularyUnicode('16.0'); assert.deepEqual(await tx.vocabularyUnicode(),{version:'16.0',unknown:false});
+  markers.push('15.0'); await assert.rejects(tx.vocabularyUnicode(),e=>e.code==='unicode_version_unknown');
 });

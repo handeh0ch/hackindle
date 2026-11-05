@@ -43,6 +43,7 @@ test('profile exposes stored instance and policy but never database credentials'
   const profile = await buildProfile({ query: async () => ({ rows: [{ instance_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', reset_generation: '4' }] }) }, config);
   assert.equal(profile.reset_generation, 4);
   assert.equal(profile.reporting_timezone, 'Europe/Berlin');
+  assert.equal(profile.unicode_version, process.versions.unicode);
   assert.equal(JSON.stringify(profile).includes('secret'), false);
 });
 import { runMigrations } from '../../server/migrations.js';
@@ -221,12 +222,18 @@ test('migration runner applies missing known versions in sequence exactly once',
   assert.deepEqual(executed, [2]);
 });
 
-test('default migrations include a third sequential migration', async () => {
+test('default migrations include the legacy handshake migration', async () => {
   const applied = new Set(), versions = [];
   const db = { withTransaction: async work => work({ query: async (sql, args) => {
     if (sql.startsWith('SELECT version')) return { rows: [] };
     if (sql.startsWith('INSERT INTO schema_migrations')) { versions.push(args[0]); applied.add(args[0]); }
     return { rows: [] };
   } }) };
-  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3]);
+  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3, 4]);
+});
+
+test('legacy handshake barriers do not prevent reset from deleting sources', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const sql = await readFile(new URL('../../db/migrations/004_legacy_handshake.sql', import.meta.url), 'utf8');
+  assert.doesNotMatch(sql, /REFERENCES\s+sources\s*\(/i);
 });

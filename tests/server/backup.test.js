@@ -15,6 +15,40 @@ test('backup export keeps device identity and excludes every credential', async 
   assert.ok(queries.every(sql => !/password_hash|token_hash|csrf_hash/.test(sql)));
 });
 
+test('backup preserves retained legacy handshake and carry after sources are deleted', async () => {
+  const backup = await import('../../server/backup.js');
+  const handshake = { device_id: id, source_id: 'a'.repeat(64), reset_generation: '1', baseline_id: id, native_epoch: id, digest: 'b'.repeat(64) };
+  const carry = { source_id: 'a'.repeat(64), reporting_date: '2024-01-01', native_pages: '2', native_seconds: '3' };
+  const lineage = { source_id: 'a'.repeat(64), native_epoch: id };
+  const source = { withTransaction: async work => work({ query: async sql => {
+    if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '1' }] };
+    if (sql.endsWith('FROM legacy_handshakes')) return { rows: [handshake] };
+    if (sql.endsWith('FROM legacy_carry')) return { rows: [carry] };
+    if (sql.endsWith('FROM legacy_lineages')) return { rows: [lineage] };
+    return { rows: [] };
+  } }) };
+  const snapshot = await backup.exportBackup(source);
+  assert.deepEqual(snapshot.tables.legacy_handshakes, [handshake]);
+  assert.deepEqual(snapshot.tables.legacy_carry, [carry]);
+  assert.deepEqual(snapshot.tables.legacy_lineages, [lineage]);
+  const inserts = [], target = { withTransaction: async work => work({ query: async (sql, args) => {
+    if (sql.startsWith('SELECT (')) return { rows: [{ count: '0' }] };
+    if (sql.startsWith('INSERT INTO legacy_')) inserts.push([sql, args]);
+    return { rows: [] };
+  } }) };
+  await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, snapshot);
+  assert.equal(inserts.length, 3);
+});
+
+test('restore accepts pre-handshake format-v1 backups without inventing lineage', async () => {
+  const backup = await import('../../server/backup.js');
+  const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
+  const snapshot = await backup.exportBackup(source);
+  delete snapshot.tables.legacy_handshakes; delete snapshot.tables.legacy_carry; delete snapshot.tables.legacy_lineages;
+  const target = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT (') ? { rows: [{ count: '0' }] } : { rows: [] } }) };
+  await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, snapshot);
+});
+
 test('restore rejects a credentialed target before any write', async () => {
   const backup = await import('../../server/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
@@ -74,6 +108,7 @@ test('restore rejects invalid structure, foreign references and corrupted data b
     { ...clean, device: { device_id: id, last_sync_at: null, token_hash: 'secret' } },
     { ...clean, instance: { ...clean.instance, reset_generation: '-1' } },
     { ...clean, tables: { ...clean.tables, book_sources: [{ source_id: 'a'.repeat(64), book_id: id }] } },
+    { ...clean, tables: { ...clean.tables, reset_tombstones: [{ reset_generation: '1', entity_type: 'unicode_version', entity_id: 'bad', digest: null }] } },
   ]) await assert.rejects(backup.restoreBackup(target, config, bad), e => e.code === 'invalid_backup');
   await assert.rejects(backup.restoreBackup(target, { ...config, pageCharacters: 1 }, clean), e => e.code === 'policy_mismatch');
   assert.equal(attempts, 0);

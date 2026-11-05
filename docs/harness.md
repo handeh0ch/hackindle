@@ -56,6 +56,8 @@ The four states are `not_started`, `active`, `blocked`, `passing`; at most one i
 
 The green gate does not certify KOReader hardware behavior, an entire application, deployment readiness or secret-free Git history. Existing release/privacy requirements still apply. The application implementation plan now reflects the owner's unit-only clarification and deferred manual Kindle checks. Hardware observations remain an owner activity, recorded honestly.
 
+The unregistered P1 candidate verifier is `.local/harness-venv/Scripts/python.exe -B tests/plugin/verify.py`. It requires the already-approved project-local LuaJIT-backed Lupa and LuaCov 0.17.0; it does not install them. It runs synthetic Lua tests and differential oracles and checks at least 80% Lua line coverage for every executable module under `plugin/`, failing when a module is missing from the report. Generated `unicode_data.lua` is data and is excluded. LuaCov does not measure branch coverage; this verifier cannot establish native device, SQLite, network or SQL behavior. It must receive independent review before registration and cannot mark P1 passing by itself.
+
 ## Cold-start answers
 
 1. **What and why?** Kindle Sync archives one owner's KOReader notes/context and reading history for a self-hosted dashboard. See README and product requirements.

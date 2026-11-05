@@ -11,14 +11,15 @@ function M.accept(store, codec, config, device_id)
         and type(config.characters_per_page) == "number" and config.characters_per_page >= 1 and config.characters_per_page <= 9007199254740991
         and config.characters_per_page == math.floor(config.characters_per_page)
         and type(config.reset_generation) == "number" and config.reset_generation >= 0 and config.reset_generation <= 9007199254740991
-        and config.reset_generation == math.floor(config.reset_generation), "invalid sync profile")
+        and config.reset_generation == math.floor(config.reset_generation)
+        and (config.unicode_version == nil or type(config.unicode_version) == "string"), "invalid sync profile")
     return store:transaction(function(tx)
         local encoded = tx:get("profile")
         if not encoded then
             assert(not device_id or not tx:get("seq"), "unbound device state requires recovery")
             tx:put("capture_generation", config.reset_generation == 0 and "0" or "blocked")
             save(tx, codec, {instance_id=config.instance_id, timezone=config.reporting_timezone,
-                denominator=config.characters_per_page, generation=config.reset_generation, baselines={}, baseline_required=config.reset_generation > 0, device_id=device_id})
+                denominator=config.characters_per_page, generation=config.reset_generation, baselines={}, baseline_required=config.reset_generation > 0, device_id=device_id, unicode_version=config.unicode_version})
             return config.reset_generation > 0 and "baseline_required" or "initialized"
         end
         local policy = codec.decode(encoded)
@@ -30,9 +31,13 @@ function M.accept(store, codec, config, device_id)
             policy.device_id = device_id; save(tx, codec, policy)
         end
         assert(config.reset_generation >= policy.generation, "reset generation regressed")
-        if config.reset_generation == policy.generation then return "unchanged" end
+        if config.reset_generation == policy.generation then
+            if policy.unicode_version~=config.unicode_version then policy.unicode_version=config.unicode_version; save(tx,codec,policy) end
+            return "unchanged"
+        end
         tx:put("capture_generation", "blocked")
         policy.generation = config.reset_generation
+        policy.unicode_version = config.unicode_version
         policy.baselines = {}
         policy.baseline_required = true
         save(tx, codec, policy)

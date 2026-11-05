@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createSyncService } from '../../server/sync.js';
 const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
 function memory(timezone = 'UTC') {
-  let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {}, legacyBaselines: {} };
+  let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {}, legacyBaselines: {}, vocabularyUnicode: null };
   const db = { async withTransaction(work) { const draft = structuredClone(state); const result = await work(draft); state = draft; return result; } };
   const tx = draft => ({
     async lock() { return { instance_id: fixture.envelopes[0].instance_id, reset_generation: draft.generation, reporting_timezone: timezone }; },
@@ -21,9 +21,11 @@ function memory(timezone = 'UTC') {
     async event(id) { return draft.events[id]; },
     async saveEvent(event, digest) { draft.events[event.event_id] = { digest }; },
     async vocabulary(value) { draft.values.vocabulary = value; },
+    async vocabularyUnicode() { return { version: draft.vocabularyUnicode, unknown: false }; },
+    async rememberVocabularyUnicode(version) { draft.vocabularyUnicode = version; },
     async legacy(id, value) { draft.values[`${id}:legacy`] = value; },
     async legacyBaseline(device, source, generation) { return draft.legacyBaselines[`${device}:${source}:${generation}`]; },
-    async establishLegacyBaseline(device, source, generation, baselineId, digest, records) { draft.legacyBaselines[`${device}:${source}:${generation}`] = { baseline_id: baselineId, digest }; draft.values[`${source}:baseline`] = records; },
+    async establishLegacyBaseline(device, source, generation, baselineId, digest, records, nativeEpoch) { draft.legacyBaselines[`${device}:${source}:${generation}`] = { baseline_id: baselineId, digest, native_epoch: nativeEpoch }; draft.values[`${source}:baseline`] = records; },
     async touch() {},
   });
   return { db, tx, state: () => state, reset() { state.generation++; state.sources = {}; state.sections = {}; state.values = {}; } };
@@ -139,9 +141,9 @@ test('vocabulary and legacy snapshots are independently versioned and deduplicat
   for (const original of [fixture.envelopes[4], fixture.envelopes[5]]) {
     const packet = structuredClone(original), key = packet.kind;
     if (key === 'legacy_statistics') {
-      const baseline = { ...structuredClone(packet), seq: 99, payload: { mode: 'baseline', baseline_id: packet.instance_id, version: 1, records: [] } };
+      const baseline = { ...structuredClone(packet), seq: 99, payload: { mode: 'baseline', baseline_id: packet.instance_id, native_epoch: packet.instance_id, version: 1, records: [] } };
       await service.ingest('token', baseline);
-      packet.payload.mode = 'snapshot'; packet.payload.baseline_id = packet.instance_id;
+      packet.payload.mode = 'snapshot'; packet.payload.baseline_id = packet.instance_id; packet.payload.native_epoch = packet.instance_id;
     }
     assert.equal((await service.ingest('token', packet)).results[key], 'applied');
     assert.equal((await service.ingest('token', { ...packet, seq: packet.seq + 50 })).results[key], 'duplicate');
@@ -237,8 +239,12 @@ test('all history event reporting dates remain within the local date domain', as
 test('legacy reset handshake requires baseline before raw snapshots and preserves retry identity', async () => {
   const m = memory(), source = structuredClone(fixture.envelopes[0]), old = structuredClone(fixture.envelopes[5]);
   const service = createSyncService({ db: m.db, createTx: m.tx }); await service.ingest('token', source);
-  await assert.rejects(service.ingest('token', old), e => e.code === 'legacy_upgrade_required');
-  const baseline = { ...structuredClone(old), seq: 100, payload: { mode: 'baseline', baseline_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', version: 1, records: [{ date: '2024-02-29', native_pages: 100, native_seconds: 100 }] } };
+  const oldAck = await service.ingest('token', old);
+  assert.equal(oldAck.results.legacy_statistics, 'applied');
+  assert.deepEqual(await service.ingest('token', old), oldAck);
+  const baseline = { ...structuredClone(old), seq: 100, payload: { mode: 'baseline', baseline_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', native_epoch: 'a92e58b4-851b-467b-a5ad-1eaaccc84c61', version: 1, records: [{ date: '2024-02-29', native_pages: 100, native_seconds: 100 }] } };
+  const missingEpoch = structuredClone(baseline); delete missingEpoch.payload.native_epoch;
+  await assert.rejects(service.ingest('token', missingEpoch), e => e.code === 'invalid_envelope');
   const snapshot = { ...structuredClone(baseline), seq: 101, payload: { ...baseline.payload, mode: 'snapshot', version: 1, records: [{ date: '2024-02-29', native_pages: 110, native_seconds: 110 }] } };
   await assert.rejects(service.ingest('token', snapshot), e => e.code === 'legacy_baseline_required');
   const ack = await service.ingest('token', baseline); assert.equal(ack.results.legacy_statistics, 'applied');
@@ -249,5 +255,26 @@ test('legacy reset handshake requires baseline before raw snapshots and preserve
   assert.deepEqual(m.state().values[`${source.source_id}:legacy`], snapshot.payload.records);
   const wrong = structuredClone(snapshot); wrong.seq++; wrong.payload.baseline_id = 'a92e58b4-851b-467b-a5ad-1eaaccc84c61';
   await assert.rejects(service.ingest('token', wrong), e => e.code === 'legacy_baseline_conflict');
+  const changedEpoch = structuredClone(snapshot); changedEpoch.seq++; changedEpoch.payload.native_epoch = baseline.payload.baseline_id;
+  await assert.rejects(service.ingest('token', changedEpoch), e => e.code === 'legacy_epoch_conflict');
   m.reset(); assert.equal((await service.ingest('token', snapshot)).status, 'obsolete_discarded');
+  const newSource = structuredClone(source); newSource.seq = 199; newSource.reset_generation = 1;
+  await service.ingest('token', newSource);
+  const unsafe = structuredClone(old); unsafe.seq = 200; unsafe.reset_generation = 1;
+  await assert.rejects(service.ingest('token', unsafe), e => e.code === 'legacy_upgrade_required');
+});
+
+test('post-reset vocabulary packets require the server Unicode version', async () => {
+  const m=memory(), service=createSyncService({db:m.db,createTx:m.tx});
+  m.reset();
+  const packet=structuredClone(fixture.envelopes[4]); packet.seq=300; packet.reset_generation=1;
+  await assert.rejects(service.ingest('token',packet),e=>e.code==='unicode_version_mismatch');
+  packet.payload.unicode_version='0.0';
+  await assert.rejects(service.ingest('token',packet),e=>e.code==='unicode_version_mismatch');
+  packet.payload.unicode_version=process.versions.unicode;
+  assert.equal((await service.ingest('token',packet)).results.vocabulary_snapshot,'applied');
+  m.state().vocabularyUnicode='0.0';
+  const later=structuredClone(packet); later.seq++;
+  await assert.rejects(service.ingest('token',later),e=>e.code==='unicode_version_mismatch');
+  assert.equal((await service.ingest('token',packet)).results.vocabulary_snapshot,'applied');
 });

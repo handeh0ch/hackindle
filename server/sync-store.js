@@ -87,6 +87,16 @@ export function createSyncTx(client) {
       await query('INSERT INTO event_identities (event_id, digest) VALUES ($1,$2)', [event.event_id, digest]);
       await query('INSERT INTO events (event_id, device_id, source_id, reset_generation, digest, content) VALUES ($1,$2,$3,$4,$5,$6)', [event.event_id, envelope.device_id, envelope.source_id, generation, digest, JSON.stringify(event)]);
     },
+    async vocabularyUnicode() {
+      const { rows } = await query("SELECT entity_id FROM reset_tombstones WHERE reset_generation = 0 AND entity_type = 'unicode_version'");
+      if (rows.length > 1) throw new SyncError(409, 'unicode_version_unknown');
+      if (rows.length) return { version: rows[0].entity_id, unknown: false };
+      const previous = await query("SELECT 1 FROM reset_tombstones WHERE entity_type IN ('vocabulary', 'vocabulary_identity') LIMIT 1");
+      return { version: null, unknown: previous.rows.length > 0 };
+    },
+    async rememberVocabularyUnicode(version) {
+      await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) VALUES (0, 'unicode_version', $1)", [version]);
+    },
     async vocabulary(words) {
       await query('DELETE FROM vocabulary');
       const keys = words.map(word => canonicalDigest(word));
@@ -99,13 +109,37 @@ export function createSyncTx(client) {
         if (!rows.length) await query('INSERT INTO vocabulary (word_key, content) VALUES ($1,$2) ON CONFLICT (word_key) DO NOTHING', [key, JSON.stringify(word)]);
       }
     },
-    async legacy(source, records) {
+    async legacyBaseline(device, source, generation) {
+      const { rows: [row] } = await query('SELECT baseline_id, native_epoch, digest FROM legacy_handshakes WHERE device_id = $1 AND source_id = $2 AND reset_generation = $3', [device, source, generation]);
+      return row;
+    },
+    async establishLegacyBaseline(device, source, generation, id, digest, records, epoch) {
+      const { rows: [lineage] } = await query('SELECT native_epoch FROM legacy_lineages WHERE source_id = $1', [source]);
+      if (lineage && lineage.native_epoch.toLowerCase() !== epoch) throw new SyncError(409, 'legacy_epoch_conflict');
+      if (!lineage) {
+        // Untagged historical high-water is only a conservative exclusion floor;
+        // it does not establish that the old and new native epochs match.
+        await query('INSERT INTO legacy_lineages (source_id, native_epoch) VALUES ($1,$2)', [source, epoch]);
+      }
+      if (generation === 0) await this.legacy(source, records, false);
+      else for (const record of records) {
+        const args = [source, record.date];
+        const { rows: [old] } = await query('SELECT native_pages, native_seconds FROM legacy_raw_highwater WHERE source_id = $1 AND reporting_date = $2', args);
+        const pages = Math.max(Number(old?.native_pages ?? 0), record.native_pages);
+        const seconds = Math.max(Number(old?.native_seconds ?? 0), record.native_seconds);
+        await query('INSERT INTO legacy_raw_highwater (source_id, reporting_date, native_pages, native_seconds) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id, reporting_date) DO UPDATE SET native_pages = EXCLUDED.native_pages, native_seconds = EXCLUDED.native_seconds', [...args, pages, seconds]);
+        await query('INSERT INTO legacy_reset_baseline (source_id, reporting_date, native_pages, native_seconds) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id, reporting_date) DO UPDATE SET native_pages = EXCLUDED.native_pages, native_seconds = EXCLUDED.native_seconds', [...args, pages, seconds]);
+      }
+      await query('INSERT INTO legacy_handshakes (device_id, source_id, reset_generation, baseline_id, native_epoch, digest) VALUES ($1,$2,$3,$4,$5,$6)', [device, source, generation, id, epoch, digest]);
+    },
+    async legacy(source, records, rejectRegression = true) {
       for (const record of records) {
         const args = [source, record.date];
         const rawRow = (await query('SELECT native_pages, native_seconds FROM legacy_raw_highwater WHERE source_id = $1 AND reporting_date = $2', args)).rows[0];
         const baseRow = (await query('SELECT native_pages, native_seconds FROM legacy_reset_baseline WHERE source_id = $1 AND reporting_date = $2', args)).rows[0];
         const liveRow = (await query('SELECT native_pages, native_seconds FROM legacy_statistics WHERE source_id = $1 AND reporting_date = $2', args)).rows[0];
         const pair = row => ({ pages: Number(row?.native_pages ?? 0), seconds: Number(row?.native_seconds ?? 0) });
+        if (rejectRegression && rawRow && (record.native_pages < Number(rawRow.native_pages) || record.native_seconds < Number(rawRow.native_seconds))) throw new SyncError(409, 'legacy_counter_regressed');
         const updated = legacyUpdate({ pages: record.native_pages, seconds: record.native_seconds }, pair(rawRow), pair(baseRow), pair(liveRow));
         await query('INSERT INTO legacy_raw_highwater (source_id, reporting_date, native_pages, native_seconds) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id, reporting_date) DO UPDATE SET native_pages = EXCLUDED.native_pages, native_seconds = EXCLUDED.native_seconds', [...args, updated.raw.pages, updated.raw.seconds]);
         await query('INSERT INTO legacy_statistics (source_id, reporting_date, native_pages, native_seconds) VALUES ($1,$2,$3,$4) ON CONFLICT (source_id, reporting_date) DO UPDATE SET native_pages = EXCLUDED.native_pages, native_seconds = EXCLUDED.native_seconds', [...args, updated.live.pages, updated.live.seconds]);
@@ -134,8 +168,12 @@ export function createSyncTx(client) {
     async coverSource(id) { const { rows: [row] } = await query('SELECT reset_generation FROM sources WHERE source_id = $1', [id]); return row; },
     async saveCover(id, type, bytes) { await query('UPDATE sources SET cover_type = $2, cover = $3 WHERE source_id = $1', [id, type, bytes]); },
     async clear(generation) {
-      await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary', word_key FROM vocabulary ON CONFLICT DO NOTHING", [generation]);
+      const unicode = await this.vocabularyUnicode();
+      if (unicode.version && unicode.version !== process.versions.unicode) throw new SyncError(409, 'unicode_version_mismatch');
+      if (!unicode.version && unicode.unknown) throw new SyncError(409, 'unicode_version_unknown');
       const { rows: vocabulary } = await query('SELECT word_key, content FROM vocabulary');
+      if (!unicode.version && vocabulary.length) await this.rememberVocabularyUnicode(process.versions.unicode);
+      await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary', word_key FROM vocabulary ON CONFLICT DO NOTHING", [generation]);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'vocabulary_identity', unnest($2::text[]) ON CONFLICT DO NOTHING", [generation, vocabulary.map(row => canonicalDigest(vocabularyIdentity(row.content)))]);
       await query("INSERT INTO reset_tombstones (reset_generation, entity_type, entity_id) SELECT $1, 'upload', upload_id::text FROM uploads ON CONFLICT DO NOTHING", [generation]);
       await query('UPDATE annotation_identities SET barrier_generation = $1', [generation]);
