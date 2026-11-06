@@ -8,7 +8,7 @@ Use an existing approved Node.js installation, installed project dependencies an
 
 Create a private `.env` from `.env.example` only if no `.env` exists. Otherwise edit the existing private file without overwriting it. Supply DATABASE_URL, APP_ORIGIN and the reporting policy; keep all populated values out of Git. DIRECT_DATABASE_URL is optional and defaults to DATABASE_URL for migrations. A managed PostgreSQL provider may supply separate pooled/runtime and direct/migration URLs. Preserve TLS certificate verification through the operator's PostgreSQL configuration.
 
-APP_ORIGIN is an HTTPS origin without a path or trailing slash; HTTP is accepted only for localhost development. HOST defaults to loopback; configure it explicitly when another host must reach the standalone listener. TRUST_PROXY is the actual trusted hop count, not a blanket trust setting.
+APP_ORIGIN is an HTTPS origin without a path or trailing slash; HTTP is accepted only for localhost development. HOST defaults to loopback; configure it explicitly when another host must reach the standalone listener. TRUST_PROXY is the actual trusted hop count, not a blanket trust setting. Behind a reverse proxy set it to the real hop count: with the default 0 every client shares the proxy address, so five failed logins within 15 minutes lock the owner out for everyone (the throttle is per username and client address).
 
 REPORT_TIMEZONE and PAGE_CHARACTERS are frozen when the instance is first initialized. Changing either later fails rather than recalculating history. See [configuration policy](configuration.md).
 

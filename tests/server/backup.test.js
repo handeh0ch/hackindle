@@ -172,3 +172,23 @@ test('restore rejects vocabulary larger than the logical snapshot limit', async 
   data.tables.vocabulary.push({ word_key: canonicalDigest(content), content });
   await assert.rejects(restoreBackup({ withTransaction: async () => { throw new Error('unexpected database access'); } }, { reportingTimezone: 'UTC', pageCharacters: 2000 }, data), e => e.code === 'invalid_backup');
 });
+
+test('backup covers every migrated table except credentials, sessions and migration bookkeeping', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const directory = new URL('../../db/migrations/', import.meta.url);
+  const migrated = new Set();
+  for (const name of readdirSync(directory).filter(file => file.endsWith('.sql'))) {
+    for (const match of readFileSync(new URL(name, directory), 'utf8').matchAll(/^\s*CREATE TABLE (?!IF NOT EXISTS)(\w+)/gim)) migrated.add(match[1]);
+  }
+  const intentionallyExcluded = new Set(['owners', 'owner_sessions', 'login_failures', 'instance', 'device']);
+  const exported = new Set();
+  const db = { withTransaction: async work => work({ query: async sql => {
+    if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] };
+    if (sql.startsWith('SELECT device_id, last_sync_at')) return { rows: [] };
+    exported.add(/ FROM (\w+)/.exec(sql)[1]);
+    return { rows: [] };
+  } }) };
+  await (await import('../../server/backup.js')).exportBackup(db);
+  assert.deepEqual([...migrated].filter(table => !intentionallyExcluded.has(table) && !exported.has(table)), [], 'a migrated table is missing from backup.js');
+  assert.deepEqual([...exported].filter(table => !migrated.has(table)), [], 'backup.js exports a table no migration creates');
+});

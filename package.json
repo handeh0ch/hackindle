@@ -7,6 +7,9 @@
   },
   "name": "kindle-sync",
   "private": true,
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "type": "module",
   "scripts": {
     "test:contracts": "node --test --experimental-test-coverage --test-coverage-include=contracts/**/*.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/contracts/*.test.js",
