@@ -318,6 +318,20 @@ function Entry:onResume()
     end
 end
 
+-- KOReader emits EndOfBook when the reader reaches the end of the document
+-- (event name and timing are upstream assumptions, unverified on the device).
+-- The lifecycle store ignores repeats, so a book is finished once per cycle.
+function Entry:onEndOfBook()
+    if not self.app or not self.adapter or not self.source_ready or self.closed or self.suspended
+        or type(self.adapter.lifecycle)~="function" or type(self.app.finish_book)~="function" then return end
+    self:call(function()
+        local value=self.adapter:lifecycle(self.ui,"finish")
+        assert(type(value)=="table" and value.verified==true and value.source_id==self.source_id
+            and type(value.uuid)=="function", "lifecycle unavailable")
+        self.app:finish_book(value.captured_at,value.uuid,true)
+    end)
+end
+
 function Entry:abandonPending()
     if not self.pending_page or not self.adapter or type(self.adapter.abandon_page)~="function" then return false end
     local ok,result=pcall(self.adapter.abandon_page,self.adapter,self.pending_page)

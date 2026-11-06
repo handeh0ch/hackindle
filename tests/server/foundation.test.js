@@ -68,6 +68,7 @@ test('owner bootstrap stores a salted hash and refuses replacement', async () =>
   assert.notEqual(saved[1], 'synthetic-password');
   assert.equal(await bootstrapOwner(db, 'another', 'another-password'), false);
   await assert.rejects(bootstrapOwner(db, '', ''), /owner/);
+  await assert.rejects(bootstrapOwner(db, 'synthetic', 'short-pass'), /at least 12/);
 });
 import { createApp } from '../../server/app.js';
 import { IncomingMessage, ServerResponse } from 'node:http';
@@ -152,6 +153,13 @@ test('application handles malformed JSON and hides internal database errors', as
   assert.equal(invalid.status, 400);
   const internal = await dispatch(app, 'GET', '/api/v1/sync/config', { authorization: 'Bearer synthetic' });
   assert.equal(internal.status, 500); assert.equal(internal.raw.includes('synthetic-secret'), false);
+  const logged = [];
+  const loud = createApp({ db: { query: async () => { throw Object.assign(new Error('synthetic-secret'), { code: '57014' }); } }, config: loadConfig(env), log: failure => logged.push(failure) });
+  assert.equal((await dispatch(loud, 'GET', '/api/v1/sync/config', { authorization: 'Bearer synthetic' })).status, 500);
+  assert.deepEqual(logged, [{ name: 'Error', code: '57014' }]);
+  assert.equal(JSON.stringify(logged).includes('synthetic-secret'), false);
+  await dispatch(loud, 'POST', '/api/v1/auth/login', { 'content-type': 'application/json', 'content-length': '1', origin: 'https://example.invalid' }, '{');
+  assert.equal(logged.length, 1, 'client errors are not logged as failures');
 });
 test('configuration supports local development and validates direct URL and page policy', () => {
   const local = loadConfig({ ...env, APP_ORIGIN: 'http://localhost:3000', DIRECT_DATABASE_URL: 'postgresql://example.invalid/migrate', PAGE_CHARACTERS: '4000', TRUST_PROXY: '2', PORT: '8080' });

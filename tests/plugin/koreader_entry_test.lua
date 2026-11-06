@@ -156,6 +156,24 @@ local mixed_adapter={source=failing.source,begin_page=function() return {verifie
 assert(mixed:attach(app,mixed_adapter)); mixed:onReaderReady(); mixed:onPageUpdate(1)
 local before_mixed=#events; mixed:onPageUpdate(2)
 assert(#events==before_mixed and mixed.pending_page and mixed.status=="capture_unavailable")
+-- EndOfBook finishes the open book once; unattached, mismatched or suspended entries ignore it.
+local finished={}
+local fapp={}
+function fapp:source_snapshot() end
+function fapp:session_open() end
+function fapp:finish_book(at,uuid,verified) finished[#finished+1]={at,uuid(),verified} end
+local fadapter={}
+function fadapter:source() return {verified=true,source_id=("c"):rep(64),metadata={title="Synthetic"},captured_at="time"} end
+function fadapter:lifecycle(ui,event) return {verified=true,source_id=("c"):rep(64),captured_at="t-"..event,uuid=function() return "uuid-"..event end,cycle_id="cycle"} end
+local book=setmetatable({ui={}},Entry); book:init()
+assert(book:onEndOfBook()==nil and #finished==0)
+assert(book:attach(fapp,fadapter)); book:onReaderReady()
+book:onEndOfBook()
+assert(#finished==1 and finished[1][1]=="t-finish" and finished[1][2]=="uuid-finish" and finished[1][3]==true)
+fadapter.lifecycle=function() return {verified=true,source_id=("d"):rep(64),captured_at="x",uuid=function() return "u" end} end
+book:onEndOfBook(); assert(#finished==1 and book.status=="capture_unavailable")
+book.status="ready"; book.suspended=true; book:onEndOfBook(); assert(#finished==1 and book.status=="ready")
+book.suspended=false; fadapter.lifecycle=nil; book:onEndOfBook(); assert(#finished==1)
 -- Failures are logged through KOReader's optional logger and never raise a second error.
 local warnings={}
 package.loaded["logger"]=nil

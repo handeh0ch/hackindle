@@ -9,7 +9,9 @@ export async function buildProfile(db, config) {
   const { rows: [row] } = await db.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE');
   return { schema_version: 1, instance_id: row.instance_id, reset_generation: Number(row.reset_generation), reporting_timezone: config.reportingTimezone, characters_per_page: config.pageCharacters, unicode_version: UNICODE_VERSION, limits: { direct_bytes: 1048576, envelope_bytes: 16777216, chunk_bytes: 1048576, upload_ttl_seconds: 604800, open_uploads: 2 } };
 }
-export function createApp({ db, config }) {
+// Never log messages or stacks: database errors can echo queries and values.
+const defaultLog = failure => process.stderr.write(`Request failed: ${failure.name}${failure.code ? ` ${failure.code}` : ''}\n`);
+export function createApp({ db, config, log = defaultLog }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
@@ -28,6 +30,7 @@ export function createApp({ db, config }) {
   app.use((err, req, res, next) => {
     const status = err instanceof SyncError ? err.status : err.status === 400 || err.status === 413 ? err.status : 500;
     const code = err instanceof SyncError ? err.code : status === 400 ? 'invalid_request' : status === 413 ? 'too_large' : 'internal_error';
+    if (status === 500) log({ name: String(err?.name ?? 'Error'), code: typeof err?.code === 'string' ? err.code : '' });
     if (status === 429) res.set('Retry-After', '300');
     res.status(status).json({ schema_version: 1, error: { code, message: code } });
   });

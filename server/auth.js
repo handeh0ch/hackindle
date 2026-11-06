@@ -25,6 +25,7 @@ export function createAuth({ store, now = Date.now }) {
       return store.withLoginLock(username, ip, async locked => {
         const since = new Date(now() - 900000);
         await locked.cleanupFailures(since);
+        await locked.purgeSessions(new Date(now()));
         if (await locked.failureCount(since) >= 5) {
           const oldest = await locked.oldestFailure(since);
           return { status: 429, retryAfter: Math.max(1, Math.ceil((new Date(oldest).getTime() + 900000 - now()) / 1000)) };

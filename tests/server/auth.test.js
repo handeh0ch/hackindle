@@ -6,7 +6,7 @@ function fakeStore(owner) {
   let failures = 0, session, device;
   return {
     async withLoginLock(username, ip, fn) { return fn({
-      cleanupFailures: async () => {}, oldestFailure: async () => new Date(),
+      cleanupFailures: async () => {}, purgeSessions: async () => {}, oldestFailure: async () => new Date(),
       failureCount: async () => failures,
       owner: async () => owner?.username === username ? owner : null,
       recordFailure: async () => { failures++; }, clearFailures: async () => { failures = 0; },
@@ -76,9 +76,11 @@ test('persistent login boundary serializes attempts and stores only hashes', asy
     if (sql.startsWith('SELECT username')) return { rows: [owner] };
     if (sql.startsWith('INSERT INTO login_failures')) failures++;
     if (sql.startsWith('DELETE FROM login_failures')) failures = 0;
+    if (sql.startsWith('DELETE FROM owner_sessions')) purged = args[0];
     if (sql.startsWith('INSERT INTO owner_sessions')) session = args;
     return { rows: [] };
   } };
+  let purged = null;
   const store = createStore({ withTransaction: async fn => fn(client) });
   const auth = createAuth({ store });
   assert.equal((await auth.login('synthetic', 'wrong', '127.0.0.1')).status, 401);
@@ -86,6 +88,7 @@ test('persistent login boundary serializes attempts and stores only hashes', asy
   const result = await auth.login('synthetic', 'synthetic-password', '127.0.0.1');
   assert.equal(result.status, 200); assert.equal(failures, 0);
   assert.notEqual(session[0], result.token); assert.notEqual(session[2], result.csrf);
+  assert.ok(purged instanceof Date, 'expired owner sessions are purged on login');
 });
 import { createHandlers } from '../../server/handlers.js';
 test('login and refreshed session expose the same usable CSRF token', async () => {
@@ -101,7 +104,7 @@ test('login and refreshed session expose the same usable CSRF token', async () =
 test('login lockout expires after its fifteen-minute window', async () => {
   let now = Date.UTC(2024, 0, 1); const failures = [];
   const owner = { username: 'synthetic', passwordHash: await hashPassword('synthetic-password') };
-  const store = { withLoginLock: async (username, ip, work) => work({ cleanupFailures: async () => {}, oldestFailure: async since => failures.find(at => at > since), failureCount: async since => failures.filter(at => at > since).length, owner: async () => owner, recordFailure: async at => { failures.push(at); }, clearFailures: async () => {}, createSession: async () => {} }) };
+  const store = { withLoginLock: async (username, ip, work) => work({ cleanupFailures: async () => {}, purgeSessions: async () => {}, oldestFailure: async since => failures.find(at => at > since), failureCount: async since => failures.filter(at => at > since).length, owner: async () => owner, recordFailure: async at => { failures.push(at); }, clearFailures: async () => {}, createSession: async () => {} }) };
   const auth = createAuth({ store, now: () => now });
   for (let i = 0; i < 5; i++) assert.equal((await auth.login('synthetic', 'wrong', '127.0.0.1')).status, 401);
   assert.equal((await auth.login('synthetic', 'synthetic-password', '127.0.0.1')).status, 429);
@@ -116,7 +119,7 @@ test('competing first device bindings admit only one device identity', async () 
 });
 test('lockout reports seconds until the oldest current failure expires', async () => {
   const now = Date.UTC(2024, 0, 1, 0, 15, 0, 500);
-  const store = { withLoginLock: async (user, ip, work) => work({ cleanupFailures: async () => {}, failureCount: async () => 5, oldestFailure: async () => new Date(now - 853500) }) };
+  const store = { withLoginLock: async (user, ip, work) => work({ cleanupFailures: async () => {}, purgeSessions: async () => {}, failureCount: async () => 5, oldestFailure: async () => new Date(now - 853500) }) };
   const result = await createAuth({ store, now: () => now }).login('synthetic', 'bad', '127.0.0.1');
   assert.equal(result.status, 429); assert.equal(result.retryAfter, 47);
 });

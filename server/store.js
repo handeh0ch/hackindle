@@ -5,6 +5,7 @@ export function createStore(db) {
         await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [JSON.stringify([username, ip])]);
         return work({
           async cleanupFailures(since) { await client.query('DELETE FROM login_failures WHERE failed_at <= $1', [since]); },
+          async purgeSessions(at) { await client.query('DELETE FROM owner_sessions WHERE expires_at <= $1', [at]); },
           async failureCount(since) {
             const { rows: [row] } = await client.query('SELECT count(*) AS count FROM login_failures WHERE username = $1 AND ip = $2 AND failed_at > $3', [username, ip, since]);
             return Number(row.count);
