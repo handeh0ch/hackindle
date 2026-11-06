@@ -1,6 +1,37 @@
 local reading = require("reading")
 local state = require("state")
 local M = {}
+-- Native credit and unavailable-observation identities are one row per key, so a
+-- page turn costs O(1) in the amount of history instead of rewriting a blob that
+-- grows with every page. Ids are indexed in chunks only to support enumeration.
+local CHUNK = 64
+local function native_key(source, id) return "rn:" .. source .. ":" .. id end
+local function unavailable_key(source, id) return "ru:" .. source .. ":" .. id end
+local function native_seconds(tx, source, id)
+    local stored = tx:get(native_key(source, id))
+    return stored and tonumber(stored) or nil
+end
+local function native_count(tx, source) return tonumber(tx:get("rn_count:" .. source) or "0") end
+local function index_native(tx, codec, source, id)
+    local count = native_count(tx, source)
+    local key = "rn_chunk:" .. source .. ":" .. string.format("%.0f", math.floor(count / CHUNK))
+    local saved = tx:get(key)
+    local ids = saved and codec.decode(saved) or {}
+    ids[#ids + 1] = id
+    tx:put(key, codec.encode(ids))
+    tx:put("rn_count:" .. source, string.format("%.0f", count + 1))
+end
+local function native_ids(tx, codec, source)
+    local ids, count = {}, native_count(tx, source)
+    for chunk = 0, math.ceil(count / CHUNK) - 1 do
+        local saved = tx:get("rn_chunk:" .. source .. ":" .. string.format("%.0f", chunk))
+        assert(saved, "reading native index missing")
+        for _, id in ipairs(codec.decode(saved)) do ids[#ids + 1] = id end
+    end
+    assert(#ids == count, "reading native index inconsistent")
+    return ids
+end
+M.native_key = native_key
 -- Native record IDs and cumulative finalized credit are unverified adapter inputs.
 -- An unavailable observation needs its own stable identity for replay safety.
 function M.record(store, codec, compare, measure, sample, build_packet, guard_packet)
@@ -27,14 +58,13 @@ function M.record(store, codec, compare, measure, sample, build_packet, guard_pa
             if baseline then assert(sample.reset_verified==true and sample.native_epoch==baseline.epoch, "reading native epoch unavailable") end
         end
         local serialized = tx:get("reading")
-        local data = serialized and codec.decode(serialized) or {days = {}, native = {}, unavailable = {}}
-        data.unavailable = data.unavailable or {}
-        data.native[sample.source] = data.native[sample.source] or {}
-        data.unavailable[sample.source] = data.unavailable[sample.source] or {}
-        if needs_identity and data.unavailable[sample.source][sample.observation_id] then return nil end
-        local delta
+        local data = serialized and codec.decode(serialized) or {days = {}}
+        data.days = data.days or {}
+        if needs_identity and tx:get(unavailable_key(sample.source, sample.observation_id)) then return nil end
+        local delta, known
         if not unavailable then
-            local previous = data.native[sample.source][sample.native_id] or 0
+            known = native_seconds(tx, sample.source, sample.native_id)
+            local previous = known or 0
             assert(sample.seconds >= previous, "native credit regressed; reconciliation required")
             delta = sample.seconds - previous
         end
@@ -59,8 +89,11 @@ function M.record(store, codec, compare, measure, sample, build_packet, guard_pa
         local packet = build_packet(seq, delta, pieces, not unavailable and sample.timing or nil)
         assert(type(packet) == "string", "packet encoding failed")
         if guard_packet then guard_packet(tx, packet) end
-        if needs_identity then data.unavailable[sample.source][sample.observation_id] = true end
-        if not unavailable then data.native[sample.source][sample.native_id] = sample.seconds end
+        if needs_identity then tx:put(unavailable_key(sample.source, sample.observation_id), "1") end
+        if not unavailable then
+            if known == nil then index_native(tx, codec, sample.source, sample.native_id) end
+            tx:put(native_key(sample.source, sample.native_id), string.format("%.0f", sample.seconds))
+        end
         tx:put("reading", codec.encode(data))
         tx:enqueue(seq, packet)
         return packet
@@ -73,9 +106,7 @@ function M.establish_epoch(store,codec,source,value)
         state.assert_capture_enabled(tx)
         local key="reading_baseline:"..source; local saved=tx:get(key); local prior=saved and codec.decode(saved)
         if prior then assert(prior.generation==0 and prior.epoch==value.epoch,"reading native epoch changed"); return true end
-        local serialized=tx:get("reading"); local data=serialized and codec.decode(serialized)
-        local previous=data and data.native and data.native[source] or {}
-        assert(next(previous)==nil, "reading native epoch unknown")
+        assert(native_count(tx,source)==0, "reading native epoch unknown")
         tx:put(key,codec.encode({generation=0,epoch=value.epoch})); return true
     end)
 end
@@ -107,19 +138,23 @@ function M.reset_baseline(store,codec,generation,source,ticket,value,compare)
         local prior=tx:get("reading_baseline:"..source); prior=prior and codec.decode(prior)
         assert(not prior or prior.generation~=generation, "reading baseline already captured")
         assert(not prior or prior.epoch==value.epoch, "reading native epoch changed")
-        local serialized=tx:get("reading"); local data=serialized and codec.decode(serialized) or {days={},native={},unavailable={}}
-        data.native=data.native or {}; data.days=data.days or {}; data.unavailable=data.unavailable or {}
-        local previous=data.native[source] or {}
-        assert(prior or next(previous)==nil, "reading native epoch unknown")
+        local serialized=tx:get("reading"); local data=serialized and codec.decode(serialized) or {days={}}
+        data.days=data.days or {}
+        local previous=native_ids(tx,codec,source)
+        assert(prior or #previous==0, "reading native epoch unknown")
         local seen={}
         for _,item in ipairs(value.native) do
             assert(type(item.id)=="string" and item.id~="" and not seen[item.id] and type(item.seconds)=="number" and item.seconds>=0
                 and item.seconds<=9007199254740991 and item.seconds==math.floor(item.seconds), "invalid native baseline")
-            assert(not previous[item.id] or item.seconds>=previous[item.id], "reading native counter regressed")
+            local old=native_seconds(tx,source,item.id)
+            assert(not old or item.seconds>=old, "reading native counter regressed")
             seen[item.id]=item.seconds
         end
-        for id in pairs(previous) do assert(seen[id]~=nil, "reading native record missing") end
-        data.native[source]=seen
+        for _,id in ipairs(previous) do assert(seen[id]~=nil, "reading native record missing") end
+        for _,item in ipairs(value.native) do
+            if native_seconds(tx,source,item.id)==nil then index_native(tx,codec,source,item.id) end
+            tx:put(native_key(source,item.id),string.format("%.0f",item.seconds))
+        end
         local ledger=reading.new(compare,function() return 0 end,data.days)
         for _,range in ipairs(value.ranges) do
             assert(type(range.day)=="string" and #range.day==10 and pcall(require("utc").due,range.day.."T00:00:00Z",nil,false), "invalid baseline date")

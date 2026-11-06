@@ -172,8 +172,7 @@ function M.open(db, codec, config, device_id, validate_packet, zoneinfo, authent
     local function lifecycle_guard(tx,source_id,bytes) source.assert_reading(tx,source_id,bytes) end
     function instance:reading_native_seen(source_id,native_id)
         identity.source(source_id)
-        local encoded=store:get("reading"); local data=encoded and persistent.decode(encoded)
-        return data and data.native and data.native[source_id] and data.native[source_id][native_id]~=nil or false
+        return store:get(capture.native_key(source_id,native_id))~=nil
     end
     function instance:reading_context(source_id,at)
         identity.source(source_id)

@@ -85,3 +85,22 @@ sample.timing={from=0,to=1,quality="estimated_native_anchor",anchor="2026-01-01T
 assert(not pcall(function() capture.record(store,codec,compare,measure,sample,packet) end))
 sample.native_epoch="epoch-z"; sample.reset_verified=true
 assert(capture.record(store,codec,compare,measure,sample,packet))
+-- Page cost must not depend on history: identities are per-key rows plus a chunked index.
+for i = 1, 130 do
+    local bulk = {source = "source-bulk", day = "2026-01-02", native_id = "record-" .. i, seconds = 1, first = i * 10, last = i * 10 + 5,
+        timing = {from = 0, to = 1, quality = "estimated_native_anchor", anchor = "2026-01-02T00:00:00Z"}}
+    assert(capture.record(store, codec, compare, measure, bulk, packet))
+end
+assert(saved["rn_count:source-bulk"] == "130" and saved["rn:source-bulk:record-130"] == "1")
+assert(#saved["rn_chunk:source-bulk:0"] == 64 and #saved["rn_chunk:source-bulk:1"] == 64 and #saved["rn_chunk:source-bulk:2"] == 2)
+assert(saved["rn_chunk:source-bulk:3"] == nil and saved.reading.native == nil and saved.reading.unavailable == nil)
+local again = {source = "source-bulk", day = "2026-01-02", native_id = "record-1", seconds = 3, first = 10, last = 15,
+    timing = {from = 1, to = 3, quality = "estimated_native_anchor", anchor = "2026-01-02T00:00:00Z"}}
+assert(capture.record(store, codec, compare, measure, again, packet))
+assert(saved["rn_count:source-bulk"] == "130" and saved["rn:source-bulk:record-1"] == "3", "a known native id is not indexed twice")
+assert(not pcall(function() capture.establish_epoch(store, codec, "source-bulk", {verified = true, epoch = "epoch"}) end))
+local unseen = {source = "source-bulk", day = "2026-01-02", observation_id = "obs-1", first = 2000, last = 2005}
+local plain = function(seq) return tostring(seq) end
+assert(capture.record(store, codec, compare, measure, unseen, plain) and saved["ru:source-bulk:obs-1"] == "1")
+assert(capture.record(store, codec, compare, measure, unseen, plain) == nil, "an unavailable observation is credited once")
+print("capture per-key state assertions passed")
