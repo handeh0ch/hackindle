@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../../server/config.js';
+import { loadConfig, ConfigurationError } from '../../server/config.js';
 import { UNICODE_VERSION } from '../../server/unicode-lower.js';
 import { createDatabase } from '../../server/db.js';
 
@@ -238,11 +238,27 @@ test('default migrations include the legacy handshake migration', async () => {
     if (sql.startsWith('INSERT INTO schema_migrations')) { versions.push(args[0]); applied.add(args[0]); }
     return { rows: [] };
   } }) };
-  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3, 4]);
+  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3, 4, 5]);
 });
 
 test('legacy handshake barriers do not prevent reset from deleting sources', async () => {
   const { readFile } = await import('node:fs/promises');
   const sql = await readFile(new URL('../../db/migrations/004_legacy_handshake.sql', import.meta.url), 'utf8');
   assert.doesNotMatch(sql, /REFERENCES\s+sources\s*\(/i);
+});
+
+import { listMigrations } from '../../server/migrations.js';
+test('migration files are discovered from the directory and must be numbered without gaps', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { pathToFileURL } = await import('node:url');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const root = mkdtempSync(path.join(process.env.TEMP ?? tmpdir(), 'migrations-'));
+  try {
+    writeFileSync(path.join(root, '001_a.sql'), 'A'); writeFileSync(path.join(root, '002_b.sql'), 'B'); writeFileSync(path.join(root, 'notes.txt'), 'ignored');
+    const directory = pathToFileURL(root + path.sep);
+    assert.deepEqual(await listMigrations(directory), [{ version: 1, sql: 'A' }, { version: 2, sql: 'B' }]);
+    writeFileSync(path.join(root, '004_d.sql'), 'D');
+    await assert.rejects(listMigrations(directory), error => error instanceof ConfigurationError && /without gaps/.test(error.message));
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

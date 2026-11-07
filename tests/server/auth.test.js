@@ -4,9 +4,11 @@ import { createAuth, hashPassword } from '../../server/auth.js';
 
 function fakeStore(owner) {
   let failures = 0, session, device;
+  const upgrades = [];
   return {
+    upgrades,
     async withLoginLock(username, ip, fn) { return fn({
-      cleanupFailures: async () => {}, purgeSessions: async () => {}, oldestFailure: async () => new Date(),
+      cleanupFailures: async () => {}, purgeSessions: async () => {}, upgradePassword: async (name, encoded) => { upgrades.push(name); if (owner) owner.passwordHash = encoded; }, oldestFailure: async () => new Date(),
       failureCount: async () => failures,
       owner: async () => owner?.username === username ? owner : null,
       recordFailure: async () => { failures++; }, clearFailures: async () => { failures = 0; },
@@ -104,7 +106,7 @@ test('login and refreshed session expose the same usable CSRF token', async () =
 test('login lockout expires after its fifteen-minute window', async () => {
   let now = Date.UTC(2024, 0, 1); const failures = [];
   const owner = { username: 'synthetic', passwordHash: await hashPassword('synthetic-password') };
-  const store = { withLoginLock: async (username, ip, work) => work({ cleanupFailures: async () => {}, purgeSessions: async () => {}, oldestFailure: async since => failures.find(at => at > since), failureCount: async since => failures.filter(at => at > since).length, owner: async () => owner, recordFailure: async at => { failures.push(at); }, clearFailures: async () => {}, createSession: async () => {} }) };
+  const store = { withLoginLock: async (username, ip, work) => work({ cleanupFailures: async () => {}, purgeSessions: async () => {}, upgradePassword: async () => {}, oldestFailure: async since => failures.find(at => at > since), failureCount: async since => failures.filter(at => at > since).length, owner: async () => owner, recordFailure: async at => { failures.push(at); }, clearFailures: async () => {}, createSession: async () => {} }) };
   const auth = createAuth({ store, now: () => now });
   for (let i = 0; i < 5; i++) assert.equal((await auth.login('synthetic', 'wrong', '127.0.0.1')).status, 401);
   assert.equal((await auth.login('synthetic', 'synthetic-password', '127.0.0.1')).status, 429);

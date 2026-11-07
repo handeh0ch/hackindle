@@ -15,21 +15,19 @@ test('backup export keeps device identity and excludes every credential', async 
   assert.ok(queries.every(sql => !/password_hash|token_hash|csrf_hash/.test(sql)));
 });
 
-test('backup preserves retained legacy handshake and carry after sources are deleted', async () => {
+test('backup preserves retained legacy handshake and lineage after sources are deleted', async () => {
   const backup = await import('../../server/backup.js');
   const handshake = { device_id: id, source_id: 'a'.repeat(64), reset_generation: '1', baseline_id: id, native_epoch: id, digest: 'b'.repeat(64) };
-  const carry = { source_id: 'a'.repeat(64), reporting_date: '2024-01-01', native_pages: '2', native_seconds: '3' };
   const lineage = { source_id: 'a'.repeat(64), native_epoch: id };
   const source = { withTransaction: async work => work({ query: async sql => {
     if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '1' }] };
     if (sql.endsWith('FROM legacy_handshakes')) return { rows: [handshake] };
-    if (sql.endsWith('FROM legacy_carry')) return { rows: [carry] };
     if (sql.endsWith('FROM legacy_lineages')) return { rows: [lineage] };
     return { rows: [] };
   } }) };
   const snapshot = await backup.exportBackup(source);
   assert.deepEqual(snapshot.tables.legacy_handshakes, [handshake]);
-  assert.deepEqual(snapshot.tables.legacy_carry, [carry]);
+  assert.equal(Object.hasOwn(snapshot.tables, 'legacy_carry'), false);
   assert.deepEqual(snapshot.tables.legacy_lineages, [lineage]);
   const inserts = [], target = { withTransaction: async work => work({ query: async (sql, args) => {
     if (sql.startsWith('SELECT (')) return { rows: [{ count: '0' }] };
@@ -37,14 +35,14 @@ test('backup preserves retained legacy handshake and carry after sources are del
     return { rows: [] };
   } }) };
   await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, snapshot);
-  assert.equal(inserts.length, 3);
+  assert.equal(inserts.length, 2);
 });
 
 test('restore accepts pre-handshake format-v1 backups without inventing lineage', async () => {
   const backup = await import('../../server/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const snapshot = await backup.exportBackup(source);
-  delete snapshot.tables.legacy_handshakes; delete snapshot.tables.legacy_carry; delete snapshot.tables.legacy_lineages;
+  delete snapshot.tables.legacy_handshakes; delete snapshot.tables.legacy_lineages;
   const target = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT (') ? { rows: [{ count: '0' }] } : { rows: [] } }) };
   await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, snapshot);
 });
@@ -178,7 +176,9 @@ test('backup covers every migrated table except credentials, sessions and migrat
   const directory = new URL('../../db/migrations/', import.meta.url);
   const migrated = new Set();
   for (const name of readdirSync(directory).filter(file => file.endsWith('.sql'))) {
-    for (const match of readFileSync(new URL(name, directory), 'utf8').matchAll(/^\s*CREATE TABLE (?!IF NOT EXISTS)(\w+)/gim)) migrated.add(match[1]);
+    const sql = readFileSync(new URL(name, directory), 'utf8');
+    for (const match of sql.matchAll(/^\s*CREATE TABLE (?!IF NOT EXISTS)(\w+)/gim)) migrated.add(match[1]);
+    for (const match of sql.matchAll(/^\s*DROP TABLE (?:IF EXISTS )?(\w+)/gim)) migrated.delete(match[1]);
   }
   const intentionallyExcluded = new Set(['owners', 'owner_sessions', 'login_failures', 'instance', 'device']);
   const exported = new Set();
@@ -191,4 +191,16 @@ test('backup covers every migrated table except credentials, sessions and migrat
   await (await import('../../server/backup.js')).exportBackup(db);
   assert.deepEqual([...migrated].filter(table => !intentionallyExcluded.has(table) && !exported.has(table)), [], 'a migrated table is missing from backup.js');
   assert.deepEqual([...exported].filter(table => !migrated.has(table)), [], 'backup.js exports a table no migration creates');
+});
+
+test('restore accepts an older backup with an empty legacy_carry table and rejects one with rows', async () => {
+  const backup = await import('../../server/backup.js');
+  const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
+  const target = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT (') ? { rows: [{ count: '0' }] } : { rows: [] } }) };
+  const config = { reportingTimezone: 'UTC', pageCharacters: 2000 };
+  const snapshot = await backup.exportBackup(source);
+  await backup.restoreBackup(target, config, { ...snapshot, tables: { ...snapshot.tables, legacy_carry: [] } });
+  const row = { source_id: 'a'.repeat(64), reporting_date: '2024-01-01', native_pages: '2', native_seconds: '3' };
+  await assert.rejects(backup.restoreBackup(target, config, { ...snapshot, tables: { ...snapshot.tables, legacy_carry: [row] } }), error => error.code === 'invalid_backup');
+  await assert.rejects(backup.restoreBackup(target, config, { ...snapshot, tables: { ...snapshot.tables, legacy_carry: null } }), error => error.code === 'invalid_backup');
 });

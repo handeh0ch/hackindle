@@ -25,3 +25,12 @@ assert(saved.seq == "2" and saved.vocabulary_version == "2" and packets[3] == ni
 
 saved.capture_generation = "blocked"
 assert(not pcall(function() vocabulary.snapshot(store, function() return {} end, build) end))
+-- With a codec an unchanged word list is acknowledged without queueing a second full copy.
+local wire = require("codec")
+saved, packets = {capture_generation="0"}, {}
+local words = function() return wire.decode(wire.encode(require("wire_json").array({{word="one"},{word="two"}}))) end
+assert(vocabulary.snapshot(store, words, build, wire) == "1:1:2")
+assert(vocabulary.snapshot(store, words, build, wire) == true and saved.seq == "1" and packets[2] == nil)
+assert(vocabulary.snapshot(store, function() return require("wire_json").array({{word="one"}}) end, build, wire) == "2:2:1")
+assert(vocabulary.snapshot(store, words, build, wire) == "3:3:2", "a changed list is queued again, including one seen earlier")
+print("vocabulary unchanged-snapshot assertions passed")

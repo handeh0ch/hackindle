@@ -146,6 +146,8 @@ function M.after_baseline(store,codec,generation,source,value,build)
         assert(old and old.generation==generation and p.generation==generation and old.acknowledged, "legacy baseline pending")
         assert(old.epoch==value.epoch, "legacy epoch changed")
         nonregressing(old.records,value.records)
+        -- Unchanged statistics are not queued again on every suspend and close.
+        if require("codec").encode(old.records)==require("codec").encode(value.records) then return true end
         local version=state.next_counter(tx,"legacy_version:"..source); local seq=state.next_sequence(tx)
         local payload={mode="snapshot",baseline_id=old.id,native_epoch=old.epoch,version=version,records=require("wire_json").array(value.records)}
         local expected=require("codec").encode(payload)

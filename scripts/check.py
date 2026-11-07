@@ -8,6 +8,9 @@ import subprocess
 import sys
 
 
+LUA_VERIFIER = Path("tests") / "plugin" / "verify.py"
+
+
 def validate_features(items):
     if not isinstance(items, list) or not items:
         raise ValueError("feature_list.json must contain a nonempty list")
@@ -62,6 +65,14 @@ def verify(root):
     for script in dict.fromkeys(script for _, script in enabled):
         commands.append(["npm.cmd" if sys.platform == "win32" else "npm",
                          "run", script])
+    # The plugin's synthetic Lua suite and its 80% per-module line gate run in the
+    # same gate. This only protects against regressions: P1 evidence is still
+    # written solely by a registered verifier after independent review.
+    if (root / LUA_VERIFIER).is_file():
+        commands.append([sys.executable, "-B", str(LUA_VERIFIER)])
+    elif (root / "plugin").is_dir():
+        # A renamed or deleted verifier must not silently disable the Lua gate.
+        raise ValueError("plugin/ exists but tests/plugin/verify.py is missing")
     commands.append(["git", "diff", "--check"])
     (root / ".local" / "harness").mkdir(parents=True, exist_ok=True)
     temporary = root / ".local" / "tmp"

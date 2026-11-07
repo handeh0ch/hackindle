@@ -52,9 +52,10 @@ local reset_db={rows={},outbox={}}; setmetatable(reset_db,{__index=db})
 local reset_config=copy(config); reset_config.reset_generation=1
 local reset_app=app_factory.open(reset_db,nil,reset_config,device,nil,{root="/synthetic",read_file=function() return zone end},function(bytes) return bytes==ack_bytes end)
 local reset_adapter={source=function() return {verified=true,reset=true,source_id=source,metadata={format="epub",title="Synthetic",authors={},language=json.null,identifiers={}},captured_at="2026-01-01T00:00:00Z"} end}
+local legacy_duration=5
 function reset_adapter:legacy()
     local done=false
-    local conn={prepare=function() return {bind1=function() end,step=function() if done then return nil end; done=true; return {1,1767225600,5,10} end,close=function() end} end,close=function() end}
+    local conn={prepare=function() return {bind1=function() end,step=function() if done then return nil end; done=true; return {1,1767225600,legacy_duration,10} end,close=function() end} end,close=function() end}
     return {verified=true,source_id=source,connection=conn,owned=true,binding={verified=true,readonly=true,source_id=source,native_book_id=1,epoch=id,epoch_verified=true},uuid=function() return device end,captured_at="2026-01-01T00:00:01Z"}
 end
 local reset_view=setmetatable({ui={}},Entry); reset_view:init(); reset_view:attach(reset_app,reset_adapter); reset_view:onReaderReady()
@@ -62,5 +63,7 @@ assert(reset_db.outbox[1] and not reset_db.outbox[2] and reset_db.rows["legacy_b
 ack_bytes=wire.encode({schema_version=1,instance_id=id,device_id=device,source_id=source,reset_generation=1,current_reset_generation=1,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(reset_view:metadata_ack(ack_bytes)); assert(wire.decode(reset_db.outbox[2]).payload.mode=="baseline")
 ack_bytes=wire.encode({schema_version=1,instance_id=id,device_id=device,source_id=source,reset_generation=1,current_reset_generation=1,seq=2,kind="legacy_statistics",status="applied",results={legacy_statistics="applied"}})
-assert(reset_view:legacy_ack(ack_bytes)); reset_view:refreshLegacy(); assert(wire.decode(reset_db.outbox[3]).payload.mode=="snapshot")
+assert(reset_view:legacy_ack(ack_bytes)); reset_view:refreshLegacy()
+assert(not reset_db.outbox[3], "unchanged statistics are not queued again")
+legacy_duration=6; reset_view:refreshLegacy(); assert(wire.decode(reset_db.outbox[3]).payload.mode=="snapshot")
 print("KOReader entry to application assertions passed")

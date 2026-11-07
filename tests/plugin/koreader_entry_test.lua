@@ -174,6 +174,16 @@ fadapter.lifecycle=function() return {verified=true,source_id=("d"):rep(64),capt
 book:onEndOfBook(); assert(#finished==1 and book.status=="capture_unavailable")
 book.status="ready"; book.suspended=true; book:onEndOfBook(); assert(#finished==1 and book.status=="ready")
 book.suspended=false; fadapter.lifecycle=nil; book:onEndOfBook(); assert(#finished==1)
+-- Suspend and close refresh the full snapshots at most once per interval; skipping loses nothing.
+local refreshes={}
+local rview=setmetatable({ui={}},Entry); rview:init()
+rview.refreshVocabulary=function() refreshes[#refreshes+1]="vocabulary" end
+rview.refreshLegacy=function() refreshes[#refreshes+1]="legacy" end
+local seconds=1000; rview.clock=function() return seconds end
+rview:refreshSnapshots(); assert(#refreshes==2)
+seconds=1010; rview:refreshSnapshots(); assert(#refreshes==2, "a second refresh within the interval is skipped")
+seconds=1030; rview:refreshSnapshots(); assert(#refreshes==4, "the interval has elapsed")
+seconds=900; rview:refreshSnapshots(); assert(#refreshes==6, "a clock that moved backwards refreshes instead of waiting")
 -- Failures are logged through KOReader's optional logger and never raise a second error.
 local warnings={}
 package.loaded["logger"]=nil

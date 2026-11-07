@@ -78,6 +78,41 @@ class GateTests(unittest.TestCase):
             self.assertTrue(call.kwargs["check"])
             self.assertEqual(call.kwargs["cwd"], self.root)
 
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_plugin_lua_verifier_runs_before_diff_without_promoting_p1(self, run, output):
+        (self.root / "tests" / "plugin").mkdir(parents=True)
+        (self.root / "tests" / "plugin" / "verify.py").write_text("", encoding="utf-8")
+        plugin = feature("P1", "not_started")
+        plugin["verification"] = None
+        self.registry.write_text(json.dumps([self.items[0], plugin]), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[2][1:], ["-B", str(Path("tests") / "plugin" / "verify.py")])
+        self.assertEqual(commands[3], ["git", "diff", "--check"])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual(saved[1], plugin)
+
+    @patch("scripts.check.subprocess.run")
+    def test_plugin_without_its_lua_verifier_fails_before_any_tool(self, run):
+        (self.root / "plugin").mkdir()
+        original = self.registry.read_bytes()
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()
+        self.assertEqual(self.registry.read_bytes(), original)
+
+    @patch("scripts.check.subprocess.run")
+    def test_plugin_lua_failure_never_records_passing(self, run):
+        (self.root / "tests" / "plugin").mkdir(parents=True)
+        (self.root / "tests" / "plugin" / "verify.py").write_text("", encoding="utf-8")
+        original = self.registry.read_bytes()
+        run.side_effect = [None, None, subprocess.CalledProcessError(1, "lua gate")]
+        with self.assertRaises(subprocess.CalledProcessError):
+            verify(self.root)
+        self.assertEqual(self.registry.read_bytes(), original)
+        self.assertEqual(run.call_count, 3)
+
     @patch("scripts.check.subprocess.run")
     def test_failed_tests_coverage_or_diff_never_record_passing(self, run):
         original = self.registry.read_bytes()

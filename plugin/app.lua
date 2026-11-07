@@ -124,7 +124,7 @@ function M.open(db, codec, config, device_id, validate_packet, zoneinfo, authent
     function instance:vocabulary_snapshot(read,captured_at)
         return require("vocabulary").snapshot(store,read,function(seq,payload)
             return checked(envelope.vocabulary(wire_profile,seq,captured_at,payload))
-        end)
+        end,persistent)
     end
     function instance:begin_vocabulary_reset()
         return require("reset").vocabulary_begin_baseline(store,persistent,config.reset_generation)

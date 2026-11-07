@@ -32,6 +32,20 @@ local function native_ids(tx, codec, source)
     return ids
 end
 M.native_key = native_key
+-- The range ledger only prevents crediting the same text twice on one reporting
+-- day. Earlier days are never credited again, so older entries are dropped and
+-- the blob stays bounded however long the device is used.
+local KEEP_DAYS = 8
+local function prune_days(days, current)
+    if type(days) ~= "table" then return end
+    local keys = {}
+    for day in pairs(days) do keys[#keys + 1] = day end
+    if #keys <= KEEP_DAYS then return end
+    table.sort(keys)
+    for i = 1, #keys - KEEP_DAYS do
+        if keys[i] ~= current then days[keys[i]] = nil end
+    end
+end
 -- Native record IDs and cumulative finalized credit are unverified adapter inputs.
 -- An unavailable observation needs its own stable identity for replay safety.
 function M.record(store, codec, compare, measure, sample, build_packet, guard_packet)
@@ -72,6 +86,7 @@ function M.record(store, codec, compare, measure, sample, build_packet, guard_pa
         local pieces
         if sample.first ~= nil and sample.last ~= nil then
             pieces = ledger:credit(sample.source, sample.day, sample.first, sample.last)
+            prune_days(data.days[sample.source], sample.day)
         else
             assert(sample.first == nil and sample.last == nil, "incomplete visible range")
         end

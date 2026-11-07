@@ -104,3 +104,17 @@ local plain = function(seq) return tostring(seq) end
 assert(capture.record(store, codec, compare, measure, unseen, plain) and saved["ru:source-bulk:obs-1"] == "1")
 assert(capture.record(store, codec, compare, measure, unseen, plain) == nil, "an unavailable observation is credited once")
 print("capture per-key state assertions passed")
+-- The range ledger keeps only the newest days per source; the credited day is never dropped.
+for d = 1, 12 do
+    local day = string.format("2026-03-%02d", d)
+    local sample = {source = "source-days", day = day, observation_id = "days-" .. d, first = d * 100, last = d * 100 + 50}
+    assert(capture.record(store, codec, compare, measure, sample, function(seq) return tostring(seq) end))
+end
+local kept = 0
+for day in pairs(saved.reading.days["source-days"]) do kept = kept + 1 end
+assert(kept == 8 and saved.reading.days["source-days"]["2026-03-12"] and saved.reading.days["source-days"]["2026-03-05"] and not saved.reading.days["source-days"]["2026-03-04"])
+local old = {source = "source-days", day = "2026-01-01", observation_id = "days-old", first = 1, last = 9}
+assert(capture.record(store, codec, compare, measure, old, function(seq) return tostring(seq) end))
+assert(saved.reading.days["source-days"]["2026-01-01"], "the day being credited is not pruned in the same turn")
+assert(saved.reading.days["source-bulk"] and next(saved.reading.days["source-bulk"]), "other sources are untouched")
+print("capture ledger pruning assertions passed")

@@ -298,13 +298,24 @@ function Entry:refreshVocabulary()
     end)
 end
 
+-- Full vocabulary and statistics reads run on the UI thread right before sleep.
+-- Snapshots are complete, so skipping one close to the previous refresh loses
+-- nothing: the next refresh reads everything again.
+local REFRESH_INTERVAL = 30
+function Entry:refreshSnapshots()
+    local now = (self.clock or os.time)()
+    if type(self.last_refresh) == "number" and now >= self.last_refresh and now - self.last_refresh < REFRESH_INTERVAL then return end
+    self:refreshVocabulary(); self:refreshLegacy()
+    self.last_refresh = now
+end
+
 function Entry:onSuspend()
     if self.runtime and not self.app then self.runtime:cancel_source() end
     if self.app and self.adapter and self.source_ready and not self.closed and not self.suspended then
         if not self:finishPage(false) then self.suspended=true; return end
         self:lifecycle("close")
     end
-    if self.source_ready and not self.closed then self:refreshVocabulary(); self:refreshLegacy() end
+    if self.source_ready and not self.closed then self:refreshSnapshots() end
     self.suspended=true
 end
 
@@ -346,7 +357,7 @@ function Entry:onCloseDocument()
         if not self:finishPage(false) and not self:abandonPending() then return end
         self:lifecycle("close")
     end
-    if self.source_ready and not self.suspended and not self.closed then self:refreshVocabulary(); self:refreshLegacy() end
+    if self.source_ready and not self.suspended and not self.closed then self:refreshSnapshots() end
     self.closed=true
     if self.runtime then
         local ok=pcall(function() self.runtime:close() end)
