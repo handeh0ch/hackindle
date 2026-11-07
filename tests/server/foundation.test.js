@@ -238,7 +238,7 @@ test('default migrations include the legacy handshake migration', async () => {
     if (sql.startsWith('INSERT INTO schema_migrations')) { versions.push(args[0]); applied.add(args[0]); }
     return { rows: [] };
   } }) };
-  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3, 4, 5]);
+  await runMigrations(db); assert.deepEqual(versions, [1, 2, 3, 4, 5, 6]);
 });
 
 test('legacy handshake barriers do not prevent reset from deleting sources', async () => {

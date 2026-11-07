@@ -21,3 +21,11 @@ test('session totals reject unsafe integer values', async () => {
   const unsafe = { withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{}] } : { rows: [{ ...rows[0], characters: '9007199254740992' }] } }) };
   await assert.rejects(listSessions(unsafe, {}), e => e.code === 'totals_overflow');
 });
+
+test('the session query uses the expression that the session index declares', async () => {
+  const { readFileSync } = await import('node:fs');
+  const query = readFileSync(new URL('../../server/sessions.js', import.meta.url), 'utf8');
+  const migration = readFileSync(new URL('../../db/migrations/006_events_session_index.sql', import.meta.url), 'utf8');
+  assert.match(migration, /CREATE INDEX events_session ON events \(source_id, \(\(content->>'session_id'\)::uuid\), \(content->>'type'\)\)/);
+  assert.ok(query.includes("(e.content->>'session_id')::uuid") && query.includes("(s.content->>'session_id')::uuid"), 'the query filters on the indexed expression');
+});

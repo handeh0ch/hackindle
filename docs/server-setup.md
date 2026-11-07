@@ -1,6 +1,6 @@
 # Server foundation setup
 
-B1 implements configuration, migrations, owner/device authentication and entry points. B2 adds sync ingestion, uploads, annotation archive/content, private covers and reset barriers. Reports, the panel and the production plugin are not implemented yet; profile-dependent accounting validation remains B3 work before release. These are foundation commands, not a verified deployment guide. Unit tests use a database boundary double; no real PostgreSQL, container or cloud deployment has been exercised.
+B1 implements configuration, migrations, owner/device authentication and entry points. B2 adds sync ingestion, uploads, annotation archive/content, private covers and reset barriers. Reports, the panel and the production plugin are not implemented yet; profile-dependent accounting validation remains B3 work before release. These are foundation commands, not a verified deployment guide. Unit tests use a database boundary double. A one-off manual smoke test on PostgreSQL 18.6 (2026-11-07, throwaway container, scripts kept outside Git) exercised the six migrations, authentication, sync, uploads, covers, all owner reads against the shared contracts, locking, reset, backup and restore; no container build, provider or cloud deployment has been exercised.
 
 ## Prerequisites and private configuration
 
