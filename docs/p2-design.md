@@ -49,11 +49,23 @@ Deliver the packets P1 already writes to the on-disk outbox, exactly once in eff
 6. Retry timing follows 5/15/60/300 s and `Retry-After`, with a backwards-moving clock handled.
 7. Server change is blocked until the owner confirms; queue bytes are never rewritten.
 
+## What the KOReader source says about this design
+
+From public files at tag v2026.07.1, summarised by a documentation-reading subagent on 2026-11-07 (not re-read by me, not observed on a device). The `base` submodule that holds the TLS and socket layers could not be read.
+
+- **Never turn Wi-Fi on.** `NetworkMgr:runWhenOnline`, `runWhenConnected`, `willRerunWhenOnline`, `goOnlineToRun` and `beforeWifiAction` may enable Wi-Fi or show a prompt depending on the user setting `wifi_enable_action`; none of them may be called. `isOnline()` runs a DNS lookup of a Microsoft host, so it also should not be used as a state check. Use only the cached `getWifiState()` / `queryNetworkState()` or the device backend's `isConnected()`.
+- **How the stock sync plugin sends.** `kosync` uses an asynchronous Turbo HTTP client inside a coroutine when `UIManager.looper` exists and a plain blocking call otherwise, with short timeouts (2 s block / 5 s total for progress, 5 s / 10 s for login) set through `socketutil.set_timeout`; it does not use a subprocess. It sends on suspend and then may enable Wi-Fi, which this design deliberately does not do.
+- **Timeouts.** `socketutil.set_timeout(block, total)` also sets the `http` and `https` timeouts; defaults are 60 s block and no total limit; the total limit is checked only when data arrives.
+- **Scheduled callbacks are not contained.** An error inside a `UIManager:scheduleIn` or `nextTick` callback leaves the main loop; every P2 callback must run its work under `pcall`.
+- **Settings are not written atomically.** `LuaSettings:flush()` writes the target file directly (with fsync and a `.old` backup older than 60 s). A crash during the write can truncate it; a reader falls back to `.old` only if it exists. KOReader's own plugins keep credentials in clear text there (`kosync` stores an unsalted MD5 as its credential). Keeping the URL and token in the plugin's SQLite state instead would be atomic, at the cost of being invisible to the owner.
+- **Settings directory.** `DataStorage:getSettingsDir()` is the data directory plus `/settings`; the data directory comes from `KO_HOME` or the working directory, with no Kindle-specific branch, so the Kindle path is inferred, not read.
+- **TLS verification.** Not found in any file read (`socketutil` loads `ssl.https`, but no CA file, path or verify mode appears). Verified TLS therefore remains an open requirement.
+
 ## Not decided (owner input needed)
 
-1. **Blocking.** Whether a synchronous request with a short timeout on the UI thread is acceptable, or a subprocess is required. Prior evidence on the device does not exist (P0 is blocked).
-2. **Token entry.** Typing a long token on the device versus the owner placing a settings file in the private settings directory.
-3. **TLS roots.** Which CA bundle the device's Lua TLS stack can verify against, and the failure message when none is found.
+1. **Blocking.** Whether a synchronous request with a short timeout on the UI thread is acceptable, or a subprocess is required. The stock sync plugin uses an asynchronous client with short timeouts and falls back to blocking; whether that client exists on the Kindle build is unknown.
+2. **Token entry.** Typing a long token on the device versus the owner placing a settings file in the private settings directory; and whether the token lives in a `LuaSettings` file (visible, not atomic) or in the SQLite state (atomic, not visible).
+3. **TLS roots.** Which CA bundle the device's Lua TLS stack can verify against, and the failure message when none is found. The relevant code is in the `base` submodule and has not been read.
 4. **Cap.** A retention limit for undeliverable packets, or keep everything until delivered.
 5. **Progress cadence.** Once per minute plus boundaries and a five-minute batch seal, as in the approved task, or event-driven only.
 

@@ -32,14 +32,26 @@ Last recorded results: 29 Python, 35 contract and 155 server unit tests; Lua 98.
 
 Contracts the plugin must satisfy are in `contracts/` and [api-v1.md](api-v1.md); capture boundaries are in [koreader-adapter.md](koreader-adapter.md).
 
-## KOReader assumptions that nothing has confirmed
+## KOReader assumptions and what upstream source says
 
-1. `PageUpdate` precedes `DocumentRerendered` on a full rerender; `onEndOfBook` is the event name and fires when the last page is reached.
-2. `getPageXPointer(page)`, `getPageXPointer(page + 1)` return distinct ordered XPointers, including past the last page; `compareXPointers` sign convention; `getTextFromXPointers` does not change position or selection.
-3. `ui.statistics` exposes `page_stat`, `id_curr_book`, `curr_page`, `is_doc` and the statistics database row timing matches the plugin's clock to the exact second (`koreader_reading.lua` requires equality).
-4. `lua-ljsqlite3` returns BLOB values as Lua strings, supports the `ro` flag and `blob()`; `ffi/sha2` incremental API; `getrandom` exists in the device libc.
-5. `ui.annotation.annotations` is an ordered array whose entries have `pos0`, `pos1`, `text`, `note`, `chapter`, `datetime`, and a separately verified binding can give each a durable key (KOReader has no annotation ID).
-6. Plugin directories put their own folder first on `package.path`, so the `kindle_sync_` module prefix resolves.
+Source: public KOReader files at tag v2026.07.1, read on 2026-11-07 by a documentation-reading subagent and summarised; I did not re-read them myself, and nothing here was observed on a device. "Upstream" below means that source, not the owner's installed build. `base/` (ffi, TLS, ljsqlite3) is a separate submodule that could not be read.
+
+| Assumption in the plugin | What upstream reports | Status |
+| --- | --- | --- |
+| `PageUpdate` precedes `DocumentRerendered` on a full rerender | Yes (rolling `updatePos`: goto, then `DocumentRerendered`; a code comment says statistics relies on it) | confirmed |
+| `onEndOfBook` fires when the last page is reached | The event `EndOfBook` is sent by a forward turn that cannot move (rolling `onGotoViewRel`, paged `onGotoPageRel`/`onScrollPageRel`), not on arrival at the last page; the only core handler is `ReaderStatus:onEndOfBook`, which may show a pop-up | event name confirmed, timing corrected |
+| `PageUpdate` always fires | Not in rolling scroll mode: it sends `PosUpdate` instead; page mode and paged documents send `PageUpdate(page[, orig_mode])` | contradicted for scroll mode |
+| `ui.statistics.page_stat`, `id_curr_book`, `curr_page`, `is_doc` exist | Yes; `page_stat[page]` is a list of `{start, duration}`, start from `os.time()` (integer seconds), duration added on the next page turn and only kept if between `min_sec` (5) and `max_sec` (120, capped); entries are volatile and flushed to the database every 50 page turns, on close, suspend and others | confirmed, with caveats below |
+| Exact-second equality between the plugin's page start and the statistics start | Both use whole seconds, but they come from two handlers of the same event; no ordering guarantee was found | unverified, fragile |
+| `page_stat_data` columns and file | `id_book, page, start_time, duration, total_pages` with `UNIQUE(id_book, page, start_time)`, in `statistics.sqlite3` in the settings directory; `page_stat` is a view | confirmed |
+| `ui.annotation.annotations` entries and event | Entries have `pos0, pos1, text, note, chapter, datetime, page, drawer, color, ...`; event `AnnotationsModified` carries a table with positional items plus named keys such as `nb_highlights_added`, `index_modified` (the latter seen only in a summary) | confirmed |
+| KOReader has no annotation ID | Confirmed: items are matched by datetime, page and positions | confirmed |
+| Vocabulary Builder file and columns | `vocabulary_builder.sqlite3` in the settings directory; table `vocabulary` with `word` unique and no language or dictionary column; the file is switched to WAL when the device allows it | confirmed; read-only open of a WAL file is unverified |
+| Plugin directory is first on `package.path` | Only while `main.lua` is loaded; afterwards it is appended to the end, so a later `require` finds core modules first | contradicted, which makes the `kindle_sync_` prefix necessary |
+| `_meta.lua` carries the plugin name | A `name` there is ignored with a deprecation warning; the directory name (without `.koplugin`) is the name | contradicted; our `_meta.lua` still sets it |
+| Errors inside a scheduled callback are contained | `UIManager` runs tasks without `pcall`; an error leaves the main loop and, with the turbo loop, ends the process | contradicted; fixed in `koreader_runtime.lua` (see known defects) |
+| `getPageXPointer(page + 1)` past the last page, `compareXPointers` sign, `getTextFromXPointers` side effects | Not examined | unverified |
+| `ffi/sha2` incremental API, `lua-ljsqlite3` (`ro` mode, BLOB as string, `blob()`), `getrandom` in the device libc | The files live in the `base` submodule, which could not be read | unverified |
 
 ## Risks to examine first
 
@@ -56,7 +68,7 @@ Contracts the plugin must satisfy are in `contracts/` and [api-v1.md](api-v1.md)
 ## Questions for the reviewer
 
 1. Can any sequence of suspend, resume, close, crash and reset lose a credited interval or credit it twice?
-2. Is every fail-closed path actually closed, or can an `assert` inside a scheduler callback escape `pcall` (see `koreader_runtime.lua`, the `callback(adapter)` call)?
+2. Is every fail-closed path actually closed? Upstream shows that an `assert` inside a scheduler callback is not contained (see `koreader_runtime.lua`, the `callback(adapter)` calls); are there other unprotected entry points?
 3. Do the plugin's wire objects match what `validateEnvelope` accepts for every kind, including the reset-path variants?
 4. Is the reset protocol worth keeping as designed, or should P1 be simplified before P2 builds on it?
 5. Which unverified assumptions above must be turned into owner-run observations in I1, and which should be removed from the design?
@@ -67,9 +79,18 @@ P2 delivery (outbox draining, retries, TLS, settings UI), real PostgreSQL behavi
 
 ## Known open defects (not fixed)
 
+Raised by the upstream source check:
+
+- **Fixed after the upstream check: scheduled errors can no longer end the reader.** `UIManager` runs scheduled callbacks without `pcall`. In `koreader_runtime.lua` every call of the caller's callback now goes through a guarded `deliver`, and the whole scheduled hashing step runs under `pcall`; an unexpected error cancels the source and reports `source_unavailable`. Two tests cover a raising callback and an unexpected error inside a step, and fail on the previous code. Other scheduled entry points do not exist yet; P2 must follow the same rule.
+- **Scroll mode is silently not captured.** Rolling documents in continuous scroll send `PosUpdate`, not `PageUpdate`; the entry has no `onPosUpdate`, so nothing is credited and no gap is recorded. Either handle `PosUpdate` or detect scroll mode and say so.
+- **Native timing depends on handler order.** `koreader_reading.lua` needs `row[2] > 0` for the previous page, but the statistics plugin adds that duration inside its own `onPageUpdate`. If the plugin handles the event first, the duration is still 0 and the page falls back to unavailable timing. Entries also vanish from `page_stat` when the statistics plugin flushes (every 50 turns, on suspend and close), and durations under 5 s are never kept. Real native credit is therefore likely sparse.
+- **`EndOfBook` semantics.** It fires on a forward turn past the end, and `ReaderStatus` may show its pop-up at the same time; a book that is only read to its last page does not emit it.
+- **Deprecated `_meta.lua` name.** KOReader ignores it and logs a warning; the directory name decides, so installs must use `kindle_sync.koplugin`.
+
+Earlier items:
+
 - Reset-path vocabulary snapshots still queue on every refresh.
 - The range ledger grows within a single day when reading with many gaps.
 - Statistics and vocabulary are still fully read on the UI thread when a refresh runs.
-- `Entry:attach` raises inside the source-hash callback when a pending page exists.
 - Re-read cycles are never started by any code; only `book_finished` is emitted on `EndOfBook`.
 - `ffi.cdef` for `getrandom` runs on every UUID request, and no `/dev/urandom` fallback exists by design.

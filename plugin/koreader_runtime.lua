@@ -47,6 +47,12 @@ function M.open(config,deps)
     function runtime:start_source(ui,callback)
         self:cancel_source()
         local serial=self.serial
+        -- UIManager runs scheduled tasks without pcall, so an error in the caller's
+        -- callback would end the reader. Contain it and report it instead.
+        local function deliver(...)
+            local ok,err=pcall(callback,...)
+            if not ok then warn("source callback failed:",err) end
+        end
         local success,job,path,expected_format=pcall(function()
             assert(type(ui)=="table" and type(ui.document)=="table" and type(ui.document.file)=="string", "document unavailable")
             assert(type(deps.resolve_format)=="function", "document format unavailable")
@@ -55,23 +61,24 @@ function M.open(config,deps)
             local begin=deps.begin_file or require("koreader_hash").begin_file
             return begin(ui.document.file,format.format,{format_verified=true}),ui.document.file,format.format
         end)
-        if not success then warn("source could not be opened:",job); callback(nil,"source_unavailable"); return end
+        if not success then warn("source could not be opened:",job); deliver(nil,"source_unavailable"); return end
         -- Capture the document identity independently of later UI mutations.
         self.job=job
-        local function next_step()
+        local next_step
+        local function step_once()
             if serial~=runtime.serial then return end
             local ran,value=pcall(function() return job:step(32768) end)
             if not ran or value==nil or type(ui.document)~="table" or ui.document.file~=path then
                 if not ran then warn("source hashing failed:",value) end
-                runtime:cancel_source(); callback(nil,"source_unavailable"); return
+                runtime:cancel_source(); deliver(nil,"source_unavailable"); return
             end
             if value==false then
                 local scheduled=pcall(function() (deps.schedule or function(fn) require("ui/uimanager"):nextTick(fn) end)(next_step) end)
-                if not scheduled then runtime:cancel_source(); callback(nil,"source_unavailable") end
+                if not scheduled then runtime:cancel_source(); deliver(nil,"source_unavailable") end
                 return
             end
             local valid=pcall(function() assert(type(value)=="table" and value.verified==true and value.format==expected_format and type(value.unchanged)=="function" and value.unchanged()); identity.source(value.source_id) end)
-            if not valid then runtime:cancel_source(); callback(nil,"source_unavailable"); return end
+            if not valid then runtime:cancel_source(); deliver(nil,"source_unavailable"); return end
             runtime.job=nil; runtime.serial=runtime.serial+1
             local metadata=require("koreader_metadata").new(function(current)
                 assert(current==path, "document changed")
@@ -98,9 +105,9 @@ function M.open(config,deps)
                 end
                 local acquired,reading=pcall(require("koreader_reading").new,runtime.db,runtime.app,value.source_id,
                     deps.uuid or require("koreader_entropy").uuid,deps.utc_now or function() return os.date("!%Y-%m-%dT%H:%M:%SZ") end,timing_binding,value.format,runtime.generation)
-                if not acquired then callback(nil,"source_unavailable"); return end
+                if not acquired then deliver(nil,"source_unavailable"); return end
                 local recovered,gap=pcall(reading.recover,reading)
-                if not recovered then reading:close(); callback(nil,"source_unavailable"); return end
+                if not recovered then reading:close(); deliver(nil,"source_unavailable"); return end
                 runtime.reading=reading; adapter.recovered_gap=gap
                 for _,method in ipairs({"begin_page","finish_page","discard_page"}) do
                     adapter[method]=function(_,reader,...) guard(reader); return reading[method](reading,reader,...) end
@@ -161,10 +168,18 @@ function M.open(config,deps)
                         uuid=deps.uuid or require("koreader_entropy").uuid}
                 end
             end
-            callback(adapter)
+            deliver(adapter)
+        end
+        -- Any unexpected error in a step ends this source instead of the reader.
+        next_step=function()
+            local ok,err=pcall(step_once)
+            if not ok then
+                warn("source step failed:",err)
+                runtime:cancel_source(); deliver(nil,"source_unavailable")
+            end
         end
         local scheduled=pcall(function() (deps.schedule or function(fn) require("ui/uimanager"):nextTick(fn) end)(next_step) end)
-        if not scheduled then self:cancel_source(); callback(nil,"source_unavailable") end
+        if not scheduled then self:cancel_source(); deliver(nil,"source_unavailable") end
     end
     function runtime:close()
         self:cancel_source()

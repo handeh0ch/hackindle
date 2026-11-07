@@ -133,4 +133,19 @@ local recovery=require("koreader_reading").new(fresh,{},source,native_deps.uuid,
 assert(recovery:recover()); recovery:close()
 local restarted_once=runtime.open(config,native_deps); assert(restarted_once:has_gap()); restarted_once:close()
 local restarted_twice=runtime.open(config,native_deps); assert(restarted_twice:has_gap()); restarted_twice:close()
+-- UIManager runs scheduled tasks without pcall: nothing raised in a step or in the caller's callback may escape.
+while #scheduled>0 do table.remove(scheduled) end
+local guarded=runtime.open(config,deps)
+local delivered={}
+guarded:start_source(ui,function(adapter,reason) delivered[#delivered+1]=adapter and "adapter" or reason; error("callback failed") end)
+table.remove(scheduled,1)()
+assert(pcall(table.remove(scheduled,1)) and delivered[1]=="adapter" and #delivered==1, "a raising callback must not escape the step")
+local original_native=deps.native
+deps.native=5
+local failed_steps={}
+guarded:start_source(ui,function(adapter,reason) failed_steps[#failed_steps+1]=adapter and "adapter" or reason end)
+table.remove(scheduled,1)()
+assert(pcall(table.remove(scheduled,1)) and failed_steps[1]=="source_unavailable" and #failed_steps==1, "an unexpected error ends the source, not the reader")
+deps.native=original_native
+guarded:close()
 print("KOReader runtime assertions passed")
