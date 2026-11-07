@@ -7,6 +7,16 @@ function M.open(db)
     function store:get(key)
         return db:one("SELECT value FROM capture_state WHERE key = ?", {key})
     end
+    -- Delivery reads the lowest sequence first; the row stays until acknowledged.
+    function store:outbox_head()
+        local seq = db:one("SELECT seq FROM outbox ORDER BY seq LIMIT 1")
+        seq = seq ~= nil and tonumber(seq) or nil
+        if not seq then return nil end
+        return seq, db:one("SELECT packet FROM outbox WHERE seq = ?", {seq})
+    end
+    function store:outbox_count()
+        return tonumber(db:one("SELECT COUNT(*) FROM outbox")) or 0
+    end
     function store:transaction(work)
         db:exec("BEGIN IMMEDIATE")
         local tx = {}
@@ -16,6 +26,9 @@ function M.open(db)
         end
         function tx:enqueue(seq, packet)
             db:exec("INSERT INTO outbox (seq, packet) VALUES (?, ?)", {seq, packet})
+        end
+        function tx:dequeue(seq)
+            db:exec("DELETE FROM outbox WHERE seq = ?", {seq})
         end
         local ok, result = pcall(work, tx)
         if ok then

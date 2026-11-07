@@ -63,7 +63,7 @@ assert(reset_db.outbox[1] and not reset_db.outbox[2] and reset_db.rows["legacy_b
 ack_bytes=wire.encode({schema_version=1,instance_id=id,device_id=device,source_id=source,reset_generation=1,current_reset_generation=1,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(reset_view:metadata_ack(ack_bytes)); assert(wire.decode(reset_db.outbox[2]).payload.mode=="baseline")
 ack_bytes=wire.encode({schema_version=1,instance_id=id,device_id=device,source_id=source,reset_generation=1,current_reset_generation=1,seq=2,kind="legacy_statistics",status="applied",results={legacy_statistics="applied"}})
-assert(reset_view:legacy_ack(ack_bytes)); reset_view:refreshLegacy()
+assert(reset_view:legacy_ack(ack_bytes) and reset_view:legacy_ack(ack_bytes)); reset_view:refreshLegacy()
 assert(not reset_db.outbox[3], "unchanged statistics are not queued again")
 legacy_duration=6; reset_view:refreshLegacy(); assert(wire.decode(reset_db.outbox[3]).payload.mode=="snapshot")
 print("KOReader entry to application assertions passed")

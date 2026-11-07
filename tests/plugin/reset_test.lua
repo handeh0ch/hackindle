@@ -39,7 +39,7 @@ assert(not pcall(function() snapshot(1,records,build) end))
 local ack={schema_version=1,instance_id=id,device_id=device,source_id=json.null,reset_generation=1,current_reset_generation=1,seq=2,kind="vocabulary_snapshot",status="applied",results={vocabulary_snapshot="applied"}}
 local wrong=codec.decode(codec.encode(ack)); wrong.seq=1
 assert(not reset.vocabulary_ack(store,codec,codec.encode(wrong)))
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 local out=snapshot(1,records,build)
 assert(codec.decode(out).payload.words[1].word=="word")
 local changed_case={{id="word",word="WORD",language=json.null,source="dictionary",fingerprint="changed"}}
@@ -62,7 +62,7 @@ end
 wire.reset_generation=2
 local newbaseline=vocab_baseline(2,records)
 ack.reset_generation=2; ack.current_reset_generation=2; ack.seq=newbaseline.seq
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 local before=state.seq
 assert(reset.vocabulary_saved(store,codec,2,records[1],"save-2"))
 local function mutate_word(seq,snapshot) snapshot.words[1].word="forged"; return build(seq,snapshot) end
@@ -91,7 +91,7 @@ assert(reset.vocabulary_saved(store,codec,3,records[1],"native-save-1"))
 assert(not reset.vocabulary_saved(store,codec,3,records[1],"native-save-1"))
 assert(not pcall(function() snapshot(3,records,build) end))
 ack.reset_generation=3; ack.current_reset_generation=3; ack.seq=third.seq
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 local after_restart=snapshot(3,records,build)
 assert(codec.decode(after_restart).payload.words[1].word=="word")
 
@@ -99,7 +99,7 @@ assert(codec.decode(after_restart).payload.words[1].word=="word")
 config.reset_generation=4; wire.reset_generation=4; profile.accept(store,codec,config,device)
 local fourth=vocab_baseline(4,records)
 ack.reset_generation=4; ack.current_reset_generation=4; ack.seq=fourth.seq
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 local before_read=reset.vocabulary_watermark(store,codec,4)
 assert(reset.vocabulary_saved(store,codec,4,records[1],"native-save-after-read"))
 assert(reset.vocabulary_snapshot(store,codec,4,{},before_read,build))
@@ -110,7 +110,7 @@ assert(codec.decode(again).payload.words[1].word=="word")
 config.reset_generation=5; wire.reset_generation=5; profile.accept(store,codec,config,device)
 local fifth=vocab_baseline(5,records)
 ack.reset_generation=5; ack.current_reset_generation=5; ack.seq=fifth.seq
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 assert(reset.vocabulary_saved(store,codec,5,records[1],"native-save-absent"))
 local mark=reset.vocabulary_watermark(store,codec,5)
 assert(not pcall(function() reset.vocabulary_snapshot(store,codec,5,{},mark,malicious) end))
@@ -119,14 +119,16 @@ assert(reset.vocabulary_snapshot(store,codec,5,{},mark,build))
 assert(codec.decode(snapshot(5,records,build)).payload.words[1].word=="word")
 local old_read=reset.vocabulary_watermark(store,codec,5)
 local new_read=reset.vocabulary_watermark(store,codec,5)
-assert(reset.vocabulary_snapshot(store,codec,5,records,new_read,build))
+local deduped_seq=state.seq
+-- The same filtered set as the previous packet is not queued again.
+assert(reset.vocabulary_snapshot(store,codec,5,records,new_read,build)==true and state.seq==deduped_seq)
 local committed_seq=state.seq
 assert(not pcall(function() reset.vocabulary_snapshot(store,codec,5,{},old_read,build) end))
 assert(state.seq==committed_seq)
 config.reset_generation=6; wire.reset_generation=6; profile.accept(store,codec,config,device)
 local sixth=vocab_baseline(6,records)
 ack.reset_generation=6; ack.current_reset_generation=6; ack.seq=sixth.seq
-assert(reset.vocabulary_ack(store,codec,codec.encode(ack)))
+assert(reset.vocabulary_ack(store,codec,codec.encode(ack)) and reset.vocabulary_ack(store,codec,codec.encode(ack)))
 local read_a=reset.vocabulary_watermark(store,codec,6)
 assert(reset.vocabulary_saved(store,codec,6,records[1],"save-between-reads"))
 local read_b=reset.vocabulary_watermark(store,codec,6)

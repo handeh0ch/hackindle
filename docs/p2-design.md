@@ -1,6 +1,8 @@
-# P2 design proposal: durable sync client
+# P2 design: durable sync client
 
-Status: proposal for owner approval. It is not an approved plan, starts no work, and may only be implemented after P1 is independently reviewed and registered. It expands Task 7 of the [approved plan](superpowers/plans/2026-11-01-kindle-sync.md) and uses [api-v1.md](api-v1.md) for the server side, which needs no change.
+Status: implemented on 2026-11-08 on the owner's instruction ("complete P1 and P2"), before the independent P1 review that this document originally required. The five open questions below were answered with conservative defaults by the implementer, not by the owner; each is revisable. Unit tests only: no request has been sent to a real server and nothing ran on a device. It expands Task 7 of the [approved plan](superpowers/plans/2026-11-01-kindle-sync.md) and uses [api-v1.md](api-v1.md) for the server side, which needed no change. Owner steps are in [plugin-install.md](plugin-install.md).
+
+Where the implementation differs from the proposal text below: the outbox reader and delivery state live in `plugin/state.lua` (head, count, dequeue) and `plugin/delivery.lua`; any 409 other than a handled upload case pauses the whole queue (no vocabulary-only pause); a `future_generation` 409 pauses instead of refreshing the profile (a plugin generation ahead of the server means a restored or foreign server, while a lower plugin generation arrives as an `obsolete_discarded` ack, which completes the packet and asks for a profile refresh); the server-change confirmation is a manual deletion of the state database, not a menu action; cover uploads are not part of P2 because no covers are queued.
 
 ## Goal and hard limits
 
@@ -61,23 +63,23 @@ From public files at tag v2026.07.1, summarised by a documentation-reading subag
 - **Settings directory.** `DataStorage:getSettingsDir()` is the data directory plus `/settings`; the data directory comes from `KO_HOME` or the working directory, with no Kindle-specific branch, so the Kindle path is inferred, not read.
 - **TLS verification.** Not found in any file read (`socketutil` loads `ssl.https`, but no CA file, path or verify mode appears). Verified TLS therefore remains an open requirement.
 
-## Not decided (owner input needed)
+## Decisions taken by the implementer (owner may change them)
 
-1. **Blocking.** Whether a synchronous request with a short timeout on the UI thread is acceptable, or a subprocess is required. The stock sync plugin uses an asynchronous client with short timeouts and falls back to blocking; whether that client exists on the Kindle build is unknown.
-2. **Token entry.** Typing a long token on the device versus the owner placing a settings file in the private settings directory; and whether the token lives in a `LuaSettings` file (visible, not atomic) or in the SQLite state (atomic, not visible).
-3. **TLS roots.** Which CA bundle the device's Lua TLS stack can verify against, and the failure message when none is found. The relevant code is in the `base` submodule and has not been read.
-4. **Cap.** A retention limit for undeliverable packets, or keep everything until delivered.
-5. **Progress cadence.** Once per minute plus boundaries and a five-minute batch seal, as in the approved task, or event-driven only.
+1. **Blocking.** Synchronous requests on the UI thread with 5 s block / 30 s total timeouts, one request per tick, at most five requests or twenty seconds at book close and sixty seconds for a manual sync. No subprocess. Change this if I1 shows the UI freezes are not tolerable.
+2. **Token entry.** The owner places `kindle_sync.conf` in the settings directory; nothing is typed on the device. It is a plain `key = "value"` file that is parsed, never executed, and never written by the plugin, so a crash cannot truncate it (the `LuaSettings` flush is not atomic). The token is therefore visible to anyone who can read that folder, like the stock sync plugins' credentials. The cached profile and delivery state live in the SQLite state.
+3. **TLS roots.** The plugin uses whatever `ssl.https` does on the device, requires `https://` (plain http only for loopback) and cannot check certificate verification itself. This is the most important I1 item; the install guide says so.
+4. **Cap.** None: every packet is kept until delivered. The status shows the queue length.
+5. **Progress cadence.** No periodic progress sampling was added; progress is event-driven (source snapshot at open, reading events at page turns). This keeps P2 to delivery.
 
 ## Device unknowns (carried to I1)
 
 HTTP and TLS library availability and behavior, background execution under suspend, network state API, settings file permissions, and the real timing of acknowledgements. None of these can be established by unit tests.
 
-## Order of work
+## Order of work and state
 
-1. Outbox reader and delivery state with crash tests.
-2. Acknowledgement router and idempotence tests for each P1 hook.
-3. Transport with a fake server contract test against the real validators in `contracts/`.
-4. Scheduler, settings, profile bootstrap and `Entry:configure` wiring.
-5. Menu, packaging allowlist and install guide.
-6. Independent review, then register the verifier and run a fresh full gate.
+1. Done: outbox head/count/dequeue in `plugin/state.lua`; `plugin/delivery.lua` with strict order, persisted pause/backoff/upload state, clock-backwards guard and crash-boundary tests (a head removed during a request cannot be completed by a stale response; a lost ack resends identical bytes).
+2. Done: acknowledgement router (`delivery.acknowledged`, compared with `matchesAck` over 441 generated cases in `tests/plugin/ack_differential.py`); replay of the P1 metadata, reset-metadata, legacy and vocabulary ack hooks is asserted idempotent.
+3. Done: `plugin/transport.lua` with an injected http function; the real KOReader binding `plugin/koreader_http.lua` is synthetic-tested only. No contract test runs a real server.
+4. Done: `plugin/settings.lua`, `plugin/koreader_client.lua` (profile fetch and cache, server-change detection, tick scheduling, bounded flush), `Entry:applyAck`, `Entry:startSync` wiring, `plugin/koreader_format.lua` (format from file content), `plugin/koreader_network.lua`.
+5. Done: menu (status, sync now, finish book, new read cycle), zip packaging (`node scripts/build-plugin.js --zip`) and [plugin-install.md](plugin-install.md).
+6. Open: independent review, then the verifier registration and a fresh full gate; every device item in plugin-install.md (I1).

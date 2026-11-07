@@ -4,7 +4,7 @@ package.preload["ui/widget/container/widgetcontainer"] = function()
 end
 local Entry=dofile("plugin/main.lua")
 local meta=dofile("plugin/_meta.lua")
-assert(meta.name=="kindle_sync" and type(meta.fullname)=="string")
+assert(meta.name==nil and type(meta.fullname)=="string")
 local view=setmetatable({ui={}},Entry)
 view:init()
 assert(view.status=="adapter_unavailable")
@@ -190,6 +190,8 @@ package.loaded["logger"]=nil
 package.preload["logger"]=function() return {warn=function(...) warnings[#warnings+1]=table.concat({...}," ") end} end
 local Logged=dofile("plugin/main.lua")
 local logged=setmetatable({ui={}},Logged); logged:init()
+-- Starting sync outside KOReader is reported once; later counts start from here.
+assert(#warnings==1 and warnings[1]:find("sync unavailable",1,true)); warnings[1]=nil
 assert(logged:call(function() error("synthetic failure",0) end)==false)
 assert(logged.status=="capture_unavailable" and logged.last_error=="synthetic failure" and warnings[1]:find("KindleSync:",1,true) and warnings[1]:find("synthetic failure",1,true))
 assert(logged:configure({},{})==false and logged.status=="initialization_unavailable" and #warnings==2)
@@ -200,3 +202,14 @@ local noisy=setmetatable({ui={}},Noisy); noisy:init()
 assert(noisy:call(function() error("synthetic failure",0) end)==false and noisy.status=="capture_unavailable")
 package.loaded["logger"]=nil; package.preload["logger"]=nil
 print("KOReader entry event assertions passed")
+-- Continuous scroll mode sends PosUpdate only; it is reported once as a gap.
+local scroll=setmetatable({ui={}},Entry); scroll:init()
+local scroll_gaps=0
+scroll.runtime={record_gap=function() scroll_gaps=scroll_gaps+1 end,close=function() end}
+local scroll_adapter={source=failing.source,begin_page=failing.begin_page,
+    finish_page=function() return {verified=true,sample={source=("a"):rep(64),source_id=("a"):rep(64)},adapter={},captured_at="time"} end}
+assert(scroll:attach(app,scroll_adapter)); scroll:onReaderReady(); scroll:onPageUpdate(1)
+assert(scroll:onPosUpdate()==nil and scroll:onPosUpdate()==nil)
+assert(scroll_gaps==1 and scroll.scroll_mode and scroll.pending_page==nil and scroll.capture_gap)
+scroll:onPageUpdate(2); assert(not scroll.scroll_mode and scroll.pending_page.page==2)
+scroll.suspended=true; scroll.scroll_noted=false; scroll:onPosUpdate(); assert(scroll_gaps==1)

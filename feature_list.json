@@ -4,7 +4,7 @@
     "behavior": "Repository instructions, feature states and handoff support a cold start; one command runs unit tests and enforces at least 80% coverage of harness Python source.",
     "verification": "make check",
     "state": "passing",
-    "evidence": "2026-11-07T19:03:03+00:00; make check: unit tests PASS, statement/branch coverage >=80%, git diff --check PASS"
+    "evidence": "2026-11-07T22:59:05+00:00; make check: unit tests PASS, statement/branch coverage >=80%, git diff --check PASS"
   },
   {
     "id": "P0",
@@ -18,28 +18,28 @@
     "behavior": "Freeze shared versioned packet, acknowledgement and read API contracts with explicit unverified adapter assumptions; supply synthetic fixtures and unit validators. Remaining hardware evidence is deferred to I1.",
     "verification": "npm run test:contracts",
     "state": "passing",
-    "evidence": "2026-11-07T19:03:03+00:00; npm run test:contracts: unit tests PASS, executable coverage >=80%"
+    "evidence": "2026-11-07T22:59:05+00:00; npm run test:contracts: unit tests PASS, executable coverage >=80%"
   },
   {
     "id": "B1",
     "behavior": "Provide validated portable configuration, PostgreSQL persistence and separate owner/device authentication.",
     "verification": "npm run test:server",
     "state": "passing",
-    "evidence": "2026-11-07T19:03:03+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
+    "evidence": "2026-11-07T22:59:05+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
   },
   {
     "id": "B2",
     "behavior": "Persist idempotent sync packets, reading events, annotation archive and bounded resumable uploads without partial application.",
     "verification": "npm run test:server",
     "state": "passing",
-    "evidence": "2026-11-07T19:03:03+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
+    "evidence": "2026-11-07T22:59:05+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
   },
   {
     "id": "B3",
     "behavior": "Expose reading reports, reversible source grouping, annual goals and data backup/restore preserving identities and totals.",
     "verification": "npm run test:server",
     "state": "passing",
-    "evidence": "2026-11-07T19:03:03+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
+    "evidence": "2026-11-07T22:59:05+00:00; npm run test:server: unit tests PASS, executable coverage >=80%"
   },
   {
     "id": "P1",

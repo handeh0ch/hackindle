@@ -46,6 +46,7 @@ local reset_ack_bytes=require("codec").encode(reset_ack)
 assert(not paused:reset_source_metadata_ack(reset_ack_bytes))
 verified_ack_bytes=reset_ack_bytes
 assert(paused:reset_source_metadata_ack(reset_ack_bytes))
+assert(paused:reset_source_metadata_ack(reset_ack_bytes))   -- replay after a crash
 assert(paused:begin_legacy_baseline(id))
 local annotation_ticket=paused:begin_annotation_reset(id)
 local ann={key="native",selection="selection",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="synthetic",note="",chapter=require("wire_json").null,native_timestamp=require("wire_json").null}
@@ -88,6 +89,8 @@ local initial_ack_bytes=require("codec").encode(initial_ack)
 assert(not first:source_metadata_ack(initial_ack_bytes))
 verified_ack_bytes=initial_ack_bytes
 assert(first:source_metadata_ack(initial_ack_bytes))
+-- A crash between the hook and the queue delete replays the acknowledgement: it must be idempotent.
+assert(first:source_metadata_ack(initial_ack_bytes) and first:source_metadata_ready(id))
 assert(first:source_metadata_ready(id))
 local pdf_position={type="pdf",page=1,boxes={{x=1,y=2,width=3,height=4}},geometry_version="provisional"}
 assert(not pcall(function() first:source_snapshot(id,nil,{fraction=0.4,position=pdf_position,observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))

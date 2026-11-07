@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildPlugin, PLUGIN_NAME } from '../../scripts/build-plugin.js';
+import { buildPlugin, PLUGIN_NAME, zipDirectory } from '../../scripts/build-plugin.js';
 
 const scratch = () => mkdtempSync(path.join(process.env.TEMP ?? tmpdir(), 'build-plugin-'));
 
@@ -50,5 +50,39 @@ test('the real plugin builds with every local require resolved and no bare local
         else assert.ok(!local.has(module) || module === 'main', `${file} still requires bare ${module}`);
       }
     }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the plugin archive holds exactly the built files under one folder and round-trips', async () => {
+  const { inflateRawSync, crc32 } = await import('node:zlib');
+  const root = scratch();
+  try {
+    const repo = fileURLToPath(new URL('../..', import.meta.url)), out = path.join(root, `${PLUGIN_NAME}.koplugin`);
+    buildPlugin(path.join(repo, 'plugin'), out);
+    const archive = zipDirectory(out, `${PLUGIN_NAME}.koplugin`);
+    const end = archive.length - 22;
+    assert.equal(archive.readUInt32LE(end), 0x06054b50);
+    const count = archive.readUInt16LE(end + 10), directory = archive.readUInt32LE(end + 16);
+    const expected = readdirSync(out).sort();
+    assert.equal(count, expected.length);
+    let at = directory;
+    const seen = [];
+    for (let i = 0; i < count; i += 1) {
+      assert.equal(archive.readUInt32LE(at), 0x02014b50);
+      const packed = archive.readUInt32LE(at + 20), size = archive.readUInt32LE(at + 24), crc = archive.readUInt32LE(at + 16);
+      const nameLength = archive.readUInt16LE(at + 28), offset = archive.readUInt32LE(at + 42);
+      const name = archive.subarray(at + 46, at + 46 + nameLength).toString('utf8');
+      assert.equal(archive.readUInt32LE(offset), 0x04034b50);
+      const start = offset + 30 + archive.readUInt16LE(offset + 26) + archive.readUInt16LE(offset + 28);
+      const data = inflateRawSync(archive.subarray(start, start + packed));
+      assert.equal(data.length, size);
+      assert.equal(crc32(data), crc);
+      assert.deepEqual(data, readFileSync(path.join(out, name.slice(`${PLUGIN_NAME}.koplugin/`.length))));
+      seen.push(name);
+      at += 46 + nameLength;
+    }
+    assert.deepEqual(seen, expected.map(name => `${PLUGIN_NAME}.koplugin/${name}`));
+    // No settings, state, database or book file can be part of the archive.
+    assert.ok(seen.every(name => /\/(main|_meta|kindle_sync_[a-z0-9_]+)\.lua$/.test(name)));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

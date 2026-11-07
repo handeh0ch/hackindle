@@ -49,7 +49,7 @@ def main():
     expected = {path.name for path in (ROOT / 'plugin').glob('*.lua')} - {'unicode_data.lua'}
     hits, missed = check_coverage(report.read_text(encoding='utf-8'), expected)
     for oracle in ('test_verifier.py', 'allocation_oracle.py', 'validate_projection.py', 'validator_differential.py',
-                   'tzif_differential.py', 'tzif_future_oracle.py', 'vocabulary_identity_oracle.py'):
+                   'tzif_differential.py', 'tzif_future_oracle.py', 'vocabulary_identity_oracle.py', 'ack_differential.py'):
         subprocess.run([sys.executable, '-B', str(ROOT / 'tests' / 'plugin' / oracle)], cwd=ROOT, check=True)
     print(f'Lua coverage: {100 * hits / (hits + missed):.2f}% aggregate ({hits} hit, {missed} missed); each module >=80%')
 

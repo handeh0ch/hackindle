@@ -168,16 +168,20 @@ function M.vocabulary_snapshot(store,codec,generation,records,watermark,build_pa
         local filtered=profile.filter_tx(tx,codec,"vocabulary","global",mapped,identity_marker,observed_new)
         local words={}
         for _,item in ipairs(filtered) do words[#words+1]={word=item.word,language=item.language,source=item.source} end
-        local version=state.next_counter(tx,"vocabulary_version")
-        local seq=state.next_sequence(tx)
         local expected=require("codec").encode(json.array(words))
-        local bytes=build_packet(seq,{version=version,words=words,unicode_version=p.unicode_version})
-        packet_ok(bytes,p,generation,seq,version,words,expected)
         for identity, saved_order in pairs(saves.ids) do
             if saved_order<=save_order and present[identity] then saves.ids[identity]=nil end
         end
         tx:put("vocabulary_saves",codec.encode(saves))
         tx:put("vocabulary_committed_read",string.format("%.0f",watermark))
+        -- An unchanged filtered set carries no new information; do not queue a copy.
+        local marker=string.format("%.0f",generation)..":"..expected
+        if tx:get("vocabulary_reset_last")==marker then return true end
+        local version=state.next_counter(tx,"vocabulary_version")
+        local seq=state.next_sequence(tx)
+        local bytes=build_packet(seq,{version=version,words=words,unicode_version=p.unicode_version})
+        packet_ok(bytes,p,generation,seq,version,words,expected)
+        tx:put("vocabulary_reset_last",marker)
         tx:enqueue(seq,bytes)
         return bytes
     end)

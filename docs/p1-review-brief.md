@@ -14,7 +14,7 @@ Capture on the KOReader side, without fabricated data: source identity, reading 
 node scripts/build-plugin.js                                        # assemble .local/build/kindle_sync.koplugin
 ```
 
-Last recorded results: 29 Python, 35 contract and 155 server unit tests; Lua 98.25% aggregate lines (2581 hit, 46 missed), every module >=80%. Lua branch coverage, SQLite on the device, PostgreSQL and KOReader behavior are not measured. Coverage shows that lines ran, not that they are right.
+Last recorded results (2026-11-08): 29 Python, 35 contract and 158 server unit tests; Lua 98.47% aggregate lines (3096 hit, 48 missed), every module >=80%, the new acknowledgement differential oracle (441 cases) included. Lua branch coverage, SQLite on the device, PostgreSQL and KOReader behavior are not measured. Coverage shows that lines ran, not that they are right.
 
 ## Where to look
 
@@ -28,7 +28,8 @@ Last recorded results: 29 Python, 35 contract and 155 server unit tests; Lua 98.
 | Vocabulary and legacy | `plugin/vocabulary.lua`, `plugin/koreader_vocabulary.lua`, `plugin/legacy.lua`, `plugin/koreader_statistics.lua`, `plugin/unicode_lower.lua` | snapshots, baseline and epoch handshake, frozen casing |
 | Reset protocol | `plugin/profile.lua`, `plugin/reset.lua`, reset paths in `capture.lua`, `annotations.lua`, `legacy.lua`; server side `server/sync-store.js` (`clear`, `establishLegacyBaseline`) | generation barrier, baselines, tickets |
 | Sessions | `plugin/sessions.lua` | session, cycle and book-finished events |
-| Packaging | `scripts/build-plugin.js` | prefixes local modules and ships only those reachable from `main.lua` |
+| Packaging | `scripts/build-plugin.js` | prefixes local modules and ships only those reachable from `main.lua`; `--zip` archives them |
+| Delivery (P2, added after the review brief was first written) | `plugin/delivery.lua`, `plugin/transport.lua`, `plugin/settings.lua`, `plugin/koreader_client.lua`, `plugin/koreader_http.lua`, `plugin/koreader_network.lua`, `plugin/koreader_format.lua`, `Entry:applyAck` in `main.lua` | ordered outbox delivery, ack matching, retries, uploads, profile cache, timer; see [p2-design.md](p2-design.md) |
 
 Contracts the plugin must satisfy are in `contracts/` and [api-v1.md](api-v1.md); capture boundaries are in [koreader-adapter.md](koreader-adapter.md).
 
@@ -75,22 +76,22 @@ Source: public KOReader files at tag v2026.07.1, read on 2026-11-07 by a documen
 
 ## Out of scope
 
-P2 delivery (outbox draining, retries, TLS, settings UI), real PostgreSQL behavior, and device acceptance (I1). Server code is relevant only where it enforces the plugin's protocol.
+P2 transport details (retry policy, uploads, TLS), real PostgreSQL behavior, and device acceptance (I1). Server code is relevant only where it enforces the plugin's protocol.
 
 ## Known open defects (not fixed)
 
 Raised by the upstream source check:
 
 - **Fixed after the upstream check: scheduled errors can no longer end the reader.** `UIManager` runs scheduled callbacks without `pcall`. In `koreader_runtime.lua` every call of the caller's callback now goes through a guarded `deliver`, and the whole scheduled hashing step runs under `pcall`; an unexpected error cancels the source and reports `source_unavailable`. Two tests cover a raising callback and an unexpected error inside a step, and fail on the previous code. Other scheduled entry points do not exist yet; P2 must follow the same rule.
-- **Scroll mode is silently not captured.** Rolling documents in continuous scroll send `PosUpdate`, not `PageUpdate`; the entry has no `onPosUpdate`, so nothing is credited and no gap is recorded. Either handle `PosUpdate` or detect scroll mode and say so.
-- **Native timing depends on handler order.** `koreader_reading.lua` needs `row[2] > 0` for the previous page, but the statistics plugin adds that duration inside its own `onPageUpdate`. If the plugin handles the event first, the duration is still 0 and the page falls back to unavailable timing. Entries also vanish from `page_stat` when the statistics plugin flushes (every 50 turns, on suspend and close), and durations under 5 s are never kept. Real native credit is therefore likely sparse.
+- **Fixed as a documented limit: scroll mode.** Rolling documents in continuous scroll send `PosUpdate`, not `PageUpdate`. `Entry:onPosUpdate` now closes the page already shown and records one durable gap per scroll episode; nothing is credited from scrolling (supporting it needs a visible-range provider that cannot be verified without a device). Whether `PosUpdate` is also sent in other modes is unverified.
+- **Accepted, to be measured in I1: native timing depends on handler order.** `koreader_reading.lua` needs `row[2] > 0` for the previous page, but the statistics plugin adds that duration inside its own `onPageUpdate`. If the plugin handles the event first, the duration is still 0 and the page falls back to unavailable timing. Entries also vanish from `page_stat` when the statistics plugin flushes (every 50 turns, on suspend and close), and durations under 5 s are never kept. Real native credit is therefore likely sparse.
 - **`EndOfBook` semantics.** It fires on a forward turn past the end, and `ReaderStatus` may show its pop-up at the same time; a book that is only read to its last page does not emit it.
-- **Deprecated `_meta.lua` name.** KOReader ignores it and logs a warning; the directory name decides, so installs must use `kindle_sync.koplugin`.
+- **Fixed: `_meta.lua` no longer sets `name`.** The directory name decides, so installs must use `kindle_sync.koplugin` (stated in plugin-install.md).
 
 Earlier items:
 
-- Reset-path vocabulary snapshots still queue on every refresh.
-- The range ledger grows within a single day when reading with many gaps.
+- Fixed: reset-path vocabulary snapshots with an unchanged filtered set are no longer queued again (`vocabulary_reset_last`, keyed by generation).
+- The range ledger grows within a single day when reading with many gaps (touching ranges are already merged; only gaps keep entries). Accepted: it is bounded by pages per day and pruned to eight days.
 - Statistics and vocabulary are still fully read on the UI thread when a refresh runs.
-- Re-read cycles are never started by any code; only `book_finished` is emitted on `EndOfBook`.
+- Re-read cycles have no automatic signal; the owner starts one from the menu (**Start new read cycle**), and `book_finished` is emitted on `EndOfBook` or from the menu.
 - `ffi.cdef` for `getrandom` runs on every UUID request, and no `/dev/urandom` fallback exists by design.

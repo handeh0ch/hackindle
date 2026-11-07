@@ -19,6 +19,61 @@ function Entry:init()
     self.source_id = nil
     self.capture_gap = false
     self.deferred_page = nil
+    self:startSync()
+    if type(self.ui) == "table" and type(self.ui.menu) == "table" and type(self.ui.menu.registerToMainMenu) == "function" then
+        self.ui.menu:registerToMainMenu(self)
+    end
+end
+
+-- Server connection (settings file, profile cache, delivery timer). Without the
+-- owner's settings file this does nothing and capture stays unconfigured.
+function Entry:startSync(modules)
+    local ok, client = pcall(function() return require("koreader_client").start(self, modules) end)
+    if ok then self.sync = client or nil
+    else self.sync_error = tostring(client); warn("sync unavailable:", client) end
+end
+
+-- Applies a verified acknowledgement to capture state. The delivery layer calls
+-- this inside its authentic scope; every hook below is idempotent.
+function Entry:applyAck(packet, bytes)
+    local app = self.app or (self.runtime and self.runtime.app)
+    if not app then error("capture state unavailable", 0) end
+    if packet.kind == "source_snapshot" then
+        if self.source_ready and self.source_id == packet.source_id then self:metadata_ack(bytes)
+        elseif packet.reset_generation == 0 then app:source_metadata_ack(bytes)
+        else app:reset_source_metadata_ack(bytes) end
+    elseif packet.kind == "legacy_statistics" then
+        if self.source_ready and self.source_reset then self:legacy_ack(bytes) else app:legacy_ack(bytes) end
+    elseif packet.kind == "vocabulary_snapshot" then app:vocabulary_reset_ack(bytes) end
+end
+
+function Entry:addToMainMenu(menu_items)
+    menu_items.kindle_sync = {
+        text = "Kindle Sync", sorting_hint = "tools",
+        sub_item_table = {
+            {text = "Status", keep_menu_open = true, callback = function()
+                self:notify(self.sync and self.sync:summary() or "Not configured: place kindle_sync.conf in the KOReader settings folder.")
+            end},
+            {text = "Sync now", enabled_func = function() return self.sync ~= nil end, callback = function()
+                if self.sync then self.sync:sync_now() end
+            end},
+            {text = "Mark book as finished", enabled_func = function() return self.source_ready == true end, callback = function()
+                local done = self:finishBook()
+                self:notify(done and "Book marked as finished." or "Not recorded: already finished or capture unavailable.")
+            end},
+            {text = "Start new read cycle", enabled_func = function() return self.source_ready == true end, callback = function()
+                local done = self:startNewCycle()
+                self:notify(done and "New read cycle started." or "Not started: capture unavailable.")
+            end},
+        },
+    }
+end
+
+function Entry:notify(text)
+    local ok, err = pcall(function()
+        require("ui/uimanager"):show(require("ui/widget/infomessage"):new{text = text})
+    end)
+    if not ok then warn("message could not be shown:", err) end
 end
 
 function Entry:attach(app, adapter)
@@ -56,6 +111,7 @@ function Entry:onReaderReady()
     self.closed=false
     self.source_ready=false
     self.source_id=nil
+    self.scroll_noted=false; self.scroll_mode=false
     if self.runtime and not self.app then
         local reader=self.ui
         self.status="source_pending"
@@ -168,6 +224,7 @@ function Entry:onPageUpdate(page)
     end
     if page~=false and (type(page)~="number" or page<1 or page>9007199254740991 or page~=math.floor(page)) then self.status="capture_unavailable"; return end
     self.pending_is_latest=false
+    self.scroll_noted=false; self.scroll_mode=false
     if not self:finishPage(page) then
         self:markCaptureGap(); self.deferred_page=page~=false and page or nil
         return
@@ -180,6 +237,17 @@ function Entry:onPageUpdate(page)
         self.pending_is_latest=true
     end)
     if not begun then self:markCaptureGap(); self.deferred_page=page end
+end
+
+-- Continuous scroll mode sends PosUpdate instead of PageUpdate (upstream source,
+-- not verified on the device). Visible pages cannot be credited from it, so say
+-- so once: close the page already shown and record a durable gap.
+function Entry:onPosUpdate()
+    if self.suspended or self.closed or not self.app or not self.adapter or not self.source_ready then return end
+    if self.scroll_noted then return end
+    self.scroll_noted=true; self.scroll_mode=true
+    self:finishPage(false)
+    self:markCaptureGap()
 end
 
 -- KOReader can emit PageUpdate immediately before DocumentRerendered. Never
@@ -310,6 +378,7 @@ function Entry:refreshSnapshots()
 end
 
 function Entry:onSuspend()
+    if self.sync then self.sync:suspend() end
     if self.runtime and not self.app then self.runtime:cancel_source() end
     if self.app and self.adapter and self.source_ready and not self.closed and not self.suspended then
         if not self:finishPage(false) then self.suspended=true; return end
@@ -323,6 +392,7 @@ function Entry:onResume()
     local was_suspended=self.suspended
     if was_suspended and self.pending_page and not self:finishPage(false) then return end
     self.suspended=false
+    if was_suspended and self.sync then self.sync:resume() end
     if was_suspended and not self.closed then
         if self.runtime and not self.app then self:onReaderReady()
         elseif self.source_ready then self:lifecycle("open") end
@@ -332,16 +402,29 @@ end
 -- KOReader emits EndOfBook when the reader reaches the end of the document
 -- (event name and timing are upstream assumptions, unverified on the device).
 -- The lifecycle store ignores repeats, so a book is finished once per cycle.
-function Entry:onEndOfBook()
+-- Records one lifecycle event; returns true when it changed state, false when the
+-- store ignored it, nil when capture could not record it.
+function Entry:recordLifecycle(event,method,apply)
     if not self.app or not self.adapter or not self.source_ready or self.closed or self.suspended
-        or type(self.adapter.lifecycle)~="function" or type(self.app.finish_book)~="function" then return end
-    self:call(function()
-        local value=self.adapter:lifecycle(self.ui,"finish")
+        or type(self.adapter.lifecycle)~="function" or type(self.app[method])~="function" then return nil end
+    local changed
+    local ok=self:call(function()
+        local value=self.adapter:lifecycle(self.ui,event)
         assert(type(value)=="table" and value.verified==true and value.source_id==self.source_id
             and type(value.uuid)=="function", "lifecycle unavailable")
-        self.app:finish_book(value.captured_at,value.uuid,true)
+        changed=apply(value)
     end)
+    if not ok then return nil end
+    return changed and true or false
 end
+function Entry:finishBook()
+    return self:recordLifecycle("finish","finish_book",function(value) return self.app:finish_book(value.captured_at,value.uuid,true) end)
+end
+-- Re-reads have no automatic signal; the owner starts a new cycle from the menu.
+function Entry:startNewCycle()
+    return self:recordLifecycle("cycle","begin_cycle",function(value) return self.app:begin_cycle(value.captured_at,value.uuid,true) end)
+end
+function Entry:onEndOfBook() self:finishBook() end
 
 function Entry:abandonPending()
     if not self.pending_page or not self.adapter or type(self.adapter.abandon_page)~="function" then return false end
@@ -351,6 +434,11 @@ function Entry:abandonPending()
     return true
 end
 
+-- The reader can be torn down without a document close; never leave the timer running.
+function Entry:onCloseWidget()
+    if self.sync then pcall(function() self.sync:close() end); self.sync=nil end
+end
+
 function Entry:onCloseDocument()
     if self.suspended and self.pending_page and not self:finishPage(false) and not self:abandonPending() then return end
     if self.app and self.adapter and self.source_ready and not self.suspended and not self.closed then
@@ -358,12 +446,15 @@ function Entry:onCloseDocument()
         self:lifecycle("close")
     end
     if self.source_ready and not self.suspended and not self.closed then self:refreshSnapshots() end
+    -- Last bounded delivery attempt while the capture state is still open.
+    if self.sync and not self.suspended and not self.closed then pcall(function() self.sync:flush() end) end
     self.closed=true
     if self.runtime then
         local ok=pcall(function() self.runtime:close() end)
         self.runtime=nil; self.app=nil; self.adapter=nil; self.source_ready=false
         if not ok then self.status="capture_unavailable" end
     end
+    if self.sync then pcall(function() self.sync:close() end); self.sync=nil end
 end
 
 return Entry
