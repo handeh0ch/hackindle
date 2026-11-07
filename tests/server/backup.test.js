@@ -88,14 +88,30 @@ test('synthetic backup roundtrip preserves reading identities, cover and a crede
   } }) };
   await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, data);
   const device = calls.find(call => call.sql.startsWith('INSERT INTO device')); assert.match(device.sql, /TRUE,NULL/); assert.deepEqual(device.args, [id, null]);
-  const restoredSource = calls.find(call => call.sql.startsWith('INSERT INTO sources')); assert.deepEqual(restoredSource.args[3], cover);
+  const restoredSource = calls.find(call => call.sql.startsWith('INSERT INTO sources')); assert.equal(JSON.parse(restoredSource.args[0])[0].cover, '\\x' + cover.toString('hex'));
   assert.ok(calls.find(call => call.sql.startsWith('INSERT INTO event_identities')));
   const barriers = calls.filter(call => call.sql.startsWith('INSERT INTO reset_tombstones'));
-  assert.deepEqual(barriers.map(call => call.args.slice(1)), [['vocabulary_identity', 'a'.repeat(64), null], ['vocabulary', 'b'.repeat(64), 'b'.repeat(64)]]);
-  assert.deepEqual(calls.find(call => call.sql.startsWith('INSERT INTO vocabulary (')).args, [rows.vocabulary[0].word_key, rows.vocabulary[0].content]);
+  assert.equal(barriers.length, 1, 'all barriers are inserted by one set-based statement');
+  assert.deepEqual(JSON.parse(barriers[0].args[0]).map(row => [row.entity_type, row.entity_id, row.digest]), [['vocabulary_identity', 'a'.repeat(64), null], ['vocabulary', 'b'.repeat(64), 'b'.repeat(64)]]);
+  assert.deepEqual(JSON.parse(calls.find(call => call.sql.startsWith('INSERT INTO vocabulary (')).args[0]), [rows.vocabulary[0]]);
   assert.ok(calls.findIndex(call => call.sql.startsWith('SELECT sum(')) < calls.findIndex(call => /^(INSERT|UPDATE)/.test(call.sql)));
 });
 
+
+test('restore writes large tables in bounded set-based batches', async () => {
+  const backup = await import('../../server/backup.js');
+  const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
+  const snapshot = await backup.exportBackup(source);
+  snapshot.tables.books = Array.from({ length: 4001 }, (_, i) => ({ book_id: '00000000-0000-4000-8000-' + String(i).padStart(12, '0'), title: 'Book ' + i, metadata: {} }));
+  const inserts = [], target = { withTransaction: async work => work({ query: async (sql, args) => {
+    if (sql.startsWith('SELECT (')) return { rows: [{ count: '0' }] };
+    if (sql.startsWith('INSERT INTO books ')) inserts.push(JSON.parse(args[0]));
+    return { rows: [] };
+  } }) };
+  await backup.restoreBackup(target, { reportingTimezone: 'UTC', pageCharacters: 2000 }, snapshot);
+  assert.deepEqual(inserts.map(batch => batch.length), [2000, 2000, 1]);
+  assert.equal(new Set(inserts.flat().map(row => row.book_id)).size, 4001, 'every row is written exactly once');
+});
 
 test('restore rejects invalid structure, foreign references and corrupted data before database access', async () => {
   const backup = await import('../../server/backup.js');

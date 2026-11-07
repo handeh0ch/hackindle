@@ -119,6 +119,9 @@ function validateBackup(snapshot, config) {
     if (!identity || identity.source_id !== row.source_id || Number(identity.content_version) < Number(row.version) || identity.digest !== canonicalDigest({ ...body, annotation_id: body.annotation_id.toLowerCase() })) fail(400, 'invalid_backup');
   }
 }
+const INSERT_ROWS = 2000, INSERT_BYTES = 8 * 1048576;
+// One row as JSON for jsonb_populate_recordset; bytea columns travel as hex text.
+const rowText = (table, row) => JSON.stringify(binary[table] && row[binary[table]] !== null ? { ...row, [binary[table]]: '\\x' + Buffer.from(row[binary[table]], 'base64').toString('hex') } : row);
 export async function restoreBackup(db, config, snapshot) {
   if (snapshot?.tables && ['legacy_handshakes', 'legacy_lineages'].every(key => !Object.hasOwn(snapshot.tables, key))) {
     snapshot = { ...snapshot, tables: { ...snapshot.tables, legacy_handshakes: [], legacy_lineages: [] } };
@@ -138,16 +141,28 @@ export async function restoreBackup(db, config, snapshot) {
     const { rows: [occupied] } = await client.query(`SELECT (${counts}) AS count`);
     if (Number(occupied.count) !== 0) fail(409, 'target_not_empty');
     for (const [table, columns] of Object.entries(tables)) {
-      const rows = snapshot.tables[table].map(row => binary[table] && row[binary[table]] !== null ? { ...row, [binary[table]]: '\\x' + Buffer.from(row[binary[table]], 'base64').toString('hex') } : row);
-      await client.query(`SELECT sum(pg_column_size(checked)) FROM jsonb_populate_recordset(NULL::${table}, $1::jsonb) checked`, [JSON.stringify(rows)]);
+      const rows = '[' + snapshot.tables[table].map(row => rowText(table, row)).join(',') + ']';
+      await client.query(`SELECT sum(pg_column_size(checked)) FROM jsonb_populate_recordset(NULL::${table}, $1::jsonb) checked`, [rows]);
     }
     const policy = snapshot.instance;
     if (instance) await client.query('UPDATE instance SET instance_id = $1, reporting_timezone = $2, page_characters = $3, reset_generation = $4 WHERE singleton = TRUE', [policy.instance_id, policy.reporting_timezone, policy.page_characters, policy.reset_generation]);
     else await client.query('INSERT INTO instance (singleton, instance_id, reporting_timezone, page_characters, reset_generation) VALUES (TRUE,$1,$2,$3,$4)', [policy.instance_id, policy.reporting_timezone, policy.page_characters, policy.reset_generation]);
     if (snapshot.device) await client.query('INSERT INTO device (singleton, token_hash, device_id, last_sync_at) VALUES (TRUE,NULL,$1,$2)', [snapshot.device.device_id, snapshot.device.last_sync_at]);
-    for (const [table, columns] of Object.entries(tables)) for (const row of snapshot.tables[table]) {
-      const values = columns.map(column => binary[table] === column && row[column] !== null ? Buffer.from(row[column], 'base64') : row[column]);
-      await client.query(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(', ')})`, values);
+    // Set-based inserts in bounded batches: one statement per batch instead of one round trip per row.
+    for (const [table, columns] of Object.entries(tables)) {
+      const names = columns.join(', ');
+      let batch = [], bytes = 0;
+      const flush = async () => {
+        if (!batch.length) return;
+        await client.query(`INSERT INTO ${table} (${names}) SELECT ${names} FROM jsonb_populate_recordset(NULL::${table}, $1::jsonb)`, ['[' + batch.join(',') + ']']);
+        batch = []; bytes = 0;
+      };
+      for (const row of snapshot.tables[table]) {
+        const text = rowText(table, row);
+        if (batch.length >= INSERT_ROWS || (batch.length && bytes + text.length > INSERT_BYTES)) await flush();
+        batch.push(text); bytes += text.length;
+      }
+      await flush();
     }
   });
 }
