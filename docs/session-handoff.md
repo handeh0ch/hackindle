@@ -22,7 +22,7 @@ Read AGENTS.md first, then PROGRESS.md and feature_list.json; inspect Git status
 
 ## Next steps
 
-1. F1 and F2 are registered passing (`public/`, `npm run test:panel`, 175 tests; reviewed). Next: I1 (`docs/testing.md`, compatibility report template; coordinator work, owner runs the device), then I2 (release preparation, no publication). The panel has never run against a real server and PostgreSQL; it was only viewed against synthetic stubs.
+1. F1 and F2 are registered passing (reviewed, committed). I1 preparation is done (`docs/testing.md`, `docs/compatibility-report.md`) and I1 stays `blocked` until the owner runs the device checklist and fills the report. I2 is `active`: `docs/deployment.md` and release checks are written; still open and needing the owner: container build with a pinned base-image digest (download approval), any deployment, CI, pushing. The panel has never run against a real server and PostgreSQL.
 2. Owner-run I1 items listed in docs/plugin-install.md (TLS verification and CloseDocument/CloseWidget order first).
 3. Open housekeeping: Docker image build and digest pin (needs download approval), reset protocol simplification after device checks.
 4. Unit tests only; no downloads without specific approval; agreed P: paths; private data out of Git; documentation in English.

@@ -2,7 +2,7 @@
 
 A planned self-hosted reading dashboard and KOReader plugin: highlights, notes with page context, reading history, sessions and a yearly activity calendar.
 
-**Status:** implementation in progress. Shared contracts, server/authentication, sync ingestion, uploads and annotation archive are implemented and unit-verified. Reports, the production plugin and panel are pending. Real PostgreSQL and device behavior remain unverified. See [progress](PROGRESS.md) and the [feature registry](feature_list.json).
+**Status:** implemented and unit-verified: shared contracts, the server (authentication, sync ingestion, uploads, reports, grouping, goals, backup/restore), the KOReader plugin (capture and durable delivery) and the owner panel (overview, calendar, library, book page, notes, connection). Not verified: anything on a real Kindle, real PostgreSQL with the panel, the container image, and any cloud deployment. Nothing has been deployed or published. See [progress](PROGRESS.md) and the [feature registry](feature_list.json).
 
 The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + Neon is the initial managed deployment; a standalone Node.js/container deployment with another PostgreSQL server is also required. Each installation has its own configuration, owner and device credentials.
 
@@ -15,10 +15,13 @@ The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + 
 - [Server foundation setup and verification limits](docs/server-setup.md)
 - [Approved implementation plan](docs/superpowers/plans/2026-11-01-kindle-sync.md)
 - [Hosting research](docs/kindle-sync-hosting-research.md)
+- [Plugin installation](docs/plugin-install.md)
+- [Testing and owner acceptance checklist](docs/testing.md) and [compatibility report template](docs/compatibility-report.md)
+- [Deployment and release checks](docs/deployment.md)
 
 `.env.example` defines configuration names and contains empty secrets and generic examples. Actual settings belong in ignored `.env` files or deployment environment/secret storage. Do not commit populated credentials or personal reading data.
 
-The [foundation setup](docs/server-setup.md) describes implemented migration/bootstrap/start commands. Actual PostgreSQL and deployment have not been exercised; the complete reading service is not ready to deploy.
+The [deployment guide](docs/deployment.md) and the [foundation setup](docs/server-setup.md) describe the migration/bootstrap/start, container and backup commands. Real PostgreSQL with the panel and any deployment have not been exercised; treat the service as not yet deployed.
 
 ## Local harness
 

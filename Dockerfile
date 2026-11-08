@@ -6,6 +6,7 @@ COPY index.js ./
 COPY contracts ./contracts
 COPY server ./server
 COPY db ./db
+COPY public ./public
 COPY scripts/migrate.js scripts/setup-owner.js scripts/export-backup.js scripts/import-backup.js ./scripts/
 USER node
 EXPOSE 3000
