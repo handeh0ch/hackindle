@@ -32,6 +32,8 @@ function M.authenticator()
     }
 end
 
+local function whole(value) return type(value) == "number" and value == math.floor(value) and value >= 0 and value <= 9007199254740991 end
+
 local function result_keys(packet)
     local keys, payload = {}, packet.payload
     if packet.kind == "reading_events" then
@@ -52,7 +54,7 @@ local function acknowledged(ack, packet)
     if ack.schema_version ~= 1 or ack.instance_id ~= packet.instance_id or ack.device_id ~= packet.device_id
         or ack.source_id ~= packet.source_id or ack.reset_generation ~= packet.reset_generation
         or ack.seq ~= packet.seq or ack.kind ~= packet.kind or type(ack.results) ~= "table"
-        or type(ack.current_reset_generation) ~= "number" then return nil end
+        or not whole(ack.current_reset_generation) then return nil end
     local expected = result_keys(packet)
     local count = 0
     for _ in pairs(ack.results) do count = count + 1 end
@@ -212,6 +214,7 @@ function M.new(opts)
             end
             return pause(meta, "too_large", code)
         end
+        if status >= 300 and status < 400 then return pause(meta, "redirected", "http_" .. status) end
         if status == 429 or status >= 500 then return retry(meta, now, response, code or ("http_" .. status)) end
         if status == 409 then return pause(meta, "conflict", code) end
         return pause(meta, "rejected", code or ("http_" .. status))

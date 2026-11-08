@@ -98,6 +98,14 @@ function M.start(entry, modules)
         function self:configure()
             local change = classify(store, self.config)
             if change and change ~= "reset_detected" then self.alert = change; return false end
+            -- Capture after a server reset needs native baseline evidence that is not
+            -- wired yet. Stop with a clear status instead of a half-working capture, but
+            -- keep delivering the old queue: the server discards it with obsolete acks.
+            if self.config.reset_generation > 0 then
+                self.alert = "reset_unsupported"
+                self:make_delivery()
+                return false
+            end
             local deps = {
                 db = db,
                 authenticated_profile = function(config) return config == self.config end,
@@ -179,7 +187,9 @@ function M.start(entry, modules)
         end
         function self:summary(outcome)
             local lines = {}
-            if self.alert then lines[#lines + 1] = "Attention: " .. self.alert end
+            if self.alert == "reset_unsupported" then
+                lines[#lines + 1] = "The server was reset. Capture is stopped: reading after a reset is not supported yet. Unsent data is still discarded or delivered as the server decides."
+            elseif self.alert then lines[#lines + 1] = "Attention: " .. self.alert end
             if not self.config then lines[#lines + 1] = "Not connected to the server yet. Use Sync now."
             elseif not self.delivery then lines[#lines + 1] = "Capture is not configured."
             else

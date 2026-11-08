@@ -29,7 +29,7 @@ local id=("a"):rep(64)
 assert(a:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
 local b=app.open(db,codec,config,device,valid,provider)
 assert(b:source_snapshot(id,metadata,nil,"2026-01-01T00:00:01Z"))
-assert(not pcall(function() b:source_snapshot(id,nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:02Z",session_id=config.instance_id},"2026-01-01T00:00:02Z") end))
+assert(not pcall(function() b:source_snapshot(("c"):rep(64),nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:02Z",session_id=config.instance_id},"2026-01-01T00:00:02Z") end))
 assert(db.outbox[1]:match('"version":1') and db.outbox[2]:match('"version":2'))
 local wrong=clone(config); wrong.instance_id="wrong"
 assert(not pcall(function() app.open(db,codec,wrong,device,valid,provider) end))
@@ -82,8 +82,8 @@ local builtin_db={rows={},outbox={}}
 setmetatable(builtin_db,{__index=db})
 local first=app.open(builtin_db,nil,config,device,valid,provider,authenticated)
 assert(first:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
-assert(not first:source_metadata_ready(id))
-assert(not pcall(function() first:source_snapshot(id,nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))
+assert(first:source_metadata_ready(id))   -- queued metadata is enough for generation 0; the ordered outbox delivers it first
+assert(not pcall(function() first:source_snapshot(("c"):rep(64),nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))
 local initial_ack={schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}}
 local initial_ack_bytes=require("codec").encode(initial_ack)
 assert(not first:source_metadata_ack(initial_ack_bytes))

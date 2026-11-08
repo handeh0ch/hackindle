@@ -67,4 +67,17 @@ local sloppy = modules(function() return 1, 204, {}, "" end)
 sloppy.socketutil.reset_timeout = function() error("reset failed") end
 assert(http_adapter.new(sloppy)(request("https://x.example/")).status == 204)
 assert(not pcall(http_adapter.new))   -- the KOReader modules are absent outside the reader
+-- Redirects are never followed (the bearer token would follow them) and a slow body hits the total limit.
+local seen_spec
+local timed = 0
+local slow = modules(function(spec)
+    seen_spec = spec
+    assert(spec.sink("a") == 1)
+    timed = 100
+    local accepted, why = spec.sink("b")
+    assert(accepted == nil and why == "total timeout")
+    return nil, why
+end)
+slow.clock = function() return timed end
+assert(http_adapter.new(slow)(request("https://x.example/")).error == "network" and seen_spec.redirect == false)
 print("P2 adapter assertions passed")

@@ -67,9 +67,13 @@ function M.check_locator(format, locator)
 end
 function M.assert_known(tx, source_id, generation)
     local format=tx:get("source_format:"..source_id)
-    local acknowledged=generation==0 and tx:get("source_ack:"..source_id)==format
+    -- Generation 0: the metadata snapshot is queued before every later packet of
+    -- the strictly ordered outbox, so the server has applied it by the time a
+    -- reading event arrives; waiting for the acknowledgement would only discard
+    -- everything read offline. After a reset the acknowledgement stays required.
+    local known=generation==0 and format~=nil
         or generation>0 and tx:get("source_ack_generation:"..source_id)==string.format("%.0f",generation)
-    assert(format and acknowledged, "source metadata acknowledgement pending")
+    assert(format and known, "source metadata pending")
     return format
 end
 function M.assert_reading(tx, source_id, packet)

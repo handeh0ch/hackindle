@@ -9,16 +9,21 @@ function M.new(modules)
     local https = modules.https or require("ssl.https")
     local ltn12 = modules.ltn12 or require("ltn12")
     local socketutil = modules.socketutil or require("socketutil")
+    local clock = modules.clock or os.time
     return function(request)
         local parts, size = {}, 0
+        local deadline = clock() + request.timeout.total
+        -- socketutil only enforces the total limit through its own sinks, so check it here too.
         local function sink(chunk)
             if chunk == nil then return 1 end
+            if clock() > deadline then return nil, "total timeout" end
             size = size + #chunk
             if size > request.max_body then return nil, "response too large" end
             parts[#parts + 1] = chunk
             return 1
         end
-        local spec = {url = request.url, method = request.method, headers = request.headers, sink = sink}
+        -- A redirect would re-send the bearer token to whatever host answers: never follow one.
+        local spec = {url = request.url, method = request.method, headers = request.headers, sink = sink, redirect = false}
         if request.body then spec.source = ltn12.source.string(request.body) end
         local client = request.url:sub(1, 6) == "https:" and https or http
         socketutil:set_timeout(request.timeout.block, request.timeout.total)

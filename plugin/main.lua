@@ -15,6 +15,7 @@ function Entry:init()
     self.pending_is_latest = false
     self.suspended = false
     self.closed = false
+    self.closing = false
     self.source_ready = false
     self.source_id = nil
     self.capture_gap = false
@@ -39,11 +40,11 @@ function Entry:applyAck(packet, bytes)
     local app = self.app or (self.runtime and self.runtime.app)
     if not app then error("capture state unavailable", 0) end
     if packet.kind == "source_snapshot" then
-        if self.source_ready and self.source_id == packet.source_id then self:metadata_ack(bytes)
+        if not self.closing and self.source_ready and self.source_id == packet.source_id then self:metadata_ack(bytes)
         elseif packet.reset_generation == 0 then app:source_metadata_ack(bytes)
         else app:reset_source_metadata_ack(bytes) end
     elseif packet.kind == "legacy_statistics" then
-        if self.source_ready and self.source_reset then self:legacy_ack(bytes) else app:legacy_ack(bytes) end
+        if not self.closing and self.source_ready and self.source_reset then self:legacy_ack(bytes) else app:legacy_ack(bytes) end
     elseif packet.kind == "vocabulary_snapshot" then app:vocabulary_reset_ack(bytes) end
 end
 
@@ -52,10 +53,12 @@ function Entry:addToMainMenu(menu_items)
         text = "Kindle Sync", sorting_hint = "tools",
         sub_item_table = {
             {text = "Status", keep_menu_open = true, callback = function()
-                self:notify(self.sync and self.sync:summary() or "Not configured: place kindle_sync.conf in the KOReader settings folder.")
+                self:guarded(function()
+                    self:notify(self.sync and self.sync:summary() or "Not configured: place kindle_sync.conf in the KOReader settings folder.")
+                end)
             end},
             {text = "Sync now", enabled_func = function() return self.sync ~= nil end, callback = function()
-                if self.sync then self.sync:sync_now() end
+                self:guarded(function() if self.sync then self.sync:sync_now() end end)
             end},
             {text = "Mark book as finished", enabled_func = function() return self.source_ready == true end, callback = function()
                 local done = self:finishBook()
@@ -67,6 +70,13 @@ function Entry:addToMainMenu(menu_items)
             end},
         },
     }
+end
+
+-- KOReader runs menu callbacks without pcall; an error here would end the reader.
+function Entry:guarded(work)
+    local ok, err = pcall(work)
+    if not ok then warn("menu action failed:", err); self:notify("Kindle Sync action failed. See the log.") end
+    return ok
 end
 
 function Entry:notify(text)
@@ -446,8 +456,12 @@ function Entry:onCloseDocument()
         self:lifecycle("close")
     end
     if self.source_ready and not self.suspended and not self.closed then self:refreshSnapshots() end
-    -- Last bounded delivery attempt while the capture state is still open.
-    if self.sync and not self.suspended and not self.closed then pcall(function() self.sync:flush() end) end
+    -- Last bounded delivery attempt while the capture state is still open. An
+    -- acknowledgement applied now must not reopen a session or start a page.
+    if self.sync and not self.suspended and not self.closed then
+        self.closing=true
+        pcall(function() self.sync:flush() end)
+    end
     self.closed=true
     if self.runtime then
         local ok=pcall(function() self.runtime:close() end)

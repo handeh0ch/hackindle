@@ -70,8 +70,8 @@ local serial=0; deps.uuid=function() serial=serial+1; return string.format("1000
 assert(view.status=="source_pending" and #scheduled==1)
 table.remove(scheduled,1)(); table.remove(scheduled,1)()
 assert(view.source_ready and require("codec").decode(db.outbox[1]).payload.metadata.value.title=="Synthetic")
-assert(view.lifecycle_pending)
-assert(not view:metadata_ack("forged") and db.outbox[2]==nil)
+assert(not view.lifecycle_pending)   -- the queued metadata snapshot is enough to open the session
+assert(not view:metadata_ack("forged") and db.outbox[5]==nil)
 ack_bytes=require("codec").encode({schema_version=1,instance_id=id,device_id=id,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(view:metadata_ack(ack_bytes) and not view.lifecycle_pending)
 assert(require("codec").decode(db.outbox[2]).payload.events[1].type=="session_started")
@@ -106,7 +106,7 @@ local reader={document={file="/synthetic/book.epub",getPageCount=function() retu
 reader.statistics={document=reader.document,is_doc=true,id_curr_book=7,curr_page=1,page_stat={[1]={{1767225600,0}}}}
 local integrated=setmetatable({ui=reader},Entry); integrated:init(); assert(integrated:configure(config,native_deps)); integrated:onReaderReady()
 table.remove(scheduled,1)(); table.remove(scheduled,1)()
-integrated:onPageUpdate(1); assert(integrated.capture_gap and integrated.deferred_page==1)
+integrated:onPageUpdate(1); assert(integrated.pending_page and integrated.deferred_page==nil)   -- no wait for the acknowledgement
 local first_packet=require("codec").decode(fresh.outbox[1])
 ack_bytes=require("codec").encode({schema_version=1,instance_id=id,device_id=fresh.rows.device_id,source_id=source,reset_generation=0,current_reset_generation=0,seq=first_packet.seq,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(integrated:metadata_ack(ack_bytes)); assert(integrated.pending_page)

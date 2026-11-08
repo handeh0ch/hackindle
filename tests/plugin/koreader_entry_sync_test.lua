@@ -121,6 +121,30 @@ suspended_close.sync = fake_sync; fake_sync.calls = {}
 suspended_close.suspended = true
 suspended_close:onCloseDocument()
 assert(table.concat(fake_sync.calls, ",") == "close")
+-- While the book closes, an acknowledgement is applied without reopening sessions or pages.
+hooks = {}
+local closing = new()
+closing.app, closing.source_ready, closing.source_id, closing.source_reset = app, true, source, true
+closing.metadata_ack = spy("entry.metadata"); closing.legacy_ack = spy("entry.legacy")
+closing.closing = true
+closing:applyAck({kind = "source_snapshot", reset_generation = 0, source_id = source}, "ack")
+closing:applyAck({kind = "legacy_statistics", source_id = source}, "ack")
+assert(table.concat(hooks, ",") == "app.metadata,app.legacy")
+local flushing = new()
+local observed
+flushing.sync = {flush = function() observed = flushing.closing end, close = function() end}
+flushing:onCloseDocument()
+assert(observed == true and flushing.closed)
+-- A failing menu action is contained and reported.
+local fragile = new()
+fragile.sync = {summary = function() error("disk full", 0) end, sync_now = function() error("disk full", 0) end}
+local notices = {}
+function fragile:notify(text) notices[#notices + 1] = text end
+local fragile_menu = {}
+fragile:addToMainMenu(fragile_menu)
+fragile_menu.kindle_sync.sub_item_table[1].callback()
+fragile_menu.kindle_sync.sub_item_table[2].callback()
+assert(#notices == 2 and notices[1]:find("failed", 1, true))
 local widget_closed = new()
 widget_closed.sync = fake_sync; fake_sync.calls = {}
 widget_closed:onCloseWidget(); widget_closed:onCloseWidget()

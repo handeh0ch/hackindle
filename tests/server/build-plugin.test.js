@@ -14,17 +14,19 @@ test('plugin build prefixes local modules, keeps KOReader requires and drops unr
     const source = path.join(root, 'src'), out = path.join(root, 'out');
     mkdirSync(source);
     writeFileSync(path.join(source, '_meta.lua'), 'return {name="kindle_sync"}\n');
-    writeFileSync(path.join(source, 'main.lua'), 'local W=require("ui/widget/container/widgetcontainer")\nlocal s=require("state")\nlocal ok=pcall(require,"helper")\nreturn require \'state\'\n');
+    writeFileSync(path.join(source, 'main.lua'), 'local W=require("ui/widget/container/widgetcontainer")\nlocal s=require("state")\nlocal ok=pcall(require, "dynamic")\nreturn require \'state\'\n');
     writeFileSync(path.join(source, 'state.lua'), 'local h = require("helper")\nreturn {}\n');
     writeFileSync(path.join(source, 'helper.lua'), 'return {}\n');
+    writeFileSync(path.join(source, 'dynamic.lua'), 'return {}\n');
     writeFileSync(path.join(source, 'unused.lua'), 'return {}\n');
     const files = buildPlugin(source, out);
-    assert.deepEqual(files.sort(), ['kindle_sync_helper.lua', 'kindle_sync_state.lua', 'main.lua']);
-    assert.deepEqual(readdirSync(out).sort(), ['_meta.lua', 'kindle_sync_helper.lua', 'kindle_sync_state.lua', 'main.lua']);
+    assert.deepEqual(files.sort(), ['kindle_sync_dynamic.lua', 'kindle_sync_helper.lua', 'kindle_sync_state.lua', 'main.lua']);
+    assert.deepEqual(readdirSync(out).sort(), ['_meta.lua', 'kindle_sync_dynamic.lua', 'kindle_sync_helper.lua', 'kindle_sync_state.lua', 'main.lua']);
     const main = readFileSync(path.join(out, 'main.lua'), 'utf8');
     assert.match(main, /require\("ui\/widget\/container\/widgetcontainer"\)/);
     assert.match(main, /require\("kindle_sync_state"\)/);
     assert.match(main, /require 'kindle_sync_state'/);
+    assert.match(main, /pcall\(require, "kindle_sync_dynamic"\)/);
     assert.match(readFileSync(path.join(out, 'kindle_sync_state.lua'), 'utf8'), /require\("kindle_sync_helper"\)/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

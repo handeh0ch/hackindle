@@ -8,7 +8,7 @@ import path from 'node:path';
 // Only modules reachable from main.lua are shipped; test-only files stay out.
 export const PLUGIN_NAME = 'kindle_sync';
 const prefix = `${PLUGIN_NAME}_`;
-const requirePattern = /\brequire\s*\(?\s*(["'])([^"']+)\1/g;
+const requirePattern = /\brequire\s*[(,]?\s*(["'])([^"']+)\1/g;
 export function buildPlugin(sourceDir, outDir) {
   const available = new Set(readdirSync(sourceDir).filter(name => name.endsWith('.lua')).map(name => name.slice(0, -4)));
   const local = module => available.has(module) && module !== 'main' && module !== '_meta';

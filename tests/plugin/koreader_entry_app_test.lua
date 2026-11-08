@@ -45,8 +45,9 @@ assert(wire.decode(db.outbox[1]).payload.metadata.value.title=="Synthetic")
 ack_bytes=wire.encode({schema_version=1,instance_id=id,device_id=device,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(app:source_metadata_ack(ack_bytes))
 view:onPageUpdate(1); view:onDocumentRerendered(); view:onPageUpdate(2); view:onPageUpdate(3)
-assert(wire.decode(db.outbox[2]).payload.events[1].credited_characters==2)
-view:onAnnotationsModified({}); assert(wire.decode(db.outbox[3]).payload.annotations.value[1].quote=="synthetic")
+assert(wire.decode(db.outbox[2]).payload.annotations.value[1].quote=="synthetic")   -- imported without waiting for the acknowledgement
+assert(wire.decode(db.outbox[3]).payload.events[1].credited_characters==2)
+view:onAnnotationsModified({})
 -- Reset legacy baseline is stored offline, then released only by trusted metadata ACK.
 local reset_db={rows={},outbox={}}; setmetatable(reset_db,{__index=db})
 local reset_config=copy(config); reset_config.reset_generation=1

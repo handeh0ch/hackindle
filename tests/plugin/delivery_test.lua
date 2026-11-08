@@ -255,6 +255,18 @@ plan = function() return ok_ack(db.outbox[83]) end
 assert(noisy:step() == "retry" and #warned == 1)
 assert(not pcall(function() delivery.new({}) end))
 
+-- A redirect is never followed or trusted: it pauses the queue.
+empty(); enqueue(95, support.packet(95))
+plan = function() return R(302, "", {location = "https://elsewhere.example/"}) end
+local redirected = make({tag = "r1"})
+assert(redirected:step() == "paused" and redirected:status().paused == "redirected" and redirected:status().code == "http_302" and db.outbox[95] ~= nil)
+-- A fractional or non-numeric generation is not an acknowledgement.
+empty(); local p96 = support.packet(96); enqueue(96, p96)
+for _, generation in ipairs({0.5, -1}) do
+    plan = function() return ok_ack(p96, {current_reset_generation = generation}) end
+    assert(make({tag = "f" .. generation}):step() == "retry" and db.outbox[96] == p96)
+    now = now + 10000
+end
 -- An external hold stops delivery until the settings change or the owner resumes.
 empty(); enqueue(90, support.packet(90))
 local held = make({tag = "hold1"})

@@ -50,6 +50,9 @@ for envelope in envelopes:
     add(envelope, lambda ack: ack.update(reset_generation=ack['reset_generation'] + 1))
     add(envelope, lambda ack: ack.update(kind='vocabulary_snapshot' if ack['kind'] != 'vocabulary_snapshot' else 'legacy_statistics'))
     add(envelope, lambda ack: ack.update(status='bogus'))
+    add(envelope, lambda ack: ack.update(status='obsolete_discarded', current_reset_generation=ack['reset_generation'] + 0.5,
+                                         results={key: 'discarded' for key in ack['results']}))
+    add(envelope, lambda ack: ack.update(current_reset_generation=str(ack['reset_generation'])))
     add(envelope, lambda ack: ack.update(schema_version=2))
     add(envelope, lambda ack: ack.update(unexpected=True))
     add(envelope, lambda ack: ack.update(current_reset_generation=ack['current_reset_generation'] + 1))

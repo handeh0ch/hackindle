@@ -11,6 +11,7 @@ Read AGENTS.md first, then PROGRESS.md and feature_list.json; inspect Git status
 - Registry: P1 stays active with null verifier/evidence and P2 stays not_started. Both need the independent review the owner assigns; the implementer must not substitute a reviewer. Only a verifier may record passing.
 - Not captured yet: scroll mode, native time, annotations and legacy statistics (they need device-verified bindings), reading after a server reset (needs a verified native epoch). The default entrypoint does nothing without the settings file.
 - Earlier risks still apply: the reset-generation protocol is the largest complexity (consider "reset = new instance identity"), a server restored from an older backup is not healed by unchanged-snapshot skipping, full statistics/vocabulary reads happen on the UI thread, ffi/sha2, ljsqlite3 `ro`/BLOB and TLS are unread in the base submodule.
+- 2026-11-08 independent review done (read-only subagent): see docs/p1-review-brief.md. Fixed: close-flush reopen, guarded menu callbacks, redirects, total timeout, fractional ack generation, pcall(require) packaging. Findings 1 and 5 were then decided (owner: "decide now"): generation-0 capture needs only the queued metadata snapshot; a reset generation above 0 stops capture (reset_unsupported) while the old queue drains. The P1 reset protocol itself is unchanged and still needs the real review.
 - Reviewer package: docs/p1-review-brief.md. PostgreSQL smoke test and upstream KOReader source check results are in PROGRESS.md (2026-11-07 entries).
 
 ## Next steps

@@ -28,7 +28,7 @@ This writes `.local/build/kindle_sync.koplugin/` and `.local/build/kindle_sync.k
 
 ## What runs and when
 
-- While a book is open a timer checks the queue about every five minutes, and again right after each successful request while a backlog remains. It sends one request at a time (5 s block / 30 s total timeout) and only if KOReader already reports a connection. It never turns Wi-Fi on and never uses the network manager calls that can.
+- While a book is open a timer checks the queue about every five minutes, and again right after each successful request while a backlog remains. It sends one request at a time (5 s block timeout; the 30 s total limit is also checked in the response sink, but whether KOReader's socket layer enforces it is an I1 item) and never follows a redirect (a redirect pauses delivery as `redirected`, so the token cannot be forwarded) and only if KOReader already reports a connection. It never turns Wi-Fi on and never uses the network manager calls that can.
 - Closing a book makes one bounded last attempt (at most five requests or twenty seconds). Suspending stops the timer; resuming restarts it.
 - A packet is removed from the device only after the server's answer matches that exact packet. Network errors, timeouts, 429 and 5xx keep the packet and retry after 5, 15, 60, then 300 seconds, longer if the server sends `Retry-After`. A lost answer simply resends identical bytes; the server answers `duplicate`.
 - Packets over the server's direct limit (1 MiB) go through the chunked upload and resume where they stopped.
@@ -42,8 +42,8 @@ This writes `.local/build/kindle_sync.koplugin/` and `.local/build/kindle_sync.k
 | `instance_mismatch`, `device_mismatch` | The server is another installation, or this token is bound to another device | Fix the URL/token, or call `unbind` on the right server; clears when the file changes |
 | `server_changed`, `policy_changed`, `generation_regressed` | The profile differs from the one this device accepted (new instance, other time zone or page size, lower reset generation) | The queue is never sent to such a server. Restore the right server, or accept losing the unsent data by deleting `kindle-sync.sqlite3` from the settings folder (owner action) |
 | `conflict` (`future_generation`, `packet_conflict` ...) | Protocol drift or a server restored from an older backup | Keep the device state; check the server first, then **Sync now** |
-| `rejected`, `too_large`, `corrupt_packet`, `hook_failed` | A client or server problem; the packet is kept | Report with the code; **Sync now** retries |
-| `reset_detected` (attention) | The owner reset the server; the stored profile has a newer generation | Reopen the book: the device enters the reset baseline path and the server discards old unsent packets; what resumes afterwards is limited as described below |
+| `rejected`, `redirected`, `too_large`, `corrupt_packet`, `hook_failed` | A client or server problem; the packet is kept | Report with the code; **Sync now** retries |
+| `reset_detected`, `reset_unsupported` | The owner reset the server; the profile has a newer generation | Capture is stopped (see below) and the old queue is discarded by the server; this is a known limit until post-reset capture is supported |
 
 ## Captured now, and what is not
 
@@ -51,7 +51,8 @@ Captured at reset generation 0: source identity and metadata, credited reading r
 
 - **Continuous scroll mode.** KOReader sends no page updates there. The first scroll update is recorded as a capture gap and nothing is credited until page mode returns.
 - **Native reading time, annotations and legacy statistics.** They need device-verified bindings (statistics book association and epoch, annotation identity) that do not exist yet. Reading is credited with unavailable timing and the server shows it as such. How often native time would be available is measured from server data during I1.
-- **Reading after a server reset.** It needs a verified native epoch and stays paused until that evidence exists.
+- **Anything after a server reset.** When the stored or fetched profile has a reset generation above 0 (also on a fresh device against a reset server) the plugin stops capture and the status says "The server was reset. Capture is stopped". It keeps delivering the old queue, which the server discards. Resuming needs the native baseline evidence that is not wired yet.
+- **Offline first reading of a new book** is captured: only the queued metadata snapshot is required, because the outbox is delivered in order.
 
 ## I1 acceptance items (owner-run, unverified)
 

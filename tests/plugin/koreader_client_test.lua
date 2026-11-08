@@ -217,6 +217,23 @@ local after = #scheduled
 client7.tick_fn(); client7:flush(); assert(#scheduled == after)
 client7:resume(); assert(#scheduled == after)
 
+-- After a server reset capture is stopped with a clear status, but delivery still drains the queue.
+local db12 = support.memory_db()
+local entry12 = fake_entry()
+local client12 = client_module.start(entry12, modules(db12))
+routes["GET /api/v1/sync/config"] = function() return {status = 200, headers = {}, body = config_body({reset_generation = 3})} end
+db12.rows.device_id = support.device
+local stale = support.packet(1)
+state.open(db12):transaction(function(tx) tx:enqueue(1, stale) end)
+routes["POST /api/v1/sync"] = function() return {status = 200, headers = {}, body = json.encode(support.ack(stale,
+    {status = "obsolete_discarded", current_reset_generation = 3, results = {vocabulary_snapshot = "discarded"}}))} end
+assert(client12:sync_now() == true)
+assert(#entry12.configured == 0 and client12.alert == "reset_unsupported" and db12.outbox[1] == nil)
+assert(client12:summary():find("Capture is stopped", 1, true) and not client12:summary():find("Attention", 1, true))
+local entry13 = fake_entry()
+local client13 = client_module.start(entry13, modules(db12))   -- restart on the cached reset profile
+assert(#entry13.configured == 0 and client13.alert == "reset_unsupported" and client13.delivery)
+
 -- A failing start closes the database it opened.
 local db8 = support.memory_db()
 local broken = modules(db8, {http = false})
