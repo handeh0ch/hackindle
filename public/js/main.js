@@ -4,11 +4,14 @@ import { createApi } from './api.js';
 import { createController } from './app.js';
 import { placeTip } from './tooltip.js';
 import { rings } from './rings.js';
+import { gateOpen } from './flow.js';
 
 const root = document.getElementById('app');
 // `focus` is a selector for the control that triggered a re-render, so keyboard focus is not lost.
 const controller = createController({ api: createApi({ fetch: window.fetch.bind(window) }), render(html, focus) {
   root.innerHTML = html;
+  // An action may open another page (for example the new book after a merge): keep the address in step.
+  if (location.hash !== controller.ctx.hash) history.replaceState(null, '', controller.ctx.hash);
   markNav();
   if (focus) root.querySelector(focus)?.focus();
 } });
@@ -30,10 +33,16 @@ document.addEventListener('click', event => {
   else if (target.dataset.metric) controller.action('metric', target.dataset.metric);
   else controller.action(target.dataset.action, target.dataset.value);
 });
+// Destructive forms (data-gate) keep their button disabled until the checkbox or the typed word is right.
+document.addEventListener('input', event => {
+  const form = event.target.closest?.('[data-gate]');
+  if (form) form.querySelector('[data-gated]').disabled = !gateOpen(form.dataset.gate, Object.fromEntries(new FormData(form)));
+});
 document.addEventListener('submit', event => {
   const form = event.target.closest('[data-form]');
   if (!form) return;
   event.preventDefault();
+  form.querySelector('[data-gated]')?.setAttribute('disabled', '');   // one click, one request
   controller.submit(form.dataset.form, Object.fromEntries(new FormData(form)));
 });
 window.addEventListener('hashchange', () => controller.navigate(location.hash));

@@ -6,6 +6,9 @@ import { buildOverview } from './overview.js';
 import { buildYear } from './calendar.js';
 import { buildLibrary } from './books.js';
 import { overviewHtml, libraryHtml } from './views.js';
+import { bookParts } from './routes-book.js';
+import { noteParts } from './routes-notes.js';
+import { connectionParts } from './routes-connection.js';
 
 async function loadOverview(ctx, year) {
   const today = ctx.today();
@@ -36,4 +39,6 @@ async function books(ctx) {
   return libraryHtml({ library: buildLibrary({ books: items, search: ctx.search, complete }), search: ctx.search });
 }
 
-export const defaultRoutes = { overview, books };
+export const defaultRoutes = { overview, books, ...bookParts.routes, ...noteParts.routes, ...connectionParts.routes };
+export const defaultActions = { ...bookParts.actions, ...noteParts.actions, ...connectionParts.actions };
+export const defaultForms = { ...noteParts.forms, ...connectionParts.forms };

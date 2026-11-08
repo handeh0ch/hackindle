@@ -6,12 +6,12 @@ import { load } from './state.js';
 import { PERIODS } from './overview.js';
 import { todayIn } from './format.js';
 import { stateHtml, loginHtml } from './views.js';
-import { defaultRoutes } from './routes.js';
+import { defaultRoutes, defaultActions, defaultForms } from './routes.js';
 
 const LOGIN_MESSAGES = { 401: 'Wrong username or password.', 429: 'Too many attempts. Wait a few minutes and try again.', 0: 'Could not reach the server.' };
 
 export function createController({ api, render, today, now = () => new Date(), routes = {}, actions = {}, forms = {} }) {
-  const table = { ...defaultRoutes, ...routes };
+  const table = { ...defaultRoutes, ...routes }, actionTable = { ...defaultActions, ...actions }, formTable = { ...defaultForms, ...forms };
   const injected = typeof today === 'function';
   const ctx = { api, period: 14, metric: 'volume', search: '', hash: '#/overview', pending: '#/overview', config: null, cache: {}, reuse: false, run: 0, year: null, layout: 'halves',
     today: injected ? today : () => todayIn(ctx.config?.reporting_timezone ?? 'UTC', now()) };
@@ -84,7 +84,7 @@ export function createController({ api, render, today, now = () => new Date(), r
         catch (error) { return render(stateHtml('alert', `Could not sign out (${error instanceof ApiError ? error.code : 'unexpected'}). Try again.`)); }
         return showLogin('');
       }
-      if (actions[name]) return actions[name](ctx, value, { navigate, render });
+      if (Object.hasOwn(actionTable, name)) return actionTable[name](ctx, value, { navigate, render });
       return undefined;
     },
     async submit(name, values) {
@@ -97,7 +97,7 @@ export function createController({ api, render, today, now = () => new Date(), r
         return navigate(ctx.pending);
       }
       if (name === 'search') { ctx.search = String(values.q ?? '').trim(); return navigate(ctx.hash); }
-      if (forms[name]) return forms[name](ctx, values, { navigate, render });
+      if (Object.hasOwn(formTable, name)) return formTable[name](ctx, values, { navigate, render });
       return undefined;
     },
   };
