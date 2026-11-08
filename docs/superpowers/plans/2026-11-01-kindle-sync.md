@@ -157,7 +157,7 @@ Do not create empty files just to fill the list. Keep functions with a shared re
 - [ ] Implement one request at a time, verified TLS, a bounded timeout and the background mechanism verified in P0. Direct/chunk upload uses persisted UTF-8 bytes; a new upload_id after 410 does not change envelope/seq. Oversized data is retained with an explicit error.
 - [ ] Verify retries 5/15/60/300, Retry-After, pause on 401 and actionable errors 400/403/409/413. Wi-Fi off/suspend must not start network activity; the queue remains on disk.
 - [ ] URL/token settings are private KOReader settings. Fetching the profile checks instance/policy; changing servers must not silently send the queue to the wrong instance. Add sync now/status, queue length, last success/error and explicit finish/restart cycle actions.
-- [ ] Sample progress once/minute plus at boundaries; seal reading batches every five active minutes plus lifecycle flush. Newly collected text/context is not resent with every minute's progress.
+- [x] Amended by the owner on 2026-11-08: progress is event-driven (source snapshot at open, reading events sealed at page turns and lifecycle boundaries) instead of sampled once a minute with five-minute batches. This keeps timers off the UI thread; periodic sampling can be reconsidered with the I1 timing data. Newly collected text/context is not resent with every progress event.
 - [ ] Lua tests — PASS; build the archive from a source allowlist and verify the absence of private config/state/books. Commit `feat(plugin): deliver durable portable sync client`.
 
 ## Task 8: F1 — Overview, calendar and library

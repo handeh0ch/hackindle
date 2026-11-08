@@ -15,6 +15,11 @@ function memory() {
     async prune(at) { for (const u of Object.values(draft.uploads)) if (u.expires <= at) { u.gone = true; u.chunks = {}; } },
     async countOpen() { return Object.values(draft.uploads).filter(u => !u.gone && !u.ack).length; },
     async insertUpload(id, manifest, expires) { draft.uploads[id] = { manifest, expires, chunks: {} }; },
+    async findOpen(manifest) {
+      const found = Object.entries(draft.uploads).filter(([, u]) => !u.gone && !u.ack && u.manifest.device_id === manifest.device_id && u.manifest.source_id === manifest.source_id
+        && u.manifest.seq === manifest.seq && u.manifest.reset_generation === manifest.reset_generation).map(([id, u]) => ({ upload_id: id, manifest: u.manifest, expires: u.expires }));
+      return found;
+    },
     async upload(id) { return draft.uploads[id]; },
     async chunk(id, index) { return draft.uploads[id].chunks[index]; },
     async chunkBytes(id) { return Object.values(draft.uploads[id].chunks).reduce((n, c) => n + c.bytes.length, 0); },
@@ -44,11 +49,22 @@ test('upload resumes across chunks, decodes UTF-8 after assembly and repeats com
 test('upload caps open manifests and expires them after seven days', async () => {
   const m = memory(), { manifest } = input();
   const uploads = createUploadService({ db: m.db, createTx: m.tx, now: m.now, uuid: m.uuid, apply: async () => ({}) });
-  const first = await uploads.create('token', manifest); await uploads.create('token', manifest);
-  await assert.rejects(uploads.create('token', manifest), error => error.status === 429);
+  const first = await uploads.create('token', manifest); await uploads.create('token', { ...manifest, seq: manifest.seq + 1 });
+  await assert.rejects(uploads.create('token', { ...manifest, seq: manifest.seq + 2 }), error => error.status === 429);
   m.advance(604800000);
   await assert.rejects(uploads.commit('token', first.upload_id), error => error.status === 410);
   assert.ok((await uploads.create('token', manifest)).upload_id);
+});
+test('a repeated create for the same envelope returns the open upload so a lost response cannot orphan uploads', async () => {
+  const m = memory(), { manifest } = input();
+  const uploads = createUploadService({ db: m.db, createTx: m.tx, now: m.now, uuid: m.uuid, apply: async () => ({}) });
+  const first = await uploads.create('token', manifest);
+  assert.deepEqual(await uploads.create('token', manifest), first);
+  assert.deepEqual(await uploads.create('token', manifest), first);
+  // The same cap still holds for other envelopes, and a changed manifest never reuses the upload.
+  const other = await uploads.create('token', { ...manifest, sha256: 'f'.repeat(64) });
+  assert.notEqual(other.upload_id, first.upload_id);
+  await assert.rejects(uploads.create('token', { ...manifest, seq: manifest.seq + 1 }), error => error.status === 429);
 });
 test('partial, mismatched and invalid UTF-8 uploads never apply', async () => {
   const m = memory(), { chunks, manifest } = input(); let applied = 0;

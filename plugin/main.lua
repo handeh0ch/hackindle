@@ -235,6 +235,9 @@ function Entry:onPageUpdate(page)
     if page~=false and (type(page)~="number" or page<1 or page>9007199254740991 or page~=math.floor(page)) then self.status="capture_unavailable"; return end
     self.pending_is_latest=false
     self.scroll_noted=false; self.scroll_mode=false
+    -- A session that could not be opened (adapter error) is retried here instead of
+    -- waiting for the next metadata acknowledgement.
+    if self.lifecycle_pending then self:lifecycle("open") end
     if not self:finishPage(page) then
         self:markCaptureGap(); self.deferred_page=page~=false and page or nil
         return
@@ -245,6 +248,7 @@ function Entry:onPageUpdate(page)
         assert(type(token)=="table" and token.verified==true and token.durable==true, "visible page unavailable")
         self.pending_page=token
         self.pending_is_latest=true
+        self.deferred_page=nil   -- an older deferred page must not be replayed by a later acknowledgement
     end)
     if not begun then self:markCaptureGap(); self.deferred_page=page end
 end
@@ -444,9 +448,18 @@ function Entry:abandonPending()
     return true
 end
 
--- The reader can be torn down without a document close; never leave the timer running.
+-- The reader can be torn down without a (successful) document close: a failed
+-- page finish in onCloseDocument keeps the runtime for a retry that may never come.
+-- Final teardown always releases the timer and the process-wide reader lease; a
+-- page still pending stays durable and is reconciled when the book is opened again.
 function Entry:onCloseWidget()
+    self.closed=true
     if self.sync then pcall(function() self.sync:close() end); self.sync=nil end
+    if self.runtime then
+        local ok,err=pcall(function() self.runtime:close() end)
+        if not ok then warn("reader lease could not be released:",err) end
+        self.runtime=nil; self.app=nil; self.adapter=nil; self.source_ready=false
+    end
 end
 
 function Entry:onCloseDocument()

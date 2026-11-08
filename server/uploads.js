@@ -30,6 +30,10 @@ export function createUploadService({ db, createTx, apply, now = Date.now, uuid 
         const digest = await device(tx, token, manifest.device_id), generation = Number(instance.reset_generation);
         if (manifest.reset_generation > generation) fail(409, 'future_generation');
         await tx.prune(now());
+        // A retried create (for example after a lost response) returns the open upload for the
+        // same envelope instead of opening a second one that nothing would ever finish.
+        const repeated = (await tx.findOpen(manifest)).find(open => ['kind', 'byte_length', 'sha256', 'chunk_count'].every(key => open.manifest[key] === manifest[key]));
+        if (repeated) return { upload_id: repeated.upload_id, expires_at: new Date(repeated.expires).toISOString() };
         if (await tx.countOpen(manifest.device_id) >= 2) fail(429, 'upload_limit');
         if (manifest.reset_generation === generation && !await tx.bind(digest, manifest.device_id)) fail(403, 'device_mismatch');
         const id = uuid(), expires = now() + 604800000;

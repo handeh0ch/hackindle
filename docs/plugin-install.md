@@ -32,6 +32,7 @@ This writes `.local/build/kindle_sync.koplugin/` and `.local/build/kindle_sync.k
 - Closing a book makes one bounded last attempt (at most five requests or twenty seconds). Suspending stops the timer; resuming restarts it.
 - A packet is removed from the device only after the server's answer matches that exact packet. Network errors, timeouts, 429 and 5xx keep the packet and retry after 5, 15, 60, then 300 seconds, longer if the server sends `Retry-After`. A lost answer simply resends identical bytes; the server answers `duplicate`.
 - Packets over the server's direct limit (1 MiB) go through the chunked upload and resume where they stopped.
+- When a pause stops the queue (a redirect, 404, 409, rejected token and so on) the plugin shows one message with the reason and code; it does not repeat it on every later attempt. **Sync now** clears the pause and keeps a partly uploaded large packet, so the upload resumes instead of starting a second one on the server.
 - Menu: **Status** (queue length, last success, pause reason), **Sync now** (also clears a pause and retries), **Mark book as finished**, **Start new read cycle** (re-reads have no automatic signal).
 
 ## Pause reasons

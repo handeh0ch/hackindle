@@ -150,13 +150,24 @@ function M.start(entry, modules)
             end
             return outcome
         end
+        -- Tells the owner once per pause (reason and code) that the queue stopped, so a
+        -- redirect, 404 or 409 is not discovered only by opening the status screen.
+        function self:announce_pause()
+            local status = self.delivery:status()
+            local key = tostring(status.paused) .. ":" .. tostring(status.code)
+            if self.announced == key then return end
+            self.announced = key
+            notify("Kindle Sync stopped sending: " .. tostring(status.paused) .. (status.code and (" (" .. status.code .. ")") or "")
+                .. ". Open Kindle Sync > Status.")
+        end
         function self:run_once()
             if not network.online() then return OFFLINE_DELAY end
             if self.refresh_due and self.config then self:fetch_config() end
             if not self.delivery then return IDLE_DELAY end
             local outcome = self.delivery:step()
-            if outcome == "sent" or outcome == "progress" then return 1 end
-            if outcome == "paused" then return PAUSED_DELAY end
+            if outcome == "sent" or outcome == "progress" then self.announced = nil; return 1 end
+            if outcome == "paused" then pcall(self.announce_pause, self); return PAUSED_DELAY end
+            self.announced = nil
             if outcome == "idle" then return IDLE_DELAY end
             local next_at = self.delivery:status().next_at
             return math.max(1, (next_at or clock()) - clock())
@@ -170,7 +181,7 @@ function M.start(entry, modules)
         function self:sync_now()
             if not network.online() then notify("No network connection. Connect to Wi-Fi, then try again."); return false end
             if self.delivery then self.delivery:resume() end
-            self.alert = nil
+            self.announced, self.alert = nil, nil
             if not self.config or self.refresh_due then
                 local fetched, why = self:fetch_config()
                 if not fetched then notify("Sync failed: " .. tostring(why)); return false end

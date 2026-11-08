@@ -275,4 +275,28 @@ local held_calls = #log
 assert(held:step() == "paused" and held:status().paused == "server_changed" and held:status().code == "server_changed" and #log == held_calls)
 plan = function() return ok_ack(db.outbox[90]) end
 assert(make({tag = "hold2"}):step() == "sent")
+-- Resuming keeps an open upload: dropping it would orphan the server-side upload
+-- (at most two are open per device) and could hold the queue head for days.
+empty()
+local resumable = support.packet(97, "vocabulary_snapshot", {pad = ("x"):rep(2500)}); enqueue(97, resumable)
+plan = function(name)
+    if name == "create_upload" then return R(201, json.encode({upload_id = uuid, expires_at = "x"})) end
+    if name == "put_chunk" then return R(204, "") end
+    return R(409, json.encode({error = {code = "packet_conflict"}}))
+end
+local keeper = make({tag = "up1"})
+assert(keeper:step() == "progress" and keeper:step() == "progress" and keeper:step() == "progress")   -- create, chunks 0 and 1
+assert(keeper:step() == "paused" and keeper:status().paused == "conflict")                              -- commit refused
+keeper:resume()
+log = {}
+assert(keeper:step() == "paused" and log[1].name == "commit" and log[1].args[1] == uuid and #log == 1)
+-- An upload the server no longer knows (404 upload_not_found) is recreated like an expired one.
+empty()
+enqueue(98, support.packet(98, "vocabulary_snapshot", {pad = ("x"):rep(2500)}))
+plan = function(name)
+    if name == "create_upload" then return R(201, json.encode({upload_id = uuid, expires_at = "x"})) end
+    return R(404, json.encode({error = {code = "upload_not_found"}}))
+end
+local forgotten = make({tag = "up2"})
+assert(forgotten:step() == "progress" and forgotten:step() == "retry" and forgotten:status().last_error == "upload_expired")
 print("delivery assertions passed")

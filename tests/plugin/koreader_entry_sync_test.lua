@@ -149,4 +149,60 @@ local widget_closed = new()
 widget_closed.sync = fake_sync; fake_sync.calls = {}
 widget_closed:onCloseWidget(); widget_closed:onCloseWidget()
 assert(table.concat(fake_sync.calls, ",") == "close" and widget_closed.sync == nil)
+-- A teardown without a successful document close still releases the reader lease and the timer.
+local leaking = new()
+local lease_closes, timer_closes = 0, 0
+leaking.runtime = {close = function() lease_closes = lease_closes + 1 end}
+leaking.sync = {close = function() timer_closes = timer_closes + 1 end}
+leaking.app, leaking.adapter, leaking.source_ready = {}, {}, true
+leaking:onCloseWidget(); leaking:onCloseWidget()
+assert(lease_closes == 1 and timer_closes == 1 and leaking.runtime == nil and leaking.app == nil and leaking.closed)
+local stuck = new()
+local stuck_closes = 0
+stuck.runtime = {close = function() stuck_closes = stuck_closes + 1 end}
+stuck.app, stuck.source_ready, stuck.source_id = {}, true, source
+stuck.adapter = {finish_page = function() error("document gone", 0) end}
+stuck.pending_page = {page = 1}
+stuck:onCloseDocument()                       -- cannot finish the page: kept for an explicit retry
+assert(stuck.pending_page and stuck_closes == 0)
+stuck.runtime.close = function() stuck_closes = stuck_closes + 1; error("already closed", 0) end
+stuck:onCloseWidget()                         -- a failing release is contained
+assert(stuck_closes == 1 and stuck.runtime == nil and stuck.closed)
+
+-- A failed session open is retried from the next page update.
+local opened = {}
+local reopen = new()
+reopen.source_ready, reopen.source_id, reopen.lifecycle_pending = true, source, true
+local attempts = 0
+reopen.app = {session_open = function(_, id, cycle, at, uuid, verified) opened[#opened + 1] = id end}
+reopen.adapter = {
+    lifecycle = function()
+        attempts = attempts + 1
+        if attempts == 1 then error("temporarily unavailable", 0) end
+        return {verified = true, source_id = source, cycle_id = "cycle", captured_at = "time", uuid = function() return "u" end}
+    end,
+    begin_page = function(_, ui, page) return {page = page, verified = true, durable = true} end,
+}
+reopen:onPageUpdate(1)                        -- first retry fails again: still pending, page is still begun
+assert(attempts == 1 and reopen.lifecycle_pending == true and #opened == 0)
+reopen:onPageUpdate(2)
+assert(attempts == 2 and reopen.lifecycle_pending == false and opened[1] == source)
+reopen:onPageUpdate(3)
+assert(attempts == 2)                         -- no more attempts once the session is open
+
+-- A page that began successfully supersedes an older deferred page: a later
+-- acknowledgement must not start the stale page.
+local stale = new()
+stale.source_ready, stale.source_id = true, source
+local fail_begin = true
+stale.app = {}
+stale.adapter = {begin_page = function(_, ui, page)
+    if fail_begin then error("reading session unavailable", 0) end
+    return {page = page, verified = true, durable = true}
+end}
+stale:onPageUpdate(5)
+assert(stale.deferred_page == 5 and stale.pending_page == nil)
+fail_begin = false
+stale:onPageUpdate(6)
+assert(stale.pending_page and stale.pending_page.page == 6 and stale.deferred_page == nil)
 print("KOReader entry sync assertions passed")

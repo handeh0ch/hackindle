@@ -151,6 +151,10 @@ export function createSyncTx(client) {
       await query('DELETE FROM uploads WHERE expires_at <= $1', [new Date(at)]);
     },
     async countOpen(device) { const { rows: [row] } = await query('SELECT count(*) AS count FROM uploads WHERE device_id = $1 AND committed_ack IS NULL', [device]); return Number(row.count); },
+    async findOpen(manifest) {
+      const { rows } = await query('SELECT upload_id, manifest, expires_at FROM uploads WHERE device_id = $1 AND source_id IS NOT DISTINCT FROM $2 AND seq = $3 AND reset_generation = $4 AND committed_ack IS NULL ORDER BY expires_at', [manifest.device_id, manifest.source_id, manifest.seq, manifest.reset_generation]);
+      return rows.map(row => ({ upload_id: row.upload_id, manifest: row.manifest, expires: row.expires_at }));
+    },
     async insertUpload(id, manifest, expires) { await query('INSERT INTO uploads (upload_id, device_id, source_id, seq, reset_generation, manifest, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, manifest.device_id, manifest.source_id, manifest.seq, manifest.reset_generation, JSON.stringify(manifest), new Date(expires)]); },
     async upload(id) {
       const { rows: [row] } = await query('SELECT manifest, expires_at, committed_ack FROM uploads WHERE upload_id = $1', [id]);

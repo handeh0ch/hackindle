@@ -111,8 +111,11 @@ routes["POST /api/v1/sync"] = function() return {status = 200, headers = {}, bod
 assert(run_tick().delay == 1 and db.outbox[2] == nil)
 text = enqueue_next()
 routes["POST /api/v1/sync"] = function() return {status = 401, headers = {}, body = ""} end
+local notices_before_pause = #notices
 assert(run_tick().delay == 900)
 assert(client.delivery:status().paused == "token_rejected" and run_tick().delay == 900)
+-- The owner is told once when a pause stops the queue, not on every later tick.
+assert(#notices == notices_before_pause + 1 and notices[#notices]:find("token_rejected", 1, true))
 assert(client:summary():find("Paused: token_rejected", 1, true))
 -- sync_now resumes a paused queue.
 routes["POST /api/v1/sync"] = function() return {status = 200, headers = {}, body = json.encode(support.ack(text))} end

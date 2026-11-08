@@ -15,6 +15,7 @@ data/
 backups/
 exports/
 *.local
+kindle_sync.conf
 *.sqlite
 *.sqlite3
 *.sqlite-wal

@@ -69,7 +69,9 @@ From public files at tag v2026.07.1, summarised by a documentation-reading subag
 2. **Token entry.** The owner places `kindle_sync.conf` in the settings directory; nothing is typed on the device. It is a plain `key = "value"` file that is parsed, never executed, and never written by the plugin, so a crash cannot truncate it (the `LuaSettings` flush is not atomic). The token is therefore visible to anyone who can read that folder, like the stock sync plugins' credentials. The cached profile and delivery state live in the SQLite state.
 3. **TLS roots.** The plugin uses whatever `ssl.https` does on the device, requires `https://` (plain http only for loopback) and cannot check certificate verification itself. This is the most important I1 item; the install guide says so.
 4. **Cap.** None: every packet is kept until delivered. The status shows the queue length.
-5. **Progress cadence.** No periodic progress sampling was added; progress is event-driven (source snapshot at open, reading events at page turns). This keeps P2 to delivery.
+5. **Progress cadence.** No periodic progress sampling was added; progress is event-driven (source snapshot at open, reading events at page turns). This keeps P2 to delivery. The owner confirmed on 2026-11-08 that all five defaults stand and that the plan's once-a-minute sampling and five-minute batch sealing are replaced by this (plan Task 7 amended).
+
+2026-11-08 follow-up fixes after the first independent review: `resume()` keeps an open upload (and the forced-upload flag) so a pause cannot orphan it on the server, and a 404 `upload_not_found` on a chunk or commit is handled like 410 (new upload for the same bytes); the connection timer announces a pause to the owner once per reason and code; a failed `lifecycle("open")` is retried from the next page update; `onCloseWidget` releases the timer and the reader lease even when the document close could not finish its page.
 
 ## Device unknowns (carried to I1)
 

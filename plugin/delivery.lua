@@ -140,8 +140,10 @@ function M.new(opts)
     -- whose identity differs); only resume() or a settings change clears it.
     function self:hold(reason, code) pause(load(), reason, code) end
     function self:resume()
+        -- An open upload stays: dropping it would leave it counted on the server
+        -- (two per device at most) until it expires. A stale one is recreated on 404/410.
         local meta = load()
-        save({v = 1, attempts = 0, last_ok = meta.last_ok})
+        save({v = 1, attempts = 0, last_ok = meta.last_ok, upload = meta.upload, force_upload = meta.force_upload})
     end
 
     local function request(meta, seq, bytes, packet)
@@ -202,7 +204,7 @@ function M.new(opts)
             if code == "instance_mismatch" or code == "device_mismatch" then return pause(meta, code, code) end
             return pause(meta, "forbidden", code)
         end
-        if status == 410 and phase ~= "direct" then
+        if phase ~= "direct" and (status == 410 or (status == 404 and phase ~= "create" and code == "upload_not_found")) then
             meta.upload = nil
             return retry(meta, now, response, "upload_expired")
         end
