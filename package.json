@@ -19,6 +19,7 @@
     "setup:owner": "node scripts/setup-owner.js",
     "backup:export": "node scripts/export-backup.js",
     "backup:import": "node scripts/import-backup.js",
+    "test:panel": "node --test --experimental-test-coverage --test-coverage-include=public/js/**/*.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/panel/*.test.js",
     "test:server": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include=server/**/*.js --test-coverage-include=scripts/*.js --test-coverage-include=index.js --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/server/*.test.js"
   }
 }

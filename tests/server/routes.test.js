@@ -142,3 +142,24 @@ test('match candidates are owner-only and reject malformed decisions', async () 
   const result = await dispatch(app, 'GET', '/api/v1/owner/matches', owner); assert.equal(result.statusCode, 200); assert.deepEqual(JSON.parse(result.raw), { items: [], next_cursor: null });
   assert.equal((await dispatch(app, 'POST', '/api/v1/owner/matches', headers, '{}')).statusCode, 400);
 });
+test('the panel is served as static files with restrictive headers and never exposes other files', async () => {
+  const config = loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' });
+  const app = createApp({ db: { query: async () => ({ rows: [] }) }, config });
+  const page = await dispatch(app, 'GET', '/');
+  assert.equal(page.statusCode, 200);
+  assert.match(String(page.getHeader('content-type')), /text\/html/);
+  assert.match(String(page.getHeader('content-security-policy')), /default-src 'self'/);
+  assert.equal(page.getHeader('x-content-type-options'), 'nosniff');
+  const script = await dispatch(app, 'GET', '/js/main.js');
+  assert.equal(script.statusCode, 200);
+  assert.match(String(script.getHeader('content-type')), /javascript/);
+  assert.match(String(script.getHeader('content-security-policy')), /frame-ancestors 'none'/);
+  assert.equal(script.getHeader('referrer-policy'), 'no-referrer');
+  assert.equal((await dispatch(app, 'GET', '/style.css')).statusCode, 200);
+  for (const path of ['/package.json', '/../package.json', '/%2e%2e/package.json', '/.env', '/server/app.js']) {
+    assert.notEqual((await dispatch(app, 'GET', path)).statusCode, 200, path);
+  }
+  const missing = await dispatch(app, 'GET', '/api/v1/owner/unknown');
+  assert.equal(missing.statusCode, 401);   // the API still answers before static files
+  assert.equal((await dispatch(app, 'GET', '/api/v1/unknown')).statusCode, 404);
+});

@@ -1,0 +1,164 @@
+/* Hackindle panel. "Reading by lamplight": a deep night-blue page, ink-blue accents and one
+   warm lamp colour reserved for keyboard focus. System fonts only (the CSP forbids web fonts).
+   Colour never carries meaning alone: unavailable = dashed outline or a gap, partial = "≥" text,
+   italic value and a stroke, future = dotted outline. */
+:root {
+  /* Dark is the primary look. */
+  --night: #0e1525;      /* page */
+  --slate: #141d31;      /* surfaces: summary grid, chart, calendar, books */
+  --rule: #2a3a5a;       /* hairlines and dividers (decorative) */
+  --edge: #5a6d92;       /* control outlines, 3:1 on slate */
+  --paper: #e3e8f1;      /* text */
+  --mist: #9fadc6;       /* secondary text */
+  --ink-blue: #2a5cb8;   /* filled accent (bubble, primary button) with white text */
+  --signal: #7fa8f5;     /* active tab underline, links, chart line */
+  --lamp: #f2c46d;       /* focus ring */
+  --warn: #e8a07a;       /* unavailable outline / gap */
+  --area: rgba(127, 168, 245, .16);
+  --l0: #1f2b46; --l1: #24467f; --l2: #2f62b8; --l3: #5089e2; --l4: #8fb6f6;
+  --sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Display", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius: 12px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --night: #f2f5fa; --slate: #ffffff; --rule: #d6deea; --edge: #7d8aa3; --paper: #121b2c; --mist: #4a5770;
+    --ink-blue: #1f4fa3; --signal: #1f4fa3; --lamp: #b4470f; --warn: #9a4214; --area: rgba(31, 79, 163, .10);
+    --l0: #e4eaf4; --l1: #b9cdef; --l2: #7fa3e0; --l3: #3f72c4; --l4: #173f86;
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--night); color: var(--paper); font: 16px/1.55 var(--sans); font-variant-numeric: tabular-nums; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 8px; top: 8px; background: var(--slate); color: var(--paper); padding: 10px 14px; border-radius: 6px; z-index: 5; }
+:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+
+/* Header: quiet, on the page colour; the current section is underlined like a tab. */
+.top { display: flex; align-items: center; gap: 4px 24px; padding: 0 max(16px, calc((100% - 1200px) / 2 + 16px)); border-bottom: 1px solid var(--rule); }
+.top h1 { font: 650 1.15rem/1 var(--display); letter-spacing: .01em; margin: 0; }
+nav { display: flex; flex: 1; align-self: stretch; }
+nav a { color: var(--mist); text-decoration: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; }
+nav a:hover { color: var(--paper); }
+nav a[aria-current] { color: var(--paper); border-bottom-color: var(--signal); font-weight: 600; }
+
+/* Controls (44px targets) */
+nav a, button { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; font: inherit; }
+button { padding: 8px 14px; border-radius: 8px; color: var(--paper); border: 1px solid var(--edge); background: transparent; cursor: pointer; }
+button:hover { border-color: var(--signal); }
+button[type="submit"], .state button { background: var(--ink-blue); border-color: var(--ink-blue); color: #fff; font-weight: 600; }
+button.link { border: 0; color: var(--mist); text-decoration: underline; text-underline-offset: 3px; }
+button.link:hover { color: var(--paper); }
+main a { color: var(--signal); }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 56px; outline: none; }
+h2 { font: 650 1.6rem/1.2 var(--display); margin: 4px 0 20px; }
+h3 { margin: 0; font-size: .875rem; color: var(--mist); font-weight: 500; }
+section { margin-bottom: 40px; }
+section > h3 { font: 600 1.15rem/1.3 var(--display); color: var(--paper); margin-bottom: 4px; }
+
+/* Summary: eight identical cells in one grid, joined by hairlines into a single panel. */
+.cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+@media (min-width: 760px) { .cards { grid-template-columns: repeat(4, 1fr); } }
+.card { background: var(--slate); padding: 18px 12px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+.card .value { order: -1; font: 600 clamp(1.25rem, 4.6vw, 1.9rem)/1.15 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -.01em; margin: 0 0 4px; overflow-wrap: anywhere; }
+.card.unavailable { outline: 1px dashed var(--edge); outline-offset: -6px; }
+.card.unavailable .value { color: var(--mist); }
+.card.partial .value { font-style: italic; }
+progress { order: 3; width: min(100%, 140px); height: 4px; margin-top: 10px; border: 0; border-radius: 2px; background: var(--l0); accent-color: var(--signal); appearance: none; }
+progress::-webkit-progress-bar { background: var(--l0); border-radius: 2px; }
+progress::-webkit-progress-value { background: var(--signal); border-radius: 2px; }
+progress::-moz-progress-bar { background: var(--signal); border-radius: 2px; }
+
+/* Segmented tabs: aria-pressed buttons with an underline on a full-width hairline. */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 16px; }
+.tabs { gap: 0; border-bottom: 1px solid var(--rule); }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; padding: 8px 16px; color: var(--mist); background: none; }
+.tabs button:hover { color: var(--paper); }
+.tabs button[aria-pressed="true"] { color: var(--paper); border-bottom-color: var(--signal); font-weight: 600; }
+.calendar-bar { justify-content: space-between; border-bottom: 1px solid var(--rule); gap: 8px 16px; }
+.calendar-bar .tabs { margin: 0 0 -1px; border-bottom: 0; }
+
+/* Recent reading: smooth line over a soft area, unavailable days as dashed gaps. */
+.chart { width: 100%; height: auto; display: block; background: var(--slate); border: 1px solid var(--rule); border-radius: var(--radius); }
+.chart .baseline { stroke: var(--rule); stroke-width: 1; }
+.chart .area { fill: var(--area); }
+.chart .line { fill: none; stroke: var(--signal); stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.chart .point { fill: var(--slate); stroke: var(--signal); stroke-width: 2; }
+.chart .point.partial { stroke-dasharray: 2 2; }
+.chart .gap { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart text { font: 12px var(--sans); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.chart .value { fill: var(--paper); font-weight: 600; }
+.chart .tick { fill: var(--mist); }
+
+/* Calendar heatmap */
+.scroll { overflow-x: auto; background: var(--slate); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px 10px; }
+.heatmap { min-width: 300px; width: 100%; height: auto; display: block; }
+.heatmap .axis { font: 10px var(--sans); fill: var(--mist); }
+@media (max-width: 699px) { .heatmap .axis { font-size: 11px; } .scroll { padding: 12px 10px 8px; } }
+.cell { fill: var(--l0); transform-box: fill-box; transform-origin: center;
+  transition: transform .26s cubic-bezier(.34, 1.56, .64, 1), opacity .2s ease-out, filter .2s ease-out, stroke-width .12s; }
+.cell.hot { transform: scale(2.1); stroke: var(--lamp); stroke-width: 1.2; }
+.cell.near-1 { opacity: .4; filter: blur(1.6px); transform: scale(.82); }
+.cell.near-2 { opacity: .62; filter: blur(1px); transform: scale(.92); }
+.cell.near-3 { opacity: .82; filter: blur(.45px); }
+.cell.level-1 { fill: var(--l1); } .cell.level-2 { fill: var(--l2); } .cell.level-3 { fill: var(--l3); } .cell.level-4 { fill: var(--l4); }
+.cell.unavailable { fill: none; stroke: var(--warn); stroke-width: 1; stroke-dasharray: 2 1.5; }
+.cell.future { fill: none; stroke: var(--edge); stroke-width: 1; stroke-dasharray: 1 2; }
+.cell.partial { stroke: var(--paper); stroke-width: 1.4; }
+.year-nav { display: inline-flex; align-items: center; gap: 2px; font: 600 1.05rem var(--display); }
+.year-nav span { min-width: 3.2em; text-align: center; }
+.year-nav button { border: 0; border-radius: 50%; font-size: 1.3rem; padding: 0; color: var(--signal); }
+.year-nav button:hover { background: var(--l0); }
+.year-nav button:disabled { color: var(--edge); opacity: .6; cursor: default; background: none; }
+details { margin-top: 10px; }
+summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--signal); width: max-content; max-width: 100%; }
+.chart-table { border-collapse: collapse; width: 100%; max-width: 520px; font-variant-numeric: tabular-nums; }
+.chart-table caption { text-align: left; color: var(--mist); padding: 4px 0; }
+.chart-table th, .chart-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--rule); font-weight: 400; }
+
+/* States, forms */
+.state { padding: 16px; border: 1px dashed var(--edge); border-radius: var(--radius); background: var(--slate); max-width: 60ch; }
+.state.error { border: 2px solid var(--warn); }
+form[data-form] { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 20px; }
+label { display: grid; gap: 4px; color: var(--mist); }
+input, select, textarea { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--edge); background: var(--slate); color: var(--paper); font: inherit; }
+input[type="search"] { min-width: min(100%, 320px); }
+input:hover { border-color: var(--signal); }
+input::placeholder { color: var(--mist); }
+
+/* Library: covers carry the colour; the tile stays quiet. */
+.books { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 24px 18px; }
+.book { display: grid; gap: 4px; align-content: start; }
+.book a { color: var(--paper); text-decoration: none; display: grid; gap: 10px; border-radius: 6px; }
+.book a:hover .title { text-decoration: underline; text-underline-offset: 3px; }
+.book img, .cover-fallback { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: var(--l0); border: 1px solid var(--rule); }
+.cover-fallback { display: grid; place-items: center; font: 600 3.2rem var(--display); color: var(--signal); background: var(--slate); }
+.book .title { font: 600 1rem/1.3 var(--display); overflow-wrap: anywhere; }
+.book .authors, .book .formats, .book .notes { color: var(--mist); font-size: .875rem; }
+.book .progress { font-weight: 600; font-variant-numeric: tabular-nums; }
+.book .progress.unavailable { color: var(--mist); font-weight: 400; font-style: italic; }
+.card .note { margin: 6px 0 0; color: var(--mist); font-size: .8125rem; line-height: 1.35; }
+main > .note { display: block; color: var(--mist); font-size: .875rem; }
+
+@media (max-width: 480px) { .top { gap: 4px 8px; } nav a { padding: 8px 10px; } main { padding: 20px 16px 40px; } h2 { font-size: 1.4rem; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* Hover tooltip: pops out of its target with a small overshoot, glides to the next target, fades out. */
+.tip { position: fixed; z-index: 10; pointer-events: none; max-width: min(320px, calc(100vw - 16px)); padding: 8px 12px; border-radius: 10px;
+  background: var(--ink-blue); color: #fff; font: 600 .875rem/1.3 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(2, 8, 24, .55);
+  opacity: 0; transform: translateY(10px) scale(.55); transform-origin: var(--arrow, 50%) 100%;
+  transition: opacity .16s ease-out, transform .16s ease-in; }
+.tip.show { opacity: 1; transform: none; transition: opacity .16s ease-out, transform .28s cubic-bezier(.34, 1.56, .64, 1); }
+.tip.glide { transition: opacity .16s ease-out, transform .28s cubic-bezier(.34, 1.56, .64, 1), left .16s ease-out, top .16s ease-out; }
+.tip[data-placement="below"] { transform: translateY(-10px) scale(.55); transform-origin: var(--arrow, 50%) 0; }
+.tip[data-placement="below"].show { transform: none; }
+.tip::after { content: ""; position: absolute; left: calc(var(--arrow, 50%) - 6px); width: 0; height: 0; border: 6px solid transparent; }
+.tip[data-placement="above"]::after { top: 100%; border-top-color: var(--ink-blue); }
+.tip[data-placement="below"]::after { bottom: 100%; border-bottom-color: var(--ink-blue); }
+/* Chart points: the larger invisible .hit circle takes the pointer; the dot grows and glows when it is hovered. */
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .point { pointer-events: none; transition: r .16s cubic-bezier(.34, 1.56, .64, 1), stroke-width .16s; }
+.chart .hit:hover + .point { r: 6.5; stroke-width: 3; }
+@media (prefers-reduced-motion: reduce) { .tip, .tip.show, .tip.glide, .cell, .chart .point { transition: none; } .cell.near-1, .cell.near-2, .cell.near-3 { filter: none; } .tip { transform: none; } }

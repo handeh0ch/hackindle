@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0e1525">
+  <title>Hackindle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <header class="top">
+    <h1>Hackindle</h1>
+    <nav aria-label="Main">
+      <a href="#/overview" data-nav="overview">Overview</a>
+      <a href="#/books" data-nav="books">Library</a>
+    </nav>
+    <button type="button" class="link" data-action="logout">Sign out</button>
+  </header>
+  <main id="app" tabindex="-1"><p class="state" role="status">Loading…</p></main>
+  <div id="tip" class="tip" role="presentation" hidden></div>
+  <noscript><p class="state">This panel needs JavaScript.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
