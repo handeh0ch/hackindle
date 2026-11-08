@@ -5,7 +5,8 @@ import { Duplex } from 'node:stream';
 import { createApp } from '../../server/app.js';
 import { loadConfig } from '../../server/config.js';
 async function dispatch(app, method, path, headers = {}, body = '') {
-  const socket = new Duplex({ read() {}, write(chunk, encoding, callback) { callback(); } }); socket.remoteAddress = '127.0.0.1';
+  // A large highWaterMark: this fake socket never reports drain, so a static file over 16 KiB would otherwise stall.
+  const socket = new Duplex({ highWaterMark: 1 << 24, read() {}, write(chunk, encoding, callback) { callback(); } }); socket.remoteAddress = '127.0.0.1';
   const req = new IncomingMessage(socket); req.method = method; req.url = path; req.headers = headers;
   const res = new ServerResponse(req); res.assignSocket(socket); let done; const finished = new Promise(resolve => { done = resolve; });
   const end = res.end; res.end = function (...args) { res.raw = String(args[0] ?? ''); const result = end.apply(this, args); done(); return result; };
