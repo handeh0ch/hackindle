@@ -14,10 +14,15 @@ Read AGENTS.md first, then PROGRESS.md and feature_list.json; inspect Git status
 - 2026-11-08 independent review done (read-only subagent): see docs/p1-review-brief.md. Fixed: close-flush reopen, guarded menu callbacks, redirects, total timeout, fractional ack generation, pcall(require) packaging. Findings 1 and 5 were then decided (owner: "decide now"): generation-0 capture needs only the queued metadata snapshot; a reset generation above 0 stops capture (reset_unsupported) while the old queue drains. The P1 reset protocol itself is unchanged and still needs the real review.
 - Reviewer package: docs/p1-review-brief.md. PostgreSQL smoke test and upstream KOReader source check results are in PROGRESS.md (2026-11-07 entries).
 
+## Update 2026-11-08 (later): Step A closed
+
+- P1 and P2 are registered `passing` by the verifier on unit evidence after two independent read-only reviews; device items stay in I1. The owner confirmed: plan Task 7 amended to event-driven progress, the five P2 defaults and the reset behavior stand, page mode only. Work is uncommitted until the owner asks.
+- Fixed since the earlier review: session-open retry, lease release on CloseWidget, upload kept across resume, 404 upload_not_found, one-time pause message, stale deferred page, idempotent server upload create (new SQL, not run on PostgreSQL). Last gate: 34 Python, 35 contract, 159 server tests, Lua 98.46%.
+- `.gitignore` covers `kindle_sync.conf`. Gitleaks 8.30.1 (full history) found nothing; the plugin zip has no URL or credential.
+
 ## Next steps
 
-1. Owner: assign an independent reviewer for P1 and P2 using docs/p1-review-brief.md and docs/p2-design.md; fix findings; then register the verifier and run a fresh full gate.
-2. Owner: confirm or change the five P2 defaults (blocking requests, settings file, TLS reliance, no queue cap, event-driven progress).
-3. Owner-run I1 items listed in docs/plugin-install.md (TLS verification first).
-4. Open housekeeping: optional tests/smoke scripts, Docker image build and digest pin (needs download approval), reviewing the reset protocol simplification.
-5. Unit tests only; no downloads without specific approval; agreed P: paths; private data out of Git; documentation in English.
+1. F1 is registered passing (`public/`, `npm run test:panel`, 53 tests). Next: F2 (book detail `#/books/<id>`, sessions/cycles, notes/context/archive, grouping, goals, connection), then I1 (docs/testing.md), then I2 (release prep, no publish). The owner shared a reference video of a similar Kindle stats UI; ask which of its ideas to adopt before F2 layouts.
+2. Owner-run I1 items listed in docs/plugin-install.md (TLS verification and CloseDocument/CloseWidget order first).
+3. Open housekeeping: Docker image build and digest pin (needs download approval), reset protocol simplification after device checks.
+4. Unit tests only; no downloads without specific approval; agreed P: paths; private data out of Git; documentation in English.

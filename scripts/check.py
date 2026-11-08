@@ -9,6 +9,7 @@ import sys
 
 
 LUA_VERIFIER = Path("tests") / "plugin" / "verify.py"
+PLUGIN_GATE = "python -B tests/plugin/verify.py"
 
 
 def validate_features(items):
@@ -46,7 +47,8 @@ def verify(root):
     harness = next((item for item in items if item["id"] == "H01"), None)
     if harness is None:
         raise ValueError("Register the H01 harness gate before verification")
-    unit_gates = {"C0": "test:contracts", "B1": "test:server", "B2": "test:server", "B3": "test:server"}
+    unit_gates = {"C0": "test:contracts", "B1": "test:server", "B2": "test:server", "B3": "test:server",
+                  "F1": "test:panel", "F2": "test:panel"}
     enabled = []
     for identity, script in unit_gates.items():
         item = next((entry for entry in items if entry["id"] == identity), None)
@@ -54,6 +56,18 @@ def verify(root):
             if item["verification"] != f"npm run {script}":
                 raise ValueError(f"{identity} verification must use its implemented unit gate")
             enabled.append((item, script))
+    # P1 and P2 share the plugin's Lua gate. Registering one (non-null verification)
+    # requires that exact command and the Lua verifier file; promotion still happens
+    # only below, after every command succeeded.
+    plugin_enabled = []
+    for identity in ("P1", "P2"):
+        item = next((entry for entry in items if entry["id"] == identity), None)
+        if item is not None and item["verification"] is not None:
+            if item["verification"] != PLUGIN_GATE:
+                raise ValueError(f"{identity} verification must use the plugin Lua gate")
+            if not (root / LUA_VERIFIER).is_file():
+                raise ValueError(f"{identity} needs tests/plugin/verify.py")
+            plugin_enabled.append(item)
     handoff = root / "docs" / "session-handoff.md"
     if len(handoff.read_text(encoding="utf-8").splitlines()) > 70:
         raise ValueError("docs/session-handoff.md must contain at most 70 lines")
@@ -93,6 +107,13 @@ def verify(root):
         item["evidence"] = (
             datetime.now(timezone.utc).isoformat(timespec="seconds")
             + f"; npm run {script}: unit tests PASS, executable coverage >=80%"
+        )
+    for item in plugin_enabled:
+        item["state"] = "passing"
+        item["evidence"] = (
+            datetime.now(timezone.utc).isoformat(timespec="seconds")
+            + "; tests/plugin/verify.py: synthetic Lua unit tests and differential oracles PASS,"
+            " per-module line coverage >=80%; KOReader device, TLS and real server behavior unverified"
         )
     registry.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("ALL CHECKS PASSED (unit tests, coverage >=80%, registry, handoff <=70 lines, diff)")

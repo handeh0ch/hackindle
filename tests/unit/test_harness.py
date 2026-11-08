@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scripts.check import main, validate_features, verify
+from scripts.check import PLUGIN_GATE, main, validate_features, verify
 
 
 def feature(identity="H01", state="active"):
@@ -92,6 +92,70 @@ class GateTests(unittest.TestCase):
         self.assertEqual(commands[3], ["git", "diff", "--check"])
         saved = json.loads(self.registry.read_text(encoding="utf-8"))
         self.assertEqual(saved[1], plugin)
+
+    def register_plugin_features(self, **overrides):
+        (self.root / "tests" / "plugin").mkdir(parents=True, exist_ok=True)
+        (self.root / "tests" / "plugin" / "verify.py").write_text("", encoding="utf-8")
+        items = [self.items[0]]
+        for identity in ("P1", "P2"):
+            plugin = feature(identity, "not_started")
+            plugin["verification"] = overrides.get(identity, PLUGIN_GATE)
+            items.append(plugin)
+        self.registry.write_text(json.dumps(items), encoding="utf-8")
+        return items
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_registered_plugin_features_pass_only_after_the_lua_gate(self, run, output):
+        self.register_plugin_features()
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(commands[2][1:], ["-B", str(Path("tests") / "plugin" / "verify.py")])
+        self.assertEqual(commands[3], ["git", "diff", "--check"])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        for plugin in saved[1:]:
+            self.assertEqual(plugin["state"], "passing")
+            self.assertEqual(plugin["verification"], PLUGIN_GATE)
+            self.assertIn("tests/plugin/verify.py", plugin["evidence"])
+            self.assertIn("80%", plugin["evidence"])
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_unregistered_plugin_features_stay_unpromoted(self, run, output):
+        self.register_plugin_features(P2=None)
+        verify(self.root)
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        self.assertEqual(saved[1]["state"], "passing")
+        self.assertEqual(saved[2]["state"], "not_started")
+        self.assertIsNone(saved[2]["verification"])
+
+    @patch("scripts.check.subprocess.run")
+    def test_plugin_registration_must_use_the_lua_gate_command(self, run):
+        self.register_plugin_features(P1="make check")
+        original = self.registry.read_bytes()
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()
+        self.assertEqual(self.registry.read_bytes(), original)
+
+    @patch("scripts.check.subprocess.run")
+    def test_plugin_registration_without_lua_verifier_fails_before_any_tool(self, run):
+        self.register_plugin_features()
+        (self.root / "tests" / "plugin" / "verify.py").unlink()
+        original = self.registry.read_bytes()
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()
+        self.assertEqual(self.registry.read_bytes(), original)
+
+    @patch("scripts.check.subprocess.run")
+    def test_lua_failure_never_promotes_registered_plugin_features(self, run):
+        self.register_plugin_features()
+        original = self.registry.read_bytes()
+        run.side_effect = [None, None, subprocess.CalledProcessError(1, "lua gate")]
+        with self.assertRaises(subprocess.CalledProcessError):
+            verify(self.root)
+        self.assertEqual(self.registry.read_bytes(), original)
 
     @patch("scripts.check.subprocess.run")
     def test_plugin_without_its_lua_verifier_fails_before_any_tool(self, run):
@@ -261,6 +325,32 @@ class GateTests(unittest.TestCase):
         self.assertEqual(saved[-1]["state"], "passing")
         self.assertIn("npm run test:server", saved[-1]["evidence"])
         self.assertEqual(saved[1], self.items[1])
+
+    @patch("builtins.print")
+    @patch("scripts.check.subprocess.run")
+    def test_registered_panel_unit_gate_records_panel_features_once(self, run, output):
+        panel = [feature("F1"), feature("F2", "not_started")]
+        for item in panel:
+            item["verification"] = "npm run test:panel"
+        self.items[0]["state"] = "passing"
+        self.items[0]["evidence"] = "previous run"
+        self.registry.write_text(json.dumps(self.items + panel), encoding="utf-8")
+        verify(self.root)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual([command[1:] for command in commands if command[1:2] == ["run"]], [["run", "test:panel"]])
+        saved = json.loads(self.registry.read_text(encoding="utf-8"))
+        for item in saved[-2:]:
+            self.assertEqual(item["state"], "passing")
+            self.assertIn("npm run test:panel", item["evidence"])
+
+    @patch("scripts.check.subprocess.run")
+    def test_panel_feature_must_use_the_panel_gate(self, run):
+        panel = feature("F1")
+        panel["verification"] = "npm run test:server"
+        self.registry.write_text(json.dumps(self.items + [panel]), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            verify(self.root)
+        run.assert_not_called()
 
     @patch("scripts.check.subprocess.run")
     def test_server_failure_after_contract_success_keeps_all_evidence_unchanged(self, run):
