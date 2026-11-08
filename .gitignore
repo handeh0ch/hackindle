@@ -37,3 +37,9 @@ kindle_sync.conf
 *.azw
 *.azw3
 *.pdf
+
+# Personal agent, MCP and provider-link files: local to each developer, never published
+.mcp.json
+.claude/
+neon.ts
+.neon

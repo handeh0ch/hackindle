@@ -24,3 +24,7 @@ node_modules
 *.pem
 *.key
 kindle_sync.conf
+.mcp.json
+.claude
+neon.ts
+.neon

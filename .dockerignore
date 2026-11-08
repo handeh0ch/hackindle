@@ -54,3 +54,7 @@ test-results
 **/*.azw
 **/*.azw3
 **/*.pdf
+.mcp.json
+.claude
+neon.ts
+.neon
