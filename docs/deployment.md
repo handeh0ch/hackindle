@@ -104,6 +104,6 @@ These were run on 2026-11-09 against the working repository; re-run them for any
 
 - No deployment of any kind was made; HTTPS from the Kindle, cold start, retry behavior and quotas are untested.
 - The Vercel adapter entry and `vercel.json` do not exist; every **unverified** point in section 4 stays open until a deployment is authorized.
-- The panel and the server have not been run together on a real PostgreSQL in this phase; see [testing.md](testing.md) section 3.
+- The panel and the server ran together once on a throwaway PostgreSQL 18.6 container with synthetic data (2026-11-09, see [testing.md](testing.md) section 3); that does not cover Neon, a pooled connection, TLS or a reverse proxy.
 - The container image has never been built; the base image digest is not pinned (needs your download approval).
 - CI (secret scan on every push) is not configured; it needs a scanner/action pinned from an official source and a remote repository, which are separate owner decisions.

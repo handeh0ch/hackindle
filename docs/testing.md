@@ -112,9 +112,16 @@ Run in this order; each step builds on the previous one. "U" means unit evidence
 | 37 | Export a backup and import it into a second empty database | identities and totals preserved; no credentials in the file; a fresh device token must be created | U logic, O (real PostgreSQL) |
 | 38 | Create the first device token before any device is linked, then rotate it, then unbind | first token works; rotation invalidates the old one; unbind lets a replacement bind | U, O |
 
-## 3. Panel against a real server (not yet done)
+## 3. Panel against a real server
 
-The panel has only been viewed against throwaway stubs with synthetic data. Before trusting it: run migrations and owner bootstrap on a disposable PostgreSQL (needs approval), start `npm start`, sign in, and compare each page with the API responses. Record any mismatch between a real response and the contract as a defect in the report.
+**Done once, 2026-11-09 (owner approved one throwaway run, synthetic data only).** The real server (`index.js` code path via `prepareApp`) ran on a throwaway PostgreSQL 18.6 container (tmpfs, localhost only, removed afterwards; script kept in the ignored `.local/smoke/`). Migrations applied, a synthetic owner was bootstrapped, the six fixture envelopes from `contracts/examples/synthetic.json` were sent through `POST /api/v1/sync`, and 1,857 extra reading events for 2026 were inserted directly into the events table (so those were not validated as envelopes, and they carry synthetic `credited_characters` with empty ranges). Observed in the browser against that server:
+
+- Sign-in with the real cookie and CSRF flow; every page loaded with HTTP 200 and no console errors other than the expected 401 of the session check before sign-in.
+- Overview (cards, chart, calendar, unavailable and zero days), Library (three books, formats, "No progress recorded" because the fixture has no progress section), Book page (periods, grouping, merge), Notes list and detail (content streamed by cursor, backfill label, document start/end, blank page), Connection (device info).
+- Mutations: rotating the device token showed the new token once and moved focus to it; saving the yearly goal worked; a typed `reset` raised the generation to 1, emptied the data and the Overview then showed its empty state.
+- Owner read endpoints answered in 11 to 46 ms with about 1,900 events.
+
+**Not covered by that run:** the first-token-before-any-device case, unbind, match confirm/reject, split and merge execution, uploads and covers, real books and notes, large volumes, Neon or any pooled connection, TLS and a reverse proxy, touch devices, and the owner's real data. Minor observation: two books with the same title look identical in the Notes book filter. No panel defect was found in this run; the zero volume seen on the first attempt came from the seed data and was corrected.
 
 ## 4. Rules for the report
 
