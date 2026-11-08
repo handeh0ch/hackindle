@@ -7,6 +7,12 @@ import { createB2Router } from './b2-routes.js';
 import { SyncError } from './sync.js';
 import { UNICODE_VERSION } from './unicode-lower.js';
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
+// Also configured for the CDN-served files in vercel.json (a unit test keeps the two identical).
+export const SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+};
 export async function buildProfile(db, config) {
   const { rows: [row] } = await db.query('SELECT instance_id, reset_generation FROM instance WHERE singleton = TRUE');
   return { schema_version: 1, instance_id: row.instance_id, reset_generation: Number(row.reset_generation), reporting_timezone: config.reportingTimezone, characters_per_page: config.pageCharacters, unicode_version: UNICODE_VERSION, limits: { direct_bytes: 1048576, envelope_bytes: 16777216, chunk_bytes: 1048576, upload_ttl_seconds: 604800, open_uploads: 2 } };
@@ -30,9 +36,7 @@ export function createApp({ db, config, log = defaultLog }) {
   app.post('/api/v1/owner/device/unbind', handlers.unbind);
   // The owner panel: plain static files under public/ (no server setting or secret lives there).
   app.use(express.static(publicDir, { index: 'index.html', dotfiles: 'ignore', setHeaders(res) {
-    res.set('Content-Security-Policy', "default-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
-    res.set('X-Content-Type-Options', 'nosniff');
-    res.set('Referrer-Policy', 'no-referrer');
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.set(name, value);
   } }));
   app.use((req, res) => res.status(404).json({ schema_version: 1, error: { code: 'not_found', message: 'not_found' } }));
   app.use((err, req, res, next) => {

@@ -78,9 +78,27 @@ Facts below come from the official pages named in brackets, read on 2026-11-09 t
 - `server/unicode-lower.js` reads `server/unicode-casing.json` at startup with `readFileSync`. Vercel's file tracing must include that file: **unverified**; check the first deployment's logs.
 - Cold starts add Neon's resume time (autosuspend after 5 minutes) to the first request after a pause. The plugin retries, but expect a slow first sync; measure it (testing.md 2.7).
 
-### The adapter that does not exist yet
+### The adapter (written, not deployed)
 
-`server/provider.js` default-exports a `(req, res)` handler that initializes lazily and without opening a listener. A Vercel entry file (for example `api/index.js` with `export { default } from '../server/provider.js'`) plus a `vercel.json` (rewriting every path to it, and headers for `public/**`) has **not been written, deployed or tested**; the exact shapes must be confirmed against current Vercel documentation when the owner authorizes a deployment. Verification steps once authorized: deploy a preview with independent credentials, open `/`, sign in, create the first token, run one plugin sync over HTTPS from the Kindle's network, watch the function logs for the file-tracing and `SET TRANSACTION` points above, then check the quotas in the dashboard. The Free tiers do not replace an independent backup (section 3).
+Added 2026-11-09, covered by `tests/server/vercel.test.js`: `app.js` at the repository root is the Vercel entry. It imports Express, exports an app that opens no listener, hands every request to `server/provider.js` (which builds the real application lazily on first use) and answers an initialization failure with a generic `internal_error` while logging only the setting names. `vercel.json` repeats the security headers of the Express static mount for the CDN-served `public/**` files (a test keeps the two identical). `.vercelignore` keeps env files, local data, tests, docs and the plugin out of the upload. **Nothing has run on Vercel**: whether `/` is served from `public/index.html`, whether the CDN applies the headers, whether `unicode-casing.json` is traced into the bundle, which Node version is used and whether `SET TRANSACTION` works on the pooled connection all stay unverified until the first deployment.
+
+### Steps for the owner (nothing below was run by an agent)
+
+Agents must not create accounts or handle your credentials; each step is yours, and a deployment needs your explicit instruction.
+
+1. **Neon.** Create a Free project (choose a region near your Vercel region). In the connection panel copy two strings: the **direct** one and the **pooled** one (host contains `-pooler`). Keep both private.
+2. **Migrate and create the owner from your own machine**, against the direct string, in a private `.env` outside Git (`DATABASE_URL` and `DIRECT_DATABASE_URL` both set to the direct string for this step, plus `APP_ORIGIN`, `REPORT_TIMEZONE`, `PAGE_CHARACTERS` exactly as you will set them on Vercel, because the policy is frozen at first start):
+
+   ```powershell
+   node --env-file=.env scripts/migrate.js
+   node --env-file=.env scripts/setup-owner.js
+   ```
+
+3. **Vercel project.** Create a project (Hobby) and note its production URL: `APP_ORIGIN` must be exactly that `https://...` origin without a trailing slash. Deploy either from a connected Git repository (needs a remote, which is your decision) or with the Vercel CLI from this directory, which uploads the files except those in `.vercelignore` (installing the CLI is a download that needs your approval on this machine).
+4. **Environment variables in Vercel** (Production, and Preview if you use previews): `DATABASE_URL` = the **pooled** string, `APP_ORIGIN`, `REPORT_TIMEZONE`, `PAGE_CHARACTERS`, `TRUST_PROXY` (start with `1`; how many proxy hops Vercel adds is unverified, so check that two failed logins from different networks do not lock each other out). Do not add the direct string. Choose Node.js 24 in the project settings if offered; the repository declares `>=22.14.0`.
+5. **First check.** Open the URL: the panel must load and show the sign-in form. If you get `internal_error`, read the function log: it names the missing or invalid setting. Sign in, open **Connection**, create the device token and keep it private.
+6. **Kindle.** Follow [plugin-install.md](plugin-install.md): `url` is the same `https://` origin, `token` the one you just created. Then start the checklist in [testing.md](testing.md), TLS items first.
+7. **Afterwards.** Watch the Neon and Vercel dashboards for quota use, and take a backup (section 3) before trusting the data. If `SET TRANSACTION` fails on the pooled connection (owner reads return errors), tell me: the fix is to use the direct string as the runtime `DATABASE_URL` or to change that statement.
 
 ## 5. Release checks (run before any publication)
 
@@ -103,7 +121,7 @@ These were run on 2026-11-09 against the working repository; re-run them for any
 ## 6. Open items and what is unverified
 
 - No deployment of any kind was made; HTTPS from the Kindle, cold start, retry behavior and quotas are untested.
-- The Vercel adapter entry and `vercel.json` do not exist; every **unverified** point in section 4 stays open until a deployment is authorized.
+- The Vercel adapter (`app.js`), `vercel.json` and `.vercelignore` exist and are unit-tested but have never run on Vercel; every **unverified** point in section 4 stays open until the first deployment.
 - The panel and the server ran together once on a throwaway PostgreSQL 18.6 container with synthetic data (2026-11-09, see [testing.md](testing.md) section 3); that does not cover Neon, a pooled connection, TLS or a reverse proxy.
 - The container image has never been built; the base image digest is not pinned (needs your download approval).
 - CI (secret scan on every push) is not configured; it needs a scanner/action pinned from an official source and a remote repository, which are separate owner decisions.
