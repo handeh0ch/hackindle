@@ -1,6 +1,6 @@
 # Synchronizing Kindle with a self-hosted server
 
-Checked against primary sources on November 1, 2026. This is initial research, not the current product specification. At the time of the research, the device and supported formats had not yet been confirmed. Current interview decisions are in [requirements.md](requirements.md), and the updated contract is in [kindle-sync-data-spec.md](kindle-sync-data-spec.md). The code is not implemented, and device compatibility still needs verification.
+Checked against primary sources on November 1, 2026. This is initial research, not the current product specification. At the time of the research, the device and supported formats had not yet been confirmed. Current interview decisions are in [requirements.md](requirements.md), and the updated contract is in [hackindle-data-spec.md](hackindle-data-spec.md). The code is not implemented, and device compatibility still needs verification.
 
 ## Conclusion
 

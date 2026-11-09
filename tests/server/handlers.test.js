@@ -15,8 +15,8 @@ test('HTTP auth handlers enforce origin, CSRF and device/owner scopes', async ()
   let res = response(); await handlers.login(request({ origin: 'https://evil.invalid', 'content-type': 'application/json' }, { username: 'synthetic', password: 'pass' }), res); assert.equal(res.statusCode, 403);
   res = response(); await handlers.login(request({ origin: 'https://example.invalid', 'content-type': 'application/json' }, { username: 'synthetic', password: 'pass' }), res); assert.equal(typeof res.body.csrf_token, 'string'); assert.equal(res.savedCookie.options.httpOnly, true);
   res = response(); await handlers.owner(request({ authorization: 'Bearer device' }), res, () => {}); assert.equal(res.statusCode, 403);
-  res = response(); await handlers.owner(request({ cookie: 'kindle_sync_session=session', origin: 'https://example.invalid' }), res, () => {}); assert.equal(res.statusCode, 403);
-  let next = false; res = response(); await handlers.owner(request({ cookie: 'kindle_sync_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'csrf', 'content-type': 'application/json' }), res, () => { next = true; }); assert.equal(next, true);
+  res = response(); await handlers.owner(request({ cookie: 'hackindle_session=session', origin: 'https://example.invalid' }), res, () => {}); assert.equal(res.statusCode, 403);
+  let next = false; res = response(); await handlers.owner(request({ cookie: 'hackindle_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'csrf', 'content-type': 'application/json' }), res, () => { next = true; }); assert.equal(next, true);
   res = response(); await handlers.profile(request({ authorization: 'Bearer device' }), res); assert.equal(res.body.schema_version, 1);
 });
 test('session refresh, logout, token rotation and request failures use safe responses', async () => {
@@ -26,9 +26,9 @@ test('session refresh, logout, token rotation and request failures use safe resp
   const req = (headers = {}, body = {}) => ({ headers, body, ip: '127.0.0.1', method: 'POST', get(name) { return this.headers[name.toLowerCase()]; }, is(type) { return this.headers['content-type'] === type; } });
   const res = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; }, set() { return this; }, cookie() { return this; }, clearCookie() { this.cleared = true; return this; }, end() { return this; } });
   let r = res(); await h.session(req(), r); assert.equal(r.statusCode, 401);
-  r = res(); await h.session(req({ cookie: 'kindle_sync_session=session' }), r); assert.equal(r.body.owner.username, 'synthetic'); assert.ok(r.body.csrf_token);
-  r = res(); await h.logout(req({ cookie: 'kindle_sync_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'wrong' }), r); assert.equal(r.statusCode, 403); assert.equal(revoked, false);
-  r = res(); await h.logout(req({ cookie: 'kindle_sync_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'csrf' }), r); assert.equal(r.statusCode, 204); assert.equal(revoked, true); assert.equal(r.cleared, true);
+  r = res(); await h.session(req({ cookie: 'hackindle_session=session' }), r); assert.equal(r.body.owner.username, 'synthetic'); assert.ok(r.body.csrf_token);
+  r = res(); await h.logout(req({ cookie: 'hackindle_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'wrong' }), r); assert.equal(r.statusCode, 403); assert.equal(revoked, false);
+  r = res(); await h.logout(req({ cookie: 'hackindle_session=session', origin: 'https://example.invalid', 'x-csrf-token': 'csrf' }), r); assert.equal(r.statusCode, 204); assert.equal(revoked, true); assert.equal(r.cleared, true);
   r = res(); await h.rotate(req(), r); assert.equal(r.body.device_token, 'rotated');
   r = res(); await h.login(req({ origin: 'https://example.invalid' }), r); assert.equal(r.statusCode, 415);
   r = res(); await h.login(req({ origin: 'https://example.invalid', 'content-type': 'application/json' }, {}), r); assert.equal(r.statusCode, 400);

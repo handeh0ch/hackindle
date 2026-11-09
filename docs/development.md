@@ -12,7 +12,7 @@ Write and maintain all repository instructions, documentation and plans in Engli
 - Use the smallest implementation that meets the requested behavior. Keep changes surgical and match existing style; avoid unrelated cleanup or speculative abstractions.
 - Define verifiable success criteria before coding, run the relevant checks and report limitations honestly.
 - Application implementation and local verification were authorized through the updated plan approved on 2026-11-02. External deployment/publication still require a separate owner instruction.
-- The approved application team is three agents using `gpt-6.1-terra` with reasoning `high`: backend, KOReader plugin and web panel. Follow the ownership, worktree and coordination rules in the [application plan](superpowers/plans/2026-11-01-kindle-sync.md) when implementing the application.
+- The approved application team is three agents using `gpt-6.1-terra` with reasoning `high`: backend, KOReader plugin and web panel. Follow the ownership, worktree and coordination rules in the [application plan](superpowers/plans/2026-11-01-hackindle.md) when implementing the application.
 
 ## Owner machine and downloads
 
@@ -34,9 +34,9 @@ For library, framework, SDK, API, CLI or cloud-service setup and usage, fetch cu
 ## Required references
 
 - [Product requirements](requirements.md): product behavior and accepted scope.
-- [Data contract](kindle-sync-data-spec.md): identities, reading accounting, sync and API rules.
+- [Data contract](hackindle-data-spec.md): identities, reading accounting, sync and API rules.
 - [Configuration and publication policy](configuration.md): private settings/data, portability, staged review, redacted secret scans and intentional Git authorship metadata. Read before configuration changes, commits or publication; preserve every applicable rule.
 - [Harness guide](harness.md): unit-only testing, >=80% coverage, registry states, verifier-owned passing evidence and cold-start instructions.
-- [Application implementation plan](superpowers/plans/2026-11-01-kindle-sync.md): authorized application work and team coordination. Its older automated E2E/integration test steps are superseded by the owner's unit-only policy.
+- [Application implementation plan](superpowers/plans/2026-11-01-hackindle.md): authorized application work and team coordination. Its older automated E2E/integration test steps are superseded by the owner's unit-only policy.
 - [Harness implementation plan](superpowers/plans/2026-11-02-minimal-harness.md): the minimal harness design.
 - [Session handoff](session-handoff.md): required when transferring work between agents; at most 70 lines including headings and blank lines.

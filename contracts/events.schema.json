@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kindle-sync.local/contracts/events.schema.json",
+  "$id": "https://hackindle.local/contracts/events.schema.json",
   "$defs": {
     "uuid": {
       "type": "string",

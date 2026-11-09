@@ -3,7 +3,7 @@ local identity=require("identity")
 local M={}
 local has_logger,logger=pcall(require,"logger")
 local function warn(...)
-    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn,"KindleSync:",...) end
+    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn,"Hackindle:",...) end
 end
 
 local function valid_uuid(value)

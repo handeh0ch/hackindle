@@ -2,7 +2,7 @@
 -- never typed on the device and never written, so a crash cannot truncate it.
 -- The format is plain `key = "value"` lines; it is parsed, never executed.
 local M = {}
-M.FILE = "kindle_sync.conf"
+M.FILE = "hackindle.conf"
 local MAX_BYTES = 4096
 local KEYS = {url = true, token = true, zoneinfo_dir = true}
 local LOOPBACK = {["localhost"] = true, ["127.0.0.1"] = true, ["[::1]"] = true}

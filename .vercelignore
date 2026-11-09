@@ -23,7 +23,7 @@ node_modules
 *.dump
 *.pem
 *.key
-kindle_sync.conf
+hackindle.conf
 .mcp.json
 .claude
 neon.ts

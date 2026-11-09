@@ -99,7 +99,7 @@ test('login and refreshed session expose the same usable CSRF token', async () =
   const req = headers => ({ headers, body: { username: 'synthetic', password: 'synthetic-password' }, ip: '127.0.0.1', get(name) { return this.headers[name.toLowerCase()]; }, is(type) { return this.headers['content-type'] === type; } });
   const res = () => ({ set() { return this; }, cookie(name, value) { this.token = value; return this; }, json(value) { this.body = value; return this; }, status() { return this; } });
   const login = res(); await handlers.login(req({ origin: 'https://example.invalid', 'content-type': 'application/json' }), login);
-  const refreshed = res(); await handlers.session(req({ cookie: `kindle_sync_session=${login.token}` }), refreshed);
+  const refreshed = res(); await handlers.session(req({ cookie: `hackindle_session=${login.token}` }), refreshed);
   assert.equal(refreshed.body.csrf_token, login.body.csrf_token);
   assert.equal(await auth.checkCsrf(login.token, refreshed.body.csrf_token), true);
 });

@@ -1,4 +1,4 @@
-# Kindle Sync: data contract draft
+# Hackindle: data contract draft
 
 Status: revised after the design interview. This replaces the initial EPUB-only, native-page snapshot proposal. Product rules are in [requirements.md](requirements.md), deployment rules in [configuration.md](configuration.md). C0 specifies the wire contract in [API v1](api-v1.md) and executable [schemas](../contracts/) using available compatibility findings; the owner deferred further device observations until the assembled application is ready. Unverified adapter behavior remains explicit and does not certify a working plugin.
 

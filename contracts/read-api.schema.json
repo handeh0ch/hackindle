@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kindle-sync.local/contracts/read-api.schema.json",
+  "$id": "https://hackindle.local/contracts/read-api.schema.json",
   "$defs": {
     "books": {
       "type": "object",
@@ -80,7 +80,7 @@
                         "maximum": 1
                       },
                       "position": {
-                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                        "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/locator"
                       },
                       "observed_at": {
                         "type": "string",
@@ -238,7 +238,7 @@
                         "maximum": 1
                       },
                       "position": {
-                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                        "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/locator"
                       },
                       "observed_at": {
                         "type": "string",
@@ -322,7 +322,7 @@
                 "maximum": 1
               },
               "position": {
-                "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/locator"
               },
               "observed_at": {
                 "type": "string",

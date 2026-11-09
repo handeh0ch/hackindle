@@ -15,7 +15,7 @@ data/
 backups/
 exports/
 *.local
-kindle_sync.conf
+hackindle.conf
 *.sqlite
 *.sqlite3
 *.sqlite-wal
@@ -41,5 +41,6 @@ kindle_sync.conf
 # Personal agent, MCP and provider-link files: local to each developer, never published
 .mcp.json
 .claude/
+.superpowers/
 neon.ts
 .neon

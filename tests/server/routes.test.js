@@ -37,7 +37,7 @@ test('B2 routes enforce input validation and expose only owner-authorized detail
   assert.equal((await dispatch(app, 'POST', '/api/v1/uploads/bad/commit', { authorization: 'Bearer token' })).statusCode, 400);
   assert.equal((await dispatch(app, 'PUT', `/api/v1/uploads/${annotationId}/chunks/not-number`, { authorization: 'Bearer token', 'content-type': 'application/octet-stream', 'content-length': '1' }, 'x')).statusCode, 400);
   assert.equal((await dispatch(app, 'PUT', `/api/v1/sources/${source}/cover`, { authorization: 'Bearer token', 'content-type': 'image/jpeg', 'content-length': '1' }, 'x')).statusCode, 400);
-  const owner = { cookie: 'kindle_sync_session=session' };
+  const owner = { cookie: 'hackindle_session=session' };
   assert.equal((await dispatch(app, 'GET', `/api/v1/owner/annotations/${annotationId}`, owner)).statusCode, 200);
   assert.equal((await dispatch(app, 'GET', `/api/v1/owner/annotations/${annotationId}/content?field=quote`, owner)).statusCode, 200);
   const cover = await dispatch(app, 'GET', `/api/v1/owner/sources/${source}/cover`, owner); assert.equal(cover.statusCode, 200); assert.equal(cover.getHeader('X-Content-Type-Options'), 'nosniff');
@@ -55,7 +55,7 @@ test('goal route accepts an authenticated owner and requires CSRF for changes', 
     return { rows: [{ target, completed_unique_books: '2' }] };
   }, withTransaction: async work => { locked = false; return work(db); } };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const owner = { cookie: 'kindle_sync_session=session' };
+  const owner = { cookie: 'hackindle_session=session' };
   const goal = await dispatch(app, 'GET', '/api/v1/owner/goals/2024', owner);
   assert.equal(goal.statusCode, 200); assert.match(goal.raw, /"year":2024,"target":0,"completed_unique_books":2/);
   assert.equal((await dispatch(app, 'GET', '/api/v1/owner/goals/0000', owner)).statusCode, 400);
@@ -71,7 +71,7 @@ test('vocabulary reports unavailable before the first successful snapshot', asyn
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
     withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const result = await dispatch(app, 'GET', '/api/v1/owner/vocabulary', { cookie: 'kindle_sync_session=session' });
+  const result = await dispatch(app, 'GET', '/api/v1/owner/vocabulary', { cookie: 'hackindle_session=session' });
   assert.equal(result.statusCode, 200); assert.deepEqual(JSON.parse(result.raw), { status: 'unavailable', count: null, items: [], next_cursor: null });
 });
 
@@ -86,7 +86,7 @@ test('book detail returns tracked source data for an authenticated owner', async
       throw new Error('Unexpected query');
     } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const result = await dispatch(app, 'GET', `/api/v1/owner/books/${bookId}`, { cookie: 'kindle_sync_session=session' });
+  const result = await dispatch(app, 'GET', `/api/v1/owner/books/${bookId}`, { cookie: 'hackindle_session=session' });
   assert.equal(result.statusCode, 200);
   const book = JSON.parse(result.raw), { validate } = await import('../../contracts/validate.js');
   assert.equal(validate('book', book), true); assert.equal(book.sources[0].source_id, sourceId); assert.equal(book.first_tracked_at, null);
@@ -103,7 +103,7 @@ test('owner config exposes the same nonsecret profile only to owner sessions', a
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
   assert.equal((await dispatch(app, 'GET', '/api/v1/owner/config')).statusCode, 401);
   assert.equal((await dispatch(app, 'GET', '/api/v1/owner/config', { authorization: 'Bearer token' })).statusCode, 403);
-  const result = await dispatch(app, 'GET', '/api/v1/owner/config', { cookie: 'kindle_sync_session=session' });
+  const result = await dispatch(app, 'GET', '/api/v1/owner/config', { cookie: 'hackindle_session=session' });
   assert.equal(result.statusCode, 200); assert.equal(result.getHeader('Cache-Control'), 'private, no-store');
   const { validate } = await import('../../contracts/validate.js'); assert.equal(validate('config', JSON.parse(result.raw)), true);
 });
@@ -120,7 +120,7 @@ test('book library returns a bounded page through the owner route', async () => 
       throw new Error('Unexpected query');
     } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const result = await dispatch(app, 'GET', '/api/v1/owner/books?limit=1', { cookie: 'kindle_sync_session=session' });
+  const result = await dispatch(app, 'GET', '/api/v1/owner/books?limit=1', { cookie: 'hackindle_session=session' });
   assert.equal(result.statusCode, 200); const { validate } = await import('../../contracts/validate.js'); assert.equal(validate('books', JSON.parse(result.raw)), true);
 });
 
@@ -128,7 +128,7 @@ test('grouping mutations validate inputs after owner CSRF protection', async () 
   const csrf = csrfFor('session');
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] } };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const headers = { cookie: 'kindle_sync_session=session', origin: 'https://example.invalid', 'x-csrf-token': csrf, 'content-type': 'application/json', 'content-length': '2' };
+  const headers = { cookie: 'hackindle_session=session', origin: 'https://example.invalid', 'x-csrf-token': csrf, 'content-type': 'application/json', 'content-length': '2' };
   assert.equal((await dispatch(app, 'POST', '/api/v1/owner/books/merge', headers, '{}')).statusCode, 400);
   assert.equal((await dispatch(app, 'POST', '/api/v1/owner/books/bad/split', headers, '{}')).statusCode, 400);
 });
@@ -138,7 +138,7 @@ test('match candidates are owner-only and reject malformed decisions', async () 
   const db = { query: async sql => sql.startsWith('SELECT username, csrf_hash') ? { rows: [{ username: 'synthetic', csrf_hash: createHash('sha256').update(csrf).digest('hex'), expires_at: new Date('2099-01-01T00:00:00Z') }] } : { rows: [] },
     withTransaction: async work => work({ query: async sql => (sql.startsWith('SELECT instance_id') || sql.startsWith('SET TRANSACTION')) ? { rows: [{ reset_generation: 0 }] } : { rows: [] } }) };
   const app = createApp({ db, config: loadConfig({ DATABASE_URL: 'postgresql://example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'UTC' }) });
-  const owner = { cookie: 'kindle_sync_session=session' }, headers = { ...owner, origin: 'https://example.invalid', 'x-csrf-token': csrf, 'content-type': 'application/json', 'content-length': '2' };
+  const owner = { cookie: 'hackindle_session=session' }, headers = { ...owner, origin: 'https://example.invalid', 'x-csrf-token': csrf, 'content-type': 'application/json', 'content-length': '2' };
   assert.equal((await dispatch(app, 'GET', '/api/v1/owner/matches')).statusCode, 401);
   const result = await dispatch(app, 'GET', '/api/v1/owner/matches', owner); assert.equal(result.statusCode, 200); assert.deepEqual(JSON.parse(result.raw), { items: [], next_cursor: null });
   assert.equal((await dispatch(app, 'POST', '/api/v1/owner/matches', headers, '{}')).statusCode, 400);

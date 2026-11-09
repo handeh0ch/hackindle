@@ -6,7 +6,7 @@ function M.open(storage, sqlite)
     sqlite = sqlite or require("lua-ljsqlite3/init")
     local directory = storage:getSettingsDir()
     assert(type(directory) == "string" and directory ~= "", "private state directory unavailable")
-    local conn = assert(sqlite.open(directory .. "/kindle-sync.sqlite3"), "private SQLite unavailable")
+    local conn = assert(sqlite.open(directory .. "/hackindle.sqlite3"), "private SQLite unavailable")
     local db = {}
     local function execute(sql, args, read)
         local stmt = conn:prepare(sql)

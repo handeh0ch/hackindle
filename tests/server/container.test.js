@@ -14,7 +14,7 @@ test('the image carries everything the running app serves and needs', () => {
 test('the image copies explicit paths only and never private or local material', () => {
   const sourcesOf = line => line.split(/\s+/).slice(0, -1);
   assert.ok(!copies.some(line => sourcesOf(line).some(source => source === '.' || source === './' || source === '*')), 'no COPY of the whole build context');
-  for (const line of copies) assert.ok(!/\.env|\.local|private|backups|exports|\.git\b|kindle_sync\.conf|\.sqlite/.test(line), line);
+  for (const line of copies) assert.ok(!/\.env|\.local|private|backups|exports|\.git\b|hackindle\.conf|\.sqlite/.test(line), line);
   assert.match(read('Dockerfile'), /^USER node$/m);
   assert.match(read('Dockerfile'), /npm ci --omit=dev --ignore-scripts/);
 });

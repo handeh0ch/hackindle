@@ -1,12 +1,12 @@
 -- KOReader WidgetContainer event entrypoint. Native evidence and authenticated
 -- provisioning remain injected; missing adapters never generate measurements.
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
-local Entry = WidgetContainer:extend{ name = "kindle_sync", is_doc_only = true }
+local Entry = WidgetContainer:extend{ name = "hackindle", is_doc_only = true }
 -- KOReader's logger is optional so that errors never become a second failure.
 -- Only error text is logged: assertions here carry no credentials or book content.
 local has_logger,logger = pcall(require, "logger")
 local function warn(...)
-    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn, "KindleSync:", ...) end
+    if has_logger and type(logger)=="table" and type(logger.warn)=="function" then pcall(logger.warn, "Hackindle:", ...) end
 end
 
 function Entry:init()
@@ -49,12 +49,12 @@ function Entry:applyAck(packet, bytes)
 end
 
 function Entry:addToMainMenu(menu_items)
-    menu_items.kindle_sync = {
-        text = "Kindle Sync", sorting_hint = "tools",
+    menu_items.hackindle = {
+        text = "Hackindle", sorting_hint = "tools",
         sub_item_table = {
             {text = "Status", keep_menu_open = true, callback = function()
                 self:guarded(function()
-                    self:notify(self.sync and self.sync:summary() or "Not configured: place kindle_sync.conf in the KOReader settings folder.")
+                    self:notify(self.sync and self.sync:summary() or "Not configured: place hackindle.conf in the KOReader settings folder.")
                 end)
             end},
             {text = "Sync now", enabled_func = function() return self.sync ~= nil end, callback = function()
@@ -75,7 +75,7 @@ end
 -- KOReader runs menu callbacks without pcall; an error here would end the reader.
 function Entry:guarded(work)
     local ok, err = pcall(work)
-    if not ok then warn("menu action failed:", err); self:notify("Kindle Sync action failed. See the log.") end
+    if not ok then warn("menu action failed:", err); self:notify("Hackindle action failed. See the log.") end
     return ok
 end
 

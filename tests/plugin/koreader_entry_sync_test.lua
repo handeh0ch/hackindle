@@ -76,8 +76,8 @@ function actions:notify(text) messages[#messages + 1] = text end
 actions.adapter, actions.sync = adapter, nil
 local items = {}
 actions:addToMainMenu(items)
-local menu = items.kindle_sync
-assert(menu.text == "Kindle Sync" and #menu.sub_item_table == 4)
+local menu = items.hackindle
+assert(menu.text == "Hackindle" and #menu.sub_item_table == 4)
 local status, sync_now, finish, cycle = unpack(menu.sub_item_table)
 status.callback(); assert(messages[1]:find("Not configured", 1, true))
 assert(sync_now.enabled_func() == false); sync_now.callback()
@@ -142,8 +142,8 @@ local notices = {}
 function fragile:notify(text) notices[#notices + 1] = text end
 local fragile_menu = {}
 fragile:addToMainMenu(fragile_menu)
-fragile_menu.kindle_sync.sub_item_table[1].callback()
-fragile_menu.kindle_sync.sub_item_table[2].callback()
+fragile_menu.hackindle.sub_item_table[1].callback()
+fragile_menu.hackindle.sub_item_table[2].callback()
 assert(#notices == 2 and notices[1]:find("failed", 1, true))
 local widget_closed = new()
 widget_closed.sync = fake_sync; fake_sync.calls = {}

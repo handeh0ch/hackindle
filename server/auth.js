@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 const scrypt = promisify(scryptCallback);
 const digest = value => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
-export const csrfFor = token => createHmac('sha256', token).update('kindle-sync-csrf-v1').digest('base64url');
+export const csrfFor = token => createHmac('sha256', token).update('hackindle-csrf-v1').digest('base64url');
 // Stored as scrypt$N$r$p$salt$hash so the cost can be raised later; hashes made
 // before versioning (salt:hash, Node's default cost) still verify and are
 // replaced by a current-cost hash after the next successful login.

@@ -1,4 +1,4 @@
-# Free hosting for Kindle Sync
+# Free hosting for Hackindle
 
 Checked against available official sources on November 1, 2026. This is historical research into options, not a deployed application. The root `AGENTS.md` did not exist at the time of the initial research. Current requirements for formats, accounting and public distribution are in [requirements.md](requirements.md); settings and vendor independence are covered in [configuration.md](configuration.md).
 

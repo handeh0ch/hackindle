@@ -24,7 +24,7 @@ Run in this order; each step builds on the previous one. "U" means unit evidence
 1. TLS: `ssl.https` verifies the server certificate on the Kindle build; which CA bundle is used. Until observed, treat the token as exposed on untrusted Wi-Fi. (O)
 2. Redirect and total-timeout behavior of the socket layer (the plugin disables redirects and checks the total timeout in the response sink). (O)
 3. `NetworkMgr:isConnected()` reports state without prompting or enabling Wi-Fi. (O)
-4. Menu placement of **Kindle Sync** and that `getSettingsDir()` is the folder where `kindle_sync.conf` and `kindle-sync.sqlite3` live. (O)
+4. Menu placement of **Hackindle** and that `getSettingsDir()` is the folder where `hackindle.conf` and `hackindle.sqlite3` live. (O)
 5. Settings directory permissions and that SQLite state survives suspend and a forced restart. (O)
 6. IANA time zone files exist at `zoneinfo_dir`. (O)
 7. Whether `PosUpdate` ever fires in page mode (scroll mode is a recorded gap). (O)

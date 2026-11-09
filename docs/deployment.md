@@ -57,7 +57,7 @@ Restore into another database: migrate it, make sure the instance exists with th
 node --env-file=.env scripts/import-backup.js private/backup-2026-11-09.json
 ```
 
-Afterwards create a fresh device token in the panel and update `kindle_sync.conf`; identities and totals are preserved, credentials are not. Store backups outside the repository (`backups/`, `exports/` and `private/` are ignored). A free hosting plan with a short recovery window does not replace an independent backup. Restoring an older backup leaves a gap the plugin does not heal (see [testing.md](testing.md) item 33). The restore path has run once against a throwaway PostgreSQL 18.6 container with synthetic data; verify it on a disposable database before relying on it.
+Afterwards create a fresh device token in the panel and update `hackindle.conf`; identities and totals are preserved, credentials are not. Store backups outside the repository (`backups/`, `exports/` and `private/` are ignored). A free hosting plan with a short recovery window does not replace an independent backup. Restoring an older backup leaves a gap the plugin does not heal (see [testing.md](testing.md) item 33). The restore path has run once against a throwaway PostgreSQL 18.6 container with synthetic data; verify it on a disposable database before relying on it.
 
 ## 4. Vercel + Neon Free (guide, nothing deployed)
 
@@ -104,7 +104,7 @@ Agents must not create accounts or handle your credentials; each step is yours, 
 
 These were run on 2026-11-09 against the working repository; re-run them for any release candidate.
 
-1. **Ignore rules.** `git check-ignore -v` reports ignored for `.env`, `.env.production`, nested `.env.local`, `kindle_sync.conf`, `*.sqlite3`, `backups/`, `exports/`, `*.dump`, `*.pem`, `*.key`, credential JSON files, `*.epub`, `*.pdf`, `*.mobi`, `.local/`, `private/`, `data/`; and not ignored for `.env.example` and `db/migrations/*.sql`.
+1. **Ignore rules.** `git check-ignore -v` reports ignored for `.env`, `.env.production`, nested `.env.local`, `hackindle.conf`, `*.sqlite3`, `backups/`, `exports/`, `*.dump`, `*.pem`, `*.key`, credential JSON files, `*.epub`, `*.pdf`, `*.mobi`, `.local/`, `private/`, `data/`; and not ignored for `.env.example` and `db/migrations/*.sql`.
 2. **Secret scan of the full history and the staged diff.** Gitleaks 8.30.1 (official release, archive checksum verified against the release checksums when it was installed under `.local/tools`; confirm the version with `gitleaks version`):
 
    ```powershell
@@ -113,7 +113,7 @@ These were run on 2026-11-09 against the working repository; re-run them for any
    ```
 
    Result on 2026-11-09: 0 findings in 40 commits. A directory scan flagged only ignored, untracked files (a synthetic test token under `.superpowers/` and README examples inside the scanner's own folder). A CI job that runs this on every push needs the scanner pinned from an official source; it is not set up yet (no `.github/workflows`).
-3. **Plugin archive.** `node scripts/build-plugin.js --zip` builds `.local/build/kindle_sync.koplugin.zip`; a unit test asserts it contains only the plugin's Lua modules. On 2026-11-09 it held 42 Lua files and no URL, token or credential pattern.
+3. **Plugin archive.** `node scripts/build-plugin.js --zip` builds `.local/build/hackindle.koplugin.zip`; a unit test asserts it contains only the plugin's Lua modules. On 2026-11-09 it held 42 Lua files and no URL, token or credential pattern.
 4. **Container image.** After the first build: `docker run --rm hackindle:local ls -R /app` and `docker history hackindle:local`; confirm there is no `.env`, `.local`, `private`, backup, dump, book or populated config file, and run the secret scanner on the saved image (`docker save`) if your scanner supports it. Not done: the image does not exist yet.
 5. **Logs and errors.** Configuration errors name settings but never print values; the server logs only an error name and database code. Check your proxy and platform logs do not record `Authorization` headers.
 6. **Authorship.** The repository keeps the owner's existing author metadata; no history rewrite is requested.

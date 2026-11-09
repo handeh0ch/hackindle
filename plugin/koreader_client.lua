@@ -10,7 +10,7 @@ local delivery_module = require("delivery")
 local M = {}
 local has_logger, logger = pcall(require, "logger")
 local function warn(...)
-    if has_logger and type(logger) == "table" and type(logger.warn) == "function" then pcall(logger.warn, "KindleSync:", ...) end
+    if has_logger and type(logger) == "table" and type(logger.warn) == "function" then pcall(logger.warn, "Hackindle:", ...) end
 end
 
 local FIRST_DELAY, OFFLINE_DELAY, IDLE_DELAY, PAUSED_DELAY = 30, 60, 300, 900
@@ -157,8 +157,8 @@ function M.start(entry, modules)
             local key = tostring(status.paused) .. ":" .. tostring(status.code)
             if self.announced == key then return end
             self.announced = key
-            notify("Kindle Sync stopped sending: " .. tostring(status.paused) .. (status.code and (" (" .. status.code .. ")") or "")
-                .. ". Open Kindle Sync > Status.")
+            notify("Hackindle stopped sending: " .. tostring(status.paused) .. (status.code and (" (" .. status.code .. ")") or "")
+                .. ". Open Hackindle > Status.")
         end
         function self:run_once()
             if not network.online() then return OFFLINE_DELAY end

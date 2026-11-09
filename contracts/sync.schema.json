@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kindle-sync.local/contracts/sync.schema.json",
+  "$id": "https://hackindle.local/contracts/sync.schema.json",
   "$defs": {
     "envelope": {
       "oneOf": [
@@ -127,7 +127,7 @@
                     "value": {
                       "type": "array",
                       "items": {
-                        "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/annotation"
+                        "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/annotation"
                       }
                     }
                   },
@@ -154,7 +154,7 @@
                           "maximum": 1
                         },
                         "position": {
-                          "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/locator"
+                          "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/locator"
                         },
                         "observed_at": {
                           "type": "string",
@@ -242,7 +242,7 @@
                 "events": {
                   "type": "array",
                   "items": {
-                    "$ref": "https://kindle-sync.local/contracts/events.schema.json#/$defs/event"
+                    "$ref": "https://hackindle.local/contracts/events.schema.json#/$defs/event"
                   },
                   "minItems": 1
                 }

@@ -54,10 +54,10 @@ local function run_tick() local item = table.remove(scheduled); item.fn(); retur
 local db = support.memory_db()
 local value, reason = client_module.start(fake_entry(), modules(db))
 assert(value == nil and reason == "not_configured")
-files["/cfg/kindle_sync.conf"] = "garbage"
+files["/cfg/hackindle.conf"] = "garbage"
 value, reason = client_module.start(fake_entry(), modules(db))
 assert(value == nil and reason == "settings_invalid")
-files["/cfg/kindle_sync.conf"] = conf("https://sync.example.org")
+files["/cfg/hackindle.conf"] = conf("https://sync.example.org")
 
 -- First run: nothing is configured until the profile has been fetched once.
 local entry = fake_entry()
@@ -141,10 +141,10 @@ local before = #requests
 local client2 = client_module.start(entry2, modules(db))
 assert(#entry2.configured == 1 and #requests == before and client2.delivery)
 -- Changed settings invalidate the cache.
-files["/cfg/kindle_sync.conf"] = conf("https://other.example.org")
+files["/cfg/hackindle.conf"] = conf("https://other.example.org")
 local entry3 = fake_entry()
 assert(client_module.start(entry3, modules(db)) and #entry3.configured == 0)
-files["/cfg/kindle_sync.conf"] = conf("https://sync.example.org")
+files["/cfg/hackindle.conf"] = conf("https://sync.example.org")
 
 -- Profile changes: another server never receives the queue; a reset only refreshes the cache.
 local store = state.open(db)
@@ -258,26 +258,26 @@ client9:sync_now()
 assert(shown_text:find("No network", 1, true) and sha_fed == "https://sync.example.org\n" .. token)
 assert(db9.rows.sync_config == nil)
 local directory = ".local/harness"
-local handle = assert(io.open(directory .. "/kindle_sync.conf", "wb"))
+local handle = assert(io.open(directory .. "/hackindle.conf", "wb"))
 handle:write(conf("https://file.example.org")); handle:close()
 local from_disk = modules(support.memory_db(), {datastorage = {getSettingsDir = function() return directory end}, read_file = false})
 from_disk.read_file = nil
 local client10 = client_module.start(fake_entry(), from_disk)
-os.remove(directory .. "/kindle_sync.conf")
+os.remove(directory .. "/hackindle.conf")
 assert(client10 and client10.transport)
 local reader = io.open(directory .. "/limit.bin", "wb"); reader:write(("z"):rep(100)); reader:close()
 local entry11 = fake_entry()
-files["/cfg/kindle_sync.conf"] = conf("https://sync.example.org")
+files["/cfg/hackindle.conf"] = conf("https://sync.example.org")
 local db11 = support.memory_db()
 local tag_text = "https://sync.example.org" .. string.char(10) .. token
 db11.rows.sync_config = config_body(); db11.rows.sync_config_tag = ("%064x"):format(#tag_text)
 local real_read = modules(db11, {read_file = false}); real_read.read_file = nil
 real_read.datastorage = {getSettingsDir = function() return directory end}
 local settings_text = conf("https://sync.example.org")
-local again = io.open(directory .. "/kindle_sync.conf", "wb"); again:write(settings_text); again:close()
+local again = io.open(directory .. "/hackindle.conf", "wb"); again:write(settings_text); again:close()
 client_module.start(entry11, real_read)
 local limited = entry11.configured[1].deps.zoneinfo.read_file(directory .. "/limit.bin", 10)
-os.remove(directory .. "/kindle_sync.conf"); os.remove(directory .. "/limit.bin")
+os.remove(directory .. "/hackindle.conf"); os.remove(directory .. "/limit.bin")
 assert(#limited == 10 and entry11.configured[1].deps.zoneinfo.read_file(directory .. "/missing.bin", 10) == nil)
 online = true
 print("KOReader client assertions passed")

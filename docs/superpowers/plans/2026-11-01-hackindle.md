@@ -1,4 +1,4 @@
-# Kindle Sync Implementation Plan
+# Hackindle Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24.x target, Express 5, JavaScript ES modules, `pg`, `ajv`, `ajv-formats`; any required Vercel platform SDK is confined to the adapter. HTML/CSS/JavaScript/SVG, KOReader Lua/LuaJIT. Automated verification is unit-only: node:test, Lua unit assertions and the repository harness, with >=80% coverage of implemented executable code. Existing Node.js 22.14 may be used for initial local contract checks; target-runtime verification remains open. Compatible library versions are pinned after checking current documentation and obtaining concrete download approval.
 
-**Spec:** [Product requirements](../../requirements.md), [data contract](../../kindle-sync-data-spec.md), [configuration and publication](../../configuration.md), [hosting research](../../kindle-sync-hosting-research.md).
+**Spec:** [Product requirements](../../requirements.md), [data contract](../../hackindle-data-spec.md), [configuration and publication](../../configuration.md), [hosting research](../../hackindle-hosting-research.md).
 
 **Status:** APPROVED by the user on 2026-11-02. Development and local verification have started; external publication/deployment require a separate instruction. Interview answers are included; the previous split between a reduced first release and future sessions/goals has been canceled.
 
@@ -72,7 +72,7 @@ server/start.js                     standalone entry
 server/adapters/vercel.js            optional platform lifecycle integration
 db/migrations/*.sql                 standard PostgreSQL schema
 scripts/{migrate,setup-owner,export,import}.js
-plugin/kindle-sync.koplugin/{main,_meta,adapter,state,context,reading,outbox,transport,vocabulary}.lua
+plugin/hackindle.koplugin/{main,_meta,adapter,state,context,reading,outbox,transport,vocabulary}.lua
 public/{index.html,styles.css}
 public/js/{api,app,overview,books,book,annotations,connection,charts}.js
 ```

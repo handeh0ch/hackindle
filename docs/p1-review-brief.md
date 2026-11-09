@@ -11,7 +11,7 @@ Capture on the KOReader side, without fabricated data: source identity, reading 
 ```powershell
 .local/harness-venv/Scripts/python.exe -B tests/plugin/verify.py   # Lua suite, oracles, LuaCov >=80% per module
 .local/harness-venv/Scripts/python.exe -B scripts/check.py         # full gate, includes the Lua suite
-node scripts/build-plugin.js                                        # assemble .local/build/kindle_sync.koplugin
+node scripts/build-plugin.js                                        # assemble .local/build/hackindle.koplugin
 ```
 
 Last recorded results (2026-11-08): 29 Python, 35 contract and 158 server unit tests; Lua 98.47% aggregate lines (3096 hit, 48 missed), every module >=80%, the new acknowledgement differential oracle (441 cases) included. Lua branch coverage, SQLite on the device, PostgreSQL and KOReader behavior are not measured. Coverage shows that lines ran, not that they are right.
@@ -48,7 +48,7 @@ Source: public KOReader files at tag v2026.07.1, read on 2026-11-07 by a documen
 | `ui.annotation.annotations` entries and event | Entries have `pos0, pos1, text, note, chapter, datetime, page, drawer, color, ...`; event `AnnotationsModified` carries a table with positional items plus named keys such as `nb_highlights_added`, `index_modified` (the latter seen only in a summary) | confirmed |
 | KOReader has no annotation ID | Confirmed: items are matched by datetime, page and positions | confirmed |
 | Vocabulary Builder file and columns | `vocabulary_builder.sqlite3` in the settings directory; table `vocabulary` with `word` unique and no language or dictionary column; the file is switched to WAL when the device allows it | confirmed; read-only open of a WAL file is unverified |
-| Plugin directory is first on `package.path` | Only while `main.lua` is loaded; afterwards it is appended to the end, so a later `require` finds core modules first | contradicted, which makes the `kindle_sync_` prefix necessary |
+| Plugin directory is first on `package.path` | Only while `main.lua` is loaded; afterwards it is appended to the end, so a later `require` finds core modules first | contradicted, which makes the `hackindle_` prefix necessary |
 | `_meta.lua` carries the plugin name | A `name` there is ignored with a deprecation warning; the directory name (without `.koplugin`) is the name | contradicted; our `_meta.lua` still sets it |
 | Errors inside a scheduled callback are contained | `UIManager` runs tasks without `pcall`; an error leaves the main loop and, with the turbo loop, ends the process | contradicted; fixed in `koreader_runtime.lua` (see known defects) |
 | `getPageXPointer(page + 1)` past the last page, `compareXPointers` sign, `getTextFromXPointers` side effects | Not examined | unverified |
@@ -90,7 +90,7 @@ Raised by the upstream source check:
 - **Fixed as a documented limit: scroll mode.** Rolling documents in continuous scroll send `PosUpdate`, not `PageUpdate`. `Entry:onPosUpdate` now closes the page already shown and records one durable gap per scroll episode; nothing is credited from scrolling (supporting it needs a visible-range provider that cannot be verified without a device). Whether `PosUpdate` is also sent in other modes is unverified.
 - **Accepted, to be measured in I1: native timing depends on handler order.** `koreader_reading.lua` needs `row[2] > 0` for the previous page, but the statistics plugin adds that duration inside its own `onPageUpdate`. If the plugin handles the event first, the duration is still 0 and the page falls back to unavailable timing. Entries also vanish from `page_stat` when the statistics plugin flushes (every 50 turns, on suspend and close), and durations under 5 s are never kept. Real native credit is therefore likely sparse.
 - **`EndOfBook` semantics.** It fires on a forward turn past the end, and `ReaderStatus` may show its pop-up at the same time; a book that is only read to its last page does not emit it.
-- **Fixed: `_meta.lua` no longer sets `name`.** The directory name decides, so installs must use `kindle_sync.koplugin` (stated in plugin-install.md).
+- **Fixed: `_meta.lua` no longer sets `name`.** The directory name decides, so installs must use `hackindle.koplugin` (stated in plugin-install.md).
 
 Earlier items:
 

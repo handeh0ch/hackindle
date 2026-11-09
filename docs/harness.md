@@ -60,7 +60,7 @@ The unregistered P1 candidate verifier is `.local/harness-venv/Scripts/python.ex
 
 ## Cold-start answers
 
-1. **What and why?** Kindle Sync archives one owner's KOReader notes/context and reading history for a self-hosted dashboard. See README and product requirements.
+1. **What and why?** Hackindle archives one owner's KOReader notes/context and reading history for a self-hosted dashboard. See README and product requirements.
 2. **How to start?** [Server foundation setup](server-setup.md) documents implemented migration/bootstrap/start commands with private configuration and an operator-provided database. The complete sync service is pending; the separate diagnostic has its own README and owner-run device observations.
 3. **How to verify?** `make check`: harness, contract and server unit tests with >=80% coverage gates, registry validation and diff checks. No application linter/type checker is configured yet.
 4. **Hard rules?** AGENTS.md: explicit download approval, all installs/caches on P:, owner-only device writes, private credentials/data outside Git, portable validated configuration, and separate publication authorization.

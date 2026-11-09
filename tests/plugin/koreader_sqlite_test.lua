@@ -18,7 +18,7 @@ function conn:prepare(sql)
     return stmt
 end
 function conn:close() self.closed=true end
-local sq3={open=function(path) assert(path == "/synthetic/settings/kindle-sync.sqlite3"); return conn end}
+local sq3={open=function(path) assert(path == "/synthetic/settings/hackindle.sqlite3"); return conn end}
 local storage={getSettingsDir=function() return "/synthetic/settings" end}
 local db=adapter.open(storage,sq3)
 db:exec("INSERT",{"key",42})

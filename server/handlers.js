@@ -2,7 +2,7 @@ import { csrfFor } from './auth.js';
 const error = (res, status, code) => res.status(status).json({ schema_version: 1, error: { code, message: code } });
 function cookie(req) {
   const parts = (req.get('cookie') ?? '').split(';').map(part => part.trim().split('='));
-  const matches = parts.filter(part => part[0] === 'kindle_sync_session' && part.length === 2);
+  const matches = parts.filter(part => part[0] === 'hackindle_session' && part.length === 2);
   return matches.length === 1 ? matches[0][1] : '';
 }
 const emptyObject = body => !!body && !Array.isArray(body) && typeof body === 'object' && Object.keys(body).length === 0;
@@ -20,7 +20,7 @@ export function createHandlers({ auth, config, profile }) {
       const result = await auth.login(req.body.username, req.body.password, req.ip);
       if (result.status === 429) res.set('Retry-After', String(result.retryAfter));
       if (result.status !== 200) return error(res, result.status, result.status === 429 ? 'rate_limited' : 'invalid_credentials');
-      res.cookie('kindle_sync_session', result.token, { ...options, maxAge: 14 * 86400000 });
+      res.cookie('hackindle_session', result.token, { ...options, maxAge: 14 * 86400000 });
       return res.set('Cache-Control', 'no-store').json(sessionBody(result, result.token));
     },
     async session(req, res) {
@@ -43,7 +43,7 @@ export function createHandlers({ auth, config, profile }) {
       const token = cookie(req);
       if (!await auth.session(token)) return error(res, 401, 'unauthorized');
       if (!allowed(req) || !await auth.checkCsrf(token, req.get('x-csrf-token'))) return error(res, 403, 'forbidden');
-      await auth.logout(token); res.clearCookie('kindle_sync_session', options);
+      await auth.logout(token); res.clearCookie('hackindle_session', options);
       return res.status(204).end();
     },
     async profile(req, res) {

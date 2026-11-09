@@ -1,4 +1,4 @@
-# Kindle Sync
+# Hackindle
 
 A planned self-hosted reading dashboard and KOReader plugin: highlights, notes with page context, reading history, sessions and a yearly activity calendar.
 
@@ -10,11 +10,11 @@ The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + 
 
 - [Product requirements](docs/requirements.md)
 - [Configuration and public-repository policy](docs/configuration.md)
-- [Data contract draft](docs/kindle-sync-data-spec.md)
+- [Data contract draft](docs/hackindle-data-spec.md)
 - [API v1 and executable schemas](docs/api-v1.md)
 - [Server foundation setup and verification limits](docs/server-setup.md)
-- [Approved implementation plan](docs/superpowers/plans/2026-11-01-kindle-sync.md)
-- [Hosting research](docs/kindle-sync-hosting-research.md)
+- [Approved implementation plan](docs/superpowers/plans/2026-11-01-hackindle.md)
+- [Hosting research](docs/hackindle-hosting-research.md)
 - [Plugin installation](docs/plugin-install.md)
 - [Testing and owner acceptance checklist](docs/testing.md) and [compatibility report template](docs/compatibility-report.md)
 - [Deployment and release checks](docs/deployment.md)

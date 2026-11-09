@@ -6,7 +6,7 @@ import path from 'node:path';
 // Plugin-local modules are renamed with a prefix so their generic names (state,
 // source, app, reset ...) cannot collide with KOReader modules on package.path.
 // Only modules reachable from main.lua are shipped; test-only files stay out.
-export const PLUGIN_NAME = 'kindle_sync';
+export const PLUGIN_NAME = 'hackindle';
 const prefix = `${PLUGIN_NAME}_`;
 const requirePattern = /\brequire\s*[(,]?\s*(["'])([^"']+)\1/g;
 export function buildPlugin(sourceDir, outDir) {

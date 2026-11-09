@@ -193,7 +193,7 @@ local logged=setmetatable({ui={}},Logged); logged:init()
 -- Starting sync outside KOReader is reported once; later counts start from here.
 assert(#warnings==1 and warnings[1]:find("sync unavailable",1,true)); warnings[1]=nil
 assert(logged:call(function() error("synthetic failure",0) end)==false)
-assert(logged.status=="capture_unavailable" and logged.last_error=="synthetic failure" and warnings[1]:find("KindleSync:",1,true) and warnings[1]:find("synthetic failure",1,true))
+assert(logged.status=="capture_unavailable" and logged.last_error=="synthetic failure" and warnings[1]:find("Hackindle:",1,true) and warnings[1]:find("synthetic failure",1,true))
 assert(logged:configure({},{})==false and logged.status=="initialization_unavailable" and #warnings==2)
 package.loaded["logger"]=nil
 package.preload["logger"]=function() return {warn=function() error("logger failed") end} end

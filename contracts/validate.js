@@ -16,7 +16,7 @@ const readNames = ['books', 'book', 'sources', 'progress_history', 'daily', 'sum
 const urls = { ...Object.fromEntries(readNames.map(name => [name, 'read-api'])), envelope: 'sync', config: 'sync', ack: 'sync', error: 'sync', manifest: 'uploads', created: 'uploads', event: 'events', locator: 'events', annotation: 'events' };
 export function validate(name, value) {
   if (!Object.hasOwn(urls, name)) return false;
-  if (!ajv.validate(`https://kindle-sync.local/contracts/${urls[name]}.schema.json#/$defs/${name}`, value)) return false;
+  if (!ajv.validate(`https://hackindle.local/contracts/${urls[name]}.schema.json#/$defs/${name}`, value)) return false;
   if (name === 'manifest') return (value.kind === 'vocabulary_snapshot') === (value.source_id === null) && value.chunk_count <= value.byte_length && value.chunk_count * 1048576 >= value.byte_length;
   if ((name === 'daily_query' || name === 'summary_query') && value.from) {
     const days = (Date.parse(value.to) - Date.parse(value.from)) / 86400000;
