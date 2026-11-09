@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, stateHtml, overviewHtml, libraryHtml, lineChartSvg, heatmapSvg, chartTableHtml, calendarTableHtml } from '../../public/js/views.js';
-import { buildLibrary } from '../../public/js/books.js';
-import { buildOverview } from '../../public/js/overview.js';
-import { buildYear } from '../../public/js/calendar.js';
+import { esc, stateHtml, overviewHtml, libraryHtml, lineChartSvg, heatmapSvg, chartTableHtml, calendarTableHtml } from '../../projects/frontend/js/views/views.js';
+import { buildLibrary } from '../../projects/frontend/js/models/books.js';
+import { buildOverview } from '../../projects/frontend/js/models/overview.js';
+import { buildYear } from '../../projects/frontend/js/models/calendar.js';
 
 test('escaping covers every HTML-significant character', () => {
   assert.equal(esc(`<script>alert("x")&'y'</script>`), '&lt;script&gt;alert(&quot;x&quot;)&amp;&#39;y&#39;&lt;/script&gt;');

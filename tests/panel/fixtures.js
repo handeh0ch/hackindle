@@ -1,6 +1,6 @@
 // Synthetic fixtures and a fake API for the F2 panel tests. No server, database or HTTP.
-import { ApiError } from '../../public/js/api.js';
-import { createController } from '../../public/js/app.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { createController } from '../../projects/frontend/js/core/app.js';
 
 export const SRC_A = 'a'.repeat(64), SRC_B = 'b'.repeat(64), SRC_C = 'c'.repeat(64);
 export const BOOK_1 = '11111111-1111-4111-8111-111111111111', BOOK_2 = '22222222-2222-4222-8222-222222222222';

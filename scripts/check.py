@@ -84,9 +84,9 @@ def verify(root):
     # written solely by a registered verifier after independent review.
     if (root / LUA_VERIFIER).is_file():
         commands.append([sys.executable, "-B", str(LUA_VERIFIER)])
-    elif (root / "plugin").is_dir():
+    elif (root / "projects" / "plugin").is_dir():
         # A renamed or deleted verifier must not silently disable the Lua gate.
-        raise ValueError("plugin/ exists but tests/plugin/verify.py is missing")
+        raise ValueError("projects/plugin/ exists but tests/plugin/verify.py is missing")
     commands.append(["git", "diff", "--check"])
     (root / ".local" / "harness").mkdir(parents=True, exist_ok=True)
     temporary = root / ".local" / "tmp"

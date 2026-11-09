@@ -1,9 +1,9 @@
 // Vercel entry (zero-configuration Express: an `app.js` that imports Express and exports the app).
 // It opens no listener. Every request goes to the lazily initialized provider, which builds the real
-// application on first use and shares that setup between requests. Static files in public/ are served
+// application on first use and shares that setup between requests. Static files in projects/frontend/ are served
 // by Vercel's CDN, so their security headers come from vercel.json. NOT deployed or tested on Vercel yet.
 import express from 'express';
-import provider from './server/provider.js';
+import provider from './projects/server/infra/provider.js';
 
 const app = express();
 app.disable('x-powered-by');

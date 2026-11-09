@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError } from '../../public/js/api.js';
-import { createController } from '../../public/js/app.js';
-import { addDays } from '../../public/js/format.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { createController } from '../../projects/frontend/js/core/app.js';
+import { addDays } from '../../projects/frontend/js/lib/format.js';
 
 const day = (date, characters) => ({ date, characters, active_seconds: 60, volume_status: 'available', time_status: 'available' });
 const summary = { characters: 4000, active_seconds: 600, conditional_pages: 2, legacy_native_pages: 0, legacy_native_seconds: 0, current_streak: 1, elapsed_days: 3,

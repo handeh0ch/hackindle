@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLibrary } from '../../public/js/books.js';
+import { buildLibrary } from '../../projects/frontend/js/models/books.js';
 
 const sha = char => char.repeat(64);
 const source = (char, format, patch = {}) => ({ source_id: sha(char), format, title: 'T', authors: [], progress: null, last_opened_at: null, cover_available: false, ...patch });

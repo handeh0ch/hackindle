@@ -1,6 +1,6 @@
-package.path = "plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;" .. package.path
 local ffi = require("ffi")
-local sqlite = require("sqlite")
+local sqlite = require("storage.sqlite")
 local fake = {step = 101, binds = {}}
 function fake.sqlite3_open_v2(path, ptr) ptr[0] = ffi.cast("sqlite3*", 1); return 0 end
 function fake.sqlite3_prepare_v2(db, sql, n, ptr) ptr[0] = ffi.cast("sqlite3_stmt*", 2); return 0 end

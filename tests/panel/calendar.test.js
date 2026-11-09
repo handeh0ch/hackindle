@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildYear } from '../../public/js/calendar.js';
+import { buildYear } from '../../projects/frontend/js/models/calendar.js';
 
 const dayOf = (date, characters, seconds = 0, patch = {}) => ({ date, characters, active_seconds: seconds, volume_status: 'available', time_status: 'available', ...patch });
 const cells = grid => grid.weeks.flat().filter(Boolean);

@@ -6,6 +6,20 @@ A planned self-hosted reading dashboard and KOReader plugin: highlights, notes w
 
 The proposed application uses Node.js/Express and standard PostgreSQL. Vercel + Neon is the initial managed deployment; a standalone Node.js/container deployment with another PostgreSQL server is also required. Each installation has its own configuration, owner and device credentials.
 
+## Repository layout
+
+```text
+projects/
+  plugin/      KOReader plugin (Lua). main.lua, _meta.lua, app.lua at the root; protocol/ time/ reading/ snapshots/
+               storage/ text/ delivery/ and koreader/{device,capture}/ hold the modules, required by dotted name
+               (protocol.codec). The built plugin stays flat: hackindle_<name>.lua (scripts/build-plugin.js).
+  server/      Express API: http/ (app, routes) auth/ infra/ (config, db, migrations, backup) sync/ (device ingestion)
+               library/ (owner read model) text/ (Unicode identity)
+  frontend/    Owner panel (static): index.html, style.css, js/{core,routes,models,views,lib}/ and js/main.js
+contracts/ db/migrations/ scripts/ tests/   shared schemas, SQL, CLI tools and unit tests (unchanged)
+index.js app.js                             standalone and Vercel entry points
+```
+
 ## Documents
 
 - [Product requirements](docs/requirements.md)

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOverview, PERIODS } from '../../public/js/overview.js';
+import { buildOverview, PERIODS } from '../../projects/frontend/js/models/overview.js';
 
 const config = { characters_per_page: 2000 };
 const summary = (patch = {}) => ({ characters: 80000, active_seconds: 7200, conditional_pages: 40, legacy_native_pages: 0, legacy_native_seconds: 0,

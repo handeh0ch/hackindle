@@ -20,16 +20,16 @@ Last recorded results (2026-11-08): 29 Python, 35 contract and 158 server unit t
 
 | Area | Files | Role |
 | --- | --- | --- |
-| Entry and wiring | `plugin/main.lua`, `plugin/koreader_runtime.lua`, `plugin/app.lua` | KOReader events, source hashing job, facade over the stores |
-| State | `plugin/state.lua`, `plugin/koreader_sqlite.lua`, `plugin/codec.lua`, `plugin/wire_json.lua` | transactional key/value store plus outbox table, pure-Lua JSON |
-| Reading | `plugin/capture.lua`, `plugin/reading.lua`, `plugin/koreader_reading.lua`, `plugin/segment.lua`, `plugin/allocation.lua`, `plugin/tzif.lua`, `plugin/utc.lua` | credited ranges, native credit identities, page tokens, time allocation |
-| Source | `plugin/source.lua`, `plugin/koreader_hash.lua`, `plugin/koreader_metadata.lua`, `plugin/identity.lua` | SHA-256 identity, metadata snapshot, ACK gating |
-| Annotations | `plugin/annotations.lua`, `plugin/koreader_annotations.lua`, `plugin/koreader_context.lua`, `plugin/context.lua` | stable IDs via an injected binding, page context |
-| Vocabulary and legacy | `plugin/vocabulary.lua`, `plugin/koreader_vocabulary.lua`, `plugin/legacy.lua`, `plugin/koreader_statistics.lua`, `plugin/unicode_lower.lua` | snapshots, baseline and epoch handshake, frozen casing |
-| Reset protocol | `plugin/profile.lua`, `plugin/reset.lua`, reset paths in `capture.lua`, `annotations.lua`, `legacy.lua`; server side `server/sync-store.js` (`clear`, `establishLegacyBaseline`) | generation barrier, baselines, tickets |
-| Sessions | `plugin/sessions.lua` | session, cycle and book-finished events |
+| Entry and wiring | `projects/plugin/main.lua`, `projects/plugin/koreader/koreader_runtime.lua`, `projects/plugin/app.lua` | KOReader events, source hashing job, facade over the stores |
+| State | `projects/plugin/storage/state.lua`, `projects/plugin/koreader/device/koreader_sqlite.lua`, `projects/plugin/protocol/codec.lua`, `projects/plugin/protocol/wire_json.lua` | transactional key/value store plus outbox table, pure-Lua JSON |
+| Reading | `projects/plugin/reading/capture.lua`, `projects/plugin/reading/reading.lua`, `projects/plugin/koreader/capture/koreader_reading.lua`, `projects/plugin/reading/segment.lua`, `projects/plugin/time/allocation.lua`, `projects/plugin/time/tzif.lua`, `projects/plugin/time/utc.lua` | credited ranges, native credit identities, page tokens, time allocation |
+| Source | `projects/plugin/snapshots/source.lua`, `projects/plugin/koreader/device/koreader_hash.lua`, `projects/plugin/koreader/capture/koreader_metadata.lua`, `projects/plugin/protocol/identity.lua` | SHA-256 identity, metadata snapshot, ACK gating |
+| Annotations | `projects/plugin/snapshots/annotations.lua`, `projects/plugin/koreader/capture/koreader_annotations.lua`, `projects/plugin/koreader/capture/koreader_context.lua`, `projects/plugin/snapshots/context.lua` | stable IDs via an injected binding, page context |
+| Vocabulary and legacy | `projects/plugin/snapshots/vocabulary.lua`, `projects/plugin/koreader/capture/koreader_vocabulary.lua`, `projects/plugin/snapshots/legacy.lua`, `projects/plugin/koreader/capture/koreader_statistics.lua`, `projects/plugin/text/unicode_lower.lua` | snapshots, baseline and epoch handshake, frozen casing |
+| Reset protocol | `projects/plugin/protocol/profile.lua`, `projects/plugin/storage/reset.lua`, reset paths in `capture.lua`, `annotations.lua`, `legacy.lua`; server side `projects/server/sync/sync-store.js` (`clear`, `establishLegacyBaseline`) | generation barrier, baselines, tickets |
+| Sessions | `projects/plugin/reading/sessions.lua` | session, cycle and book-finished events |
 | Packaging | `scripts/build-plugin.js` | prefixes local modules and ships only those reachable from `main.lua`; `--zip` archives them |
-| Delivery (P2, added after the review brief was first written) | `plugin/delivery.lua`, `plugin/transport.lua`, `plugin/settings.lua`, `plugin/koreader_client.lua`, `plugin/koreader_http.lua`, `plugin/koreader_network.lua`, `plugin/koreader_format.lua`, `Entry:applyAck` in `main.lua` | ordered outbox delivery, ack matching, retries, uploads, profile cache, timer; see [p2-design.md](p2-design.md) |
+| Delivery (P2, added after the review brief was first written) | `projects/plugin/delivery/delivery.lua`, `projects/plugin/delivery/transport.lua`, `projects/plugin/delivery/settings.lua`, `projects/plugin/koreader/koreader_client.lua`, `projects/plugin/koreader/device/koreader_http.lua`, `projects/plugin/koreader/device/koreader_network.lua`, `projects/plugin/koreader/device/koreader_format.lua`, `Entry:applyAck` in `main.lua` | ordered outbox delivery, ack matching, retries, uploads, profile cache, timer; see [p2-design.md](p2-design.md) |
 
 Contracts the plugin must satisfy are in `contracts/` and [api-v1.md](api-v1.md); capture boundaries are in [koreader-adapter.md](koreader-adapter.md).
 
@@ -62,7 +62,7 @@ Source: public KOReader files at tag v2026.07.1, read on 2026-11-07 by a documen
 4. **Source identity.** Two-pass hash with attribute checks is not a file lock; mutation after hashing, same-size edits, hashing cost on large PDFs.
 5. **Annotation identity and context.** Dependence on an injected `key_for`; selection guard completeness; identical re-saves; context at the final page.
 6. **Skipped identical snapshots** (new). Vocabulary and legacy statistics are not queued again when unchanged (`vocabulary_last`, comparison with the stored records) and refresh at most every 30 s. A server restored from an older backup is therefore not healed by the next suspend; the fix belongs with P2 acknowledgements.
-7. **Time and timezone.** TZif parsing, midnight and DST splits, plugin and server allocation must agree (`server/allocation.js` is the second implementation, the Python and Lua oracles compare them).
+7. **Time and timezone.** TZif parsing, midnight and DST splits, plugin and server allocation must agree (`projects/server/sync/allocation.js` is the second implementation, the Python and Lua oracles compare them).
 8. **Error handling.** Most failures are caught by `Entry:call` and reduced to a status string plus a `logger.warn`; look for failures that should instead stop capture or surface to the user.
 9. **Packaging.** Regex rewriting of `require` in `build-plugin.js` assumes literal module names; verify no dynamic or `pcall(require, ...)` form is missed.
 

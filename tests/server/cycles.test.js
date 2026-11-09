@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listCycles } from '../../server/cycles.js';
+import { listCycles } from '../../projects/server/library/cycles.js';
 import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), book = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const cycles = [1, 2].map(i => ({ cycle_id: `00000000-0000-0000-0000-00000000000${i}`, source_id: source, started_at: '2024-01-01T00:00:00Z', finished_at: i === 1 ? '2024-02-01T00:00:00Z' : null }));

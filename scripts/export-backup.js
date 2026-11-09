@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, startupMessage } from '../server/config.js';
-import { createDatabase, createPool } from '../server/db.js';
-import { exportBackup } from '../server/backup.js';
+import { loadConfig, startupMessage } from '../projects/server/infra/config.js';
+import { createDatabase, createPool } from '../projects/server/infra/db.js';
+import { exportBackup } from '../projects/server/infra/backup.js';
 export async function exportFile(env = process.env, path = process.argv[2], openPool = createPool, save = writeFile, run = exportBackup) {
   if (typeof path !== 'string' || !path) throw new Error('Backup path required');
   const config = loadConfig(env), db = createDatabase({ pool: openPool(config) });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuth, hashPassword } from '../../server/auth.js';
+import { createAuth, hashPassword } from '../../projects/server/auth/auth.js';
 
 function fakeStore(owner) {
   let failures = 0, session, device;
@@ -48,7 +48,7 @@ test('login throttles after five failures and device rotation preserves binding'
   assert.equal(await auth.device(first), null);
   assert.equal((await auth.device(second)).deviceId, 'device-a');
 });
-import { createStore } from '../../server/store.js';
+import { createStore } from '../../projects/server/auth/store.js';
 test('database auth boundary binds only the authorized device and maps persisted sessions', async () => {
   let device = null;
   const db = { query: async (sql, values) => {
@@ -92,7 +92,7 @@ test('persistent login boundary serializes attempts and stores only hashes', asy
   assert.notEqual(session[0], result.token); assert.notEqual(session[2], result.csrf);
   assert.ok(purged instanceof Date, 'expired owner sessions are purged on login');
 });
-import { createHandlers } from '../../server/handlers.js';
+import { createHandlers } from '../../projects/server/http/handlers.js';
 test('login and refreshed session expose the same usable CSRF token', async () => {
   const auth = createAuth({ store: fakeStore({ username: 'synthetic', passwordHash: await hashPassword('synthetic-password') }) });
   const handlers = createHandlers({ auth, config: { origin: 'https://example.invalid', secureCookies: true }, profile: async () => ({}) });

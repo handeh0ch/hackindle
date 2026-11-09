@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { placeTip } from '../../public/js/tooltip.js';
+import { placeTip } from '../../projects/frontend/js/lib/tooltip.js';
 
 const viewport = { width: 800, height: 600 };
 const tip = { width: 120, height: 32 };

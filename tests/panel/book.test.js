@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PERIOD_CHOICES, chooseSource, sourceTabs, buildSummary, buildBookChart, buildJournal, newPagesText } from '../../public/js/book.js';
+import { PERIOD_CHOICES, chooseSource, sourceTabs, buildSummary, buildBookChart, buildJournal, newPagesText } from '../../projects/frontend/js/models/book.js';
 import { SRC_A, SRC_B, book, source, sample, day, session } from './fixtures.js';
 
 test('the source defaults to the most recent one and an unknown choice falls back', () => {

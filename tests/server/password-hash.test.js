@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, scryptSync } from 'node:crypto';
-import { createAuth, hashPassword, needsRehash } from '../../server/auth.js';
+import { createAuth, hashPassword, needsRehash } from '../../projects/server/auth/auth.js';
 
 function storeFor(owner) {
   const upgrades = [];

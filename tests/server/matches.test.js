@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listMatches, decideMatch } from '../../server/matches.js';
+import { listMatches, decideMatch } from '../../projects/server/library/matches.js';
 import { validate } from '../../contracts/validate.js';
 const first = '48bc0344-efad-4c68-adb6-dc0f0ba57276', second = 'a92e58b4-851b-467b-a5ad-1eaaccc84c61', a = 'a'.repeat(64), b = 'b'.repeat(64);
 function database() {

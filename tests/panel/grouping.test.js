@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError } from '../../public/js/api.js';
-import { buildCatalog } from '../../public/js/catalog.js';
-import { buildMatches, matchesHtml, splitFormHtml, mergeFormHtml, groupingActions } from '../../public/js/grouping.js';
-import { takeFlash } from '../../public/js/flow.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { buildCatalog } from '../../projects/frontend/js/models/catalog.js';
+import { buildMatches, matchesHtml, splitFormHtml, mergeFormHtml, groupingActions } from '../../projects/frontend/js/routes/grouping.js';
+import { takeFlash } from '../../projects/frontend/js/core/flow.js';
 import { BOOK_1, BOOK_2, SRC_A, SRC_B, SRC_C, book, book2, source, fakeApi } from './fixtures.js';
 
 const catalog = buildCatalog([book(), book2()], true);

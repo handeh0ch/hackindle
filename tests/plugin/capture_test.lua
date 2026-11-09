@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local capture = require("capture")
+package.path = "projects/plugin/?.lua;" .. package.path
+local capture = require("reading.capture")
 local saved, packets = {capture_generation="0"}, {}
 local function clone(v)
     if type(v) ~= "table" then return v end

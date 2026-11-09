@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Duplex } from 'node:stream';
-import { createApp } from '../../server/app.js';
-import { loadConfig } from '../../server/config.js';
+import { createApp } from '../../projects/server/http/app.js';
+import { loadConfig } from '../../projects/server/infra/config.js';
 async function dispatch(app, method, path, headers = {}, body = '') {
   // A large highWaterMark: this fake socket never reports drain, so a static file over 16 KiB would otherwise stall.
   const socket = new Duplex({ highWaterMark: 1 << 24, read() {}, write(chunk, encoding, callback) { callback(); } }); socket.remoteAddress = '127.0.0.1';
@@ -20,7 +20,7 @@ test('sync and upload routes reject unauthenticated callers before writes', asyn
   assert.equal((await dispatch(app, 'POST', '/api/v1/uploads', { 'content-type': 'application/json', 'content-length': '2' }, '{}')).statusCode, 401);
 });
 import { createHash } from 'node:crypto';
-import { csrfFor } from '../../server/auth.js';
+import { csrfFor } from '../../projects/server/auth/auth.js';
 test('B2 routes enforce input validation and expose only owner-authorized detail and cover', async () => {
   const annotationId = '48bc0344-efad-4c68-adb6-dc0f0ba57276', source = 'a'.repeat(64), csrf = csrfFor('session');
   const db = { query: async sql => {

@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local source = require("source")
+package.path = "projects/plugin/?.lua;" .. package.path
+local source = require("snapshots.source")
 local saved, packets = {capture_generation="0"}, {}
 local store={}
 function store:transaction(work)

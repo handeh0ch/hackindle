@@ -1,11 +1,11 @@
-package.path="plugin/?.lua;"..package.path
+package.path="projects/plugin/?.lua;"..package.path
 package.preload["ui/widget/container/widgetcontainer"]=function()
     return {extend=function(_,spec) spec.__index=spec; return spec end}
 end
-local Entry=dofile("plugin/main.lua")
+local Entry=dofile("projects/plugin/main.lua")
 local app_factory=require("app")
-local wire=require("codec")
-local json=require("wire_json")
+local wire=require("protocol.codec")
+local json=require("protocol.wire_json")
 local id="48bc0344-efad-4c68-adb6-dc0f0ba57276"
 local device="a92e58b4-851b-467b-a5ad-1eaaccc84c61"
 local source=("a"):rep(64)
@@ -23,10 +23,10 @@ local function header() return "TZif2"..string.rep("\0",15)..u32(0)..u32(0)..u32
 local block=u32(0)..string.char(0,0).."UTC\0"
 local zone=header()..block..header()..block.."\nUTC0\n"
 local ack_bytes
-local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("unicode_lower").version}
+local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("text.unicode_lower").version}
 local app=app_factory.open(db,nil,config,device,nil,{root="/synthetic",read_file=function() return zone end},function(bytes) return bytes==ack_bytes end)
 local adapter={}
-local source_adapter=require("koreader_metadata").new(function(path)
+local source_adapter=require("koreader.capture.koreader_metadata").new(function(path)
     assert(path=="/synthetic/book.epub"); return {verified=true,source_id=source,format="epub"}
 end,function() return "2026-01-01T00:00:00Z" end)
 function adapter:source(ui) return source_adapter:source(ui) end

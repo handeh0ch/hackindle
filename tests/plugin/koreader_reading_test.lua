@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local provider=require("koreader_reading")
-local codec=require("codec")
+package.path="projects/plugin/?.lua;"..package.path
+local provider=require("koreader.capture.koreader_reading")
+local codec=require("protocol.codec")
 local rows={}; local db={}
 function db:exec(sql,args) if sql:match("INSERT OR REPLACE") then rows[args[1]]=args[2] end end
 function db:one(sql,args) return rows[args[1]] end

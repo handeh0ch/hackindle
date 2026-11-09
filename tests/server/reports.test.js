@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize } from '../../server/reports.js';
+import { summarize } from '../../projects/server/library/reports.js';
 import { validate } from '../../contracts/validate.js';
 test('reports include elapsed zero days, unknown measurements, future days and independent legacy totals', () => {
   const rows = [
@@ -22,7 +22,7 @@ test('reports retain unavailable as null and use no fabricated average when peri
 });
 
 test('statistics endpoint validates date bounds and uses scoped aggregate results', async () => {
-  const { statistics } = await import('../../server/reports.js');
+  const { statistics } = await import('../../projects/server/library/reports.js');
   const db = { withTransaction: async work => work({ query: async (sql, args) => {
     assert.ok(!sql.includes('FOR UPDATE'), 'read endpoints must not lock the instance row');
     if (sql === 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY') return { rows: [] };

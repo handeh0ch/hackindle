@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
-import { loadConfig, startupMessage } from '../server/config.js';
-import { createDatabase, createPool } from '../server/db.js';
-import { runMigrations } from '../server/migrations.js';
+import { loadConfig, startupMessage } from '../projects/server/infra/config.js';
+import { createDatabase, createPool } from '../projects/server/infra/db.js';
+import { runMigrations } from '../projects/server/infra/migrations.js';
 export async function migrate(env = process.env, openPool = createPool, run = runMigrations) {
   const config = loadConfig(env);
   const db = createDatabase({ pool: openPool({ ...config, databaseUrl: config.directDatabaseUrl }) });

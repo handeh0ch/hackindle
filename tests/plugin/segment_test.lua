@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local segment = require("segment")
+package.path = "projects/plugin/?.lua;" .. package.path
+local segment = require("reading.segment")
 local null = {}
 local sample = {event_id="event", source_id="source", session_id="session", occurred_at="2026-01-01T00:00:00Z", day="2026-01-01", native_id="native", measurement_version="v1", provenance="native"}
 local pieces = {{first="a", last="b", characters=3}}

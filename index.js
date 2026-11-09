@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { loadConfig, startupMessage } from "./server/config.js";
-import { createDatabase, createPool } from "./server/db.js";
-import { prepareApp } from "./server/runtime.js";
+import { loadConfig, startupMessage } from "./projects/server/infra/config.js";
+import { createDatabase, createPool } from "./projects/server/infra/db.js";
+import { prepareApp } from "./projects/server/infra/runtime.js";
 export async function start({
   env = process.env,
   openPool = createPool,

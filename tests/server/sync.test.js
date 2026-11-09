@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createSyncService } from '../../server/sync.js';
-import { UNICODE_VERSION } from '../../server/unicode-lower.js';
+import { createSyncService } from '../../projects/server/sync/sync.js';
+import { UNICODE_VERSION } from '../../projects/server/text/unicode-lower.js';
 const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
 function memory(timezone = 'UTC') {
   let state = { generation: 0, packets: {}, events: {}, sections: {}, sources: {}, bindings: {}, values: {}, legacyBaselines: {}, vocabularyUnicode: null };
@@ -76,7 +76,7 @@ test('existing source rejects locator engines or metadata format inconsistent wi
   const wrong = { ...structuredClone(packet), seq: 2, payload: { metadata: { version: 2, value: { ...packet.payload.metadata.value, format: 'pdf' } } } };
   await assert.rejects(service.ingest('token', wrong), error => error.code === 'source_format_conflict');
 });
-import { legacyUpdate } from '../../server/legacy.js';
+import { legacyUpdate } from '../../projects/server/sync/legacy.js';
 test('legacy high-water deltas remain correct through repeated snapshots and two resets', () => {
   let raw = { pages: 100, seconds: 100 }, baseline = { ...raw }, live = { pages: 0, seconds: 0 };
   ({ raw, live } = legacyUpdate({ pages: 110, seconds: 108 }, raw, baseline, live));
@@ -89,7 +89,7 @@ test('legacy high-water deltas remain correct through repeated snapshots and two
   ({ raw, live } = legacyUpdate({ pages: 2, seconds: 1 }, raw, baseline, live));
   assert.deepEqual(live, { pages: 2, seconds: 3 });
 });
-import { createResetService } from '../../server/reset.js';
+import { createResetService } from '../../projects/server/sync/reset.js';
 test('reset increments generation atomically while retaining identity barriers', async () => {
   let state = { generation: 0, identities: ['synthetic-id'], live: ['synthetic-content'] };
   const db = { withTransaction: async work => { const draft = structuredClone(state); const result = await work({ lock: async () => ({ reset_generation: draft.generation }), clear: async generation => { draft.generation = generation; draft.live = []; } }); state = draft; return result; } };
@@ -162,7 +162,7 @@ test('rejects incorrect time allocation before persisting an event', async () =>
 
 
 test('allocation handles exact fractional ties, local midnight, DST and anchor date', async () => {
-  const { validAllocation } = await import('../../server/allocation.js');
+  const { validAllocation } = await import('../../projects/server/sync/allocation.js');
   const base = structuredClone(fixture.envelopes[3].payload.events[0]);
   const check = (changes, zone, expected = true) => assert.equal(validAllocation({ ...base, ...changes }, zone), expected);
   check({ native_seconds: 1, awake_windows: [{ start: '2024-02-28T23:59:59.999999999Z', end: '2024-02-29T00:00:00.000000001Z' }], allocation: [{ date: '2024-02-28', seconds: 1 }, { date: '2024-02-29', seconds: 0 }] }, 'UTC');
@@ -174,7 +174,7 @@ test('allocation handles exact fractional ties, local midnight, DST and anchor d
 });
 
 test('allocation rejects out-of-range local years and accepts 366 touched days only', async () => {
-  const { validAllocation } = await import('../../server/allocation.js');
+  const { validAllocation } = await import('../../projects/server/sync/allocation.js');
   const base = structuredClone(fixture.envelopes[3].payload.events[0]);
   assert.equal(validAllocation({ ...base, timing_quality: 'estimated_native_anchor', native_seconds: 0, native_anchor: '0001-01-01T00:00:00Z', awake_windows: [], allocation: [{ date: '0001-12-31', seconds: 0 }] }, 'America/New_York'), false);
   const dates = Array.from({ length: 366 }, (_, i) => ({ date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10), seconds: 0 }));
@@ -193,7 +193,7 @@ test('local date outside supported years is rejected before event persistence', 
 });
 
 test('a one-minute local-date excursion is allocated and validated before ingestion', async () => {
-  const { validAllocation } = await import('../../server/allocation.js');
+  const { validAllocation } = await import('../../projects/server/sync/allocation.js');
   const m = memory('America/St_Johns'), service = createSyncService({ db: m.db, createTx: m.tx });
   await service.ingest('token', structuredClone(fixture.envelopes[0]));
   const packet = structuredClone(fixture.envelopes[3]), event = packet.payload.events[0];
@@ -207,7 +207,7 @@ test('a one-minute local-date excursion is allocated and validated before ingest
 });
 
 test('a rollback into the previous date followed by midnight preserves both allocations', async () => {
-  const { validAllocation } = await import('../../server/allocation.js');
+  const { validAllocation } = await import('../../projects/server/sync/allocation.js');
   const event = structuredClone(fixture.envelopes[3].payload.events[0]);
   Object.assign(event, { native_seconds: 3600, awake_windows: [{ start: '1987-10-25T03:00:00Z', end: '1987-10-25T04:00:00Z' }], allocation: [{ date: '1987-10-24', seconds: 3540 }, { date: '1987-10-25', seconds: 60 }] });
   assert.equal(validAllocation(event, 'America/Goose_Bay'), true);
@@ -216,7 +216,7 @@ test('a rollback into the previous date followed by midnight preserves both allo
 });
 
 test('large valid sets of subsecond windows do not exhaust function arguments', async () => {
-  const { validAllocation } = await import('../../server/allocation.js');
+  const { validAllocation } = await import('../../projects/server/sync/allocation.js');
   const event = structuredClone(fixture.envelopes[3].payload.events[0]);
   const stamp = n => `2024-02-29T00:00:00.${String(n).padStart(9, '0')}Z`;
   Object.assign(event, { native_seconds: 1, awake_windows: Array.from({ length: 70000 }, (_, i) => ({ start: stamp(i * 2), end: stamp(i * 2 + 1) })), allocation: [{ date: '2024-02-29', seconds: 1 }] });

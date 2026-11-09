@@ -1,6 +1,6 @@
 -- Shared synthetic fixtures for P2 tests: an in-memory SQLite stand-in with real
 -- transaction semantics for the two state tables, and canned packets/acks.
-local json = require("wire_json")
+local json = require("protocol.wire_json")
 local M = {}
 M.instance = "48bc0344-efad-4c68-adb6-dc0f0ba57276"
 M.device = "7f8a2a30-1c4e-4f55-9d3a-0a1b2c3d4e5f"
@@ -47,7 +47,7 @@ function M.packet(seq, kind, extra)
 end
 
 function M.ack(packet_text, patch)
-    local packet = require("codec").decode(packet_text)
+    local packet = require("protocol.codec").decode(packet_text)
     local results = {}
     if packet.kind == "reading_events" then results[packet.payload.events[1].event_id] = "applied"
     elseif packet.kind == "source_snapshot" then results.metadata = "applied"

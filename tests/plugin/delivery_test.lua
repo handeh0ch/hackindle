@@ -1,9 +1,9 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
 local support = require("support")
-local state = require("state")
-local json = require("wire_json")
-local codec = require("codec")
-local delivery = require("delivery")
+local state = require("storage.state")
+local json = require("protocol.wire_json")
+local codec = require("protocol.codec")
+local delivery = require("delivery.delivery")
 
 local db = support.memory_db()
 local store = state.open(db)

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listSessions } from '../../server/sessions.js';
+import { listSessions } from '../../projects/server/library/sessions.js';
 import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), cycle = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const rows = [1, 2].map(i => ({ session_id: `00000000-0000-0000-0000-00000000000${i}`, source_id: source, started_at: '2024-01-01T00:00:00Z', ended_at: i === 1 ? '2024-01-01T01:00:00Z' : null, cycle_id: cycle, characters: i === 1 ? '0' : null, active_seconds: i === 1 ? '60' : null, volume_measured: i === 1 ? '1' : '0', volume_unknown: i === 1 ? '0' : '1', time_measured: i === 1 ? '1' : '0', time_unknown: i === 1 ? '1' : '1' }));
@@ -24,7 +24,7 @@ test('session totals reject unsafe integer values', async () => {
 
 test('the session query uses the expression that the session index declares', async () => {
   const { readFileSync } = await import('node:fs');
-  const query = readFileSync(new URL('../../server/sessions.js', import.meta.url), 'utf8');
+  const query = readFileSync(new URL('../../projects/server/library/sessions.js', import.meta.url), 'utf8');
   const migration = readFileSync(new URL('../../db/migrations/006_events_session_index.sql', import.meta.url), 'utf8');
   assert.match(migration, /CREATE INDEX events_session ON events \(source_id, \(\(content->>'session_id'\)::uuid\), \(content->>'type'\)\)/);
   assert.ok(query.includes("(e.content->>'session_id')::uuid") && query.includes("(s.content->>'session_id')::uuid"), 'the query filters on the indexed expression');

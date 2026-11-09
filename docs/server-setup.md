@@ -1,6 +1,6 @@
 # Server foundation setup
 
-The server implements configuration, migrations, owner/device authentication, sync ingestion, uploads, annotation archive/content, private covers, reset barriers, reports, grouping, goals, backup/restore and serves the owner panel from `public/`. See [deployment.md](deployment.md) for the full deployment, container, backup and release-check guide. Unit tests use a database boundary double. A one-off manual smoke test on PostgreSQL 18.6 (2026-11-07, throwaway container, scripts kept outside Git) exercised the six migrations, authentication, sync, uploads, covers, all owner reads against the shared contracts, locking, reset, backup and restore; no container build, provider or cloud deployment has been exercised, and the panel has not run against a real database.
+The server implements configuration, migrations, owner/device authentication, sync ingestion, uploads, annotation archive/content, private covers, reset barriers, reports, grouping, goals, backup/restore and serves the owner panel from `projects/frontend/`. See [deployment.md](deployment.md) for the full deployment, container, backup and release-check guide. Unit tests use a database boundary double. A one-off manual smoke test on PostgreSQL 18.6 (2026-11-07, throwaway container, scripts kept outside Git) exercised the six migrations, authentication, sync, uploads, covers, all owner reads against the shared contracts, locking, reset, backup and restore; no container build, provider or cloud deployment has been exercised, and the panel has not run against a real database.
 
 ## Prerequisites and private configuration
 
@@ -30,7 +30,7 @@ Implemented HTTP routes are login, session refresh, logout, device-token rotatio
 
 ## Provider and container entry points
 
-`server/provider.js` exports a Node HTTP handler without opening a listener. It shares initialization between concurrent requests and permits a later attempt after a transient initialization failure. Provider routing, quotas and deployment still need the I2 setup and separate owner instruction.
+`projects/server/infra/provider.js` exports a Node HTTP handler without opening a listener. It shares initialization between concurrent requests and permits a later attempt after a transient initialization failure. Provider routing, quotas and deployment still need the I2 setup and separate owner instruction.
 
 Dockerfile and compose.example.yaml are generic examples using external PostgreSQL configuration. They were not built or run; no image was downloaded. The build uses explicit source copies, disables package install scripts and excludes private settings through `.dockerignore`. Container builds and publication remain separate authorized operations, not part of running unit tests.
 

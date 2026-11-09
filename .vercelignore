@@ -13,7 +13,7 @@ exports
 coverage
 tests
 docs
-plugin
+projects/plugin
 node_modules
 *.epub
 *.mobi

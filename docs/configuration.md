@@ -6,9 +6,9 @@ Status: required deployment contract for implementation. Files shown as future d
 
 The same Express application runs on a standalone Node.js server/container or through the Vercel adapter. It uses standard PostgreSQL SQL and migrations through `pg`. A Neon deployment supplies its connection string; another PostgreSQL deployment supplies its own. Core business logic does not call Neon/Vercel management APIs or require their account IDs.
 
-- `server/config.js` loads/validates server settings once; core modules receive parsed configuration and database dependencies. No scattered reads of provider-specific environment variables.
-- `server/app.js` exports `createApp({db,config})`. A standalone entry opens HOST/PORT; a Vercel entry exports the handler and owns any platform lifecycle integration.
-- Panel API URLs are relative to the current origin. All files under public/** are public; server settings and secrets are never bundled into JavaScript or generated HTML.
+- `projects/server/infra/config.js` loads/validates server settings once; core modules receive parsed configuration and database dependencies. No scattered reads of provider-specific environment variables.
+- `projects/server/http/app.js` exports `createApp({db,config})`. A standalone entry opens HOST/PORT; a Vercel entry exports the handler and owns any platform lifecycle integration.
+- Panel API URLs are relative to the current origin. All files under projects/frontend/** are public; server settings and secrets are never bundled into JavaScript or generated HTML.
 - Plugin URL/token are set on the device and stored under KOReader's private settings, not inside the shipped plugin source. Device credentials and the nonsecret sync profile identify the installation.
 - The sync profile supplies instance identity, reporting timezone, page-character denominator and protocol/transport limits through an authenticated device endpoint. It contains no DB credentials or owner data. Client/server timestamps are UTC.
 

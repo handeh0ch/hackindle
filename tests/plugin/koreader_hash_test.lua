@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local hash = require("koreader_hash")
+package.path = "projects/plugin/?.lua;" .. package.path
+local hash = require("koreader.device.koreader_hash")
 local fed={}
 local digest=("a"):rep(64)
 local sha={sha256=function() return function(part)

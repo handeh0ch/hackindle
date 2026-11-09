@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local utc = require("utc")
+package.path = "projects/plugin/?.lua;" .. package.path
+local utc = require("time.utc")
 assert(utc.due("2026-01-01T00:01:00Z", "2026-01-01T00:00:00Z", false))
 assert(not utc.due("2026-01-01T00:00:59.999999999Z", "2026-01-01T00:00:00Z", false))
 assert(not utc.due("2026-01-01T00:01:00.1Z", "2026-01-01T00:00:00.2Z", false))

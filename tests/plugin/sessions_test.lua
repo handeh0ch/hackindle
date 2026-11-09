@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local sessions = require("sessions")
+package.path = "projects/plugin/?.lua;" .. package.path
+local sessions = require("reading.sessions")
 local saved, packets, ids = {capture_generation="0"}, {}, 0
 local function clone(v) if type(v) ~= "table" then return v end; local o={}; for k,x in pairs(v) do o[k]=clone(x) end; return o end
 local store={}

@@ -13,7 +13,8 @@ LUA_COV = ROOT / '.local' / 'tools' / 'luacov-0.17.0' / 'src'
 
 
 def check_coverage(report, expected):
-    rows = re.findall(r'^plugin[\\/](\S+\.lua)\s+(\d+)\s+(\d+)\s+', report, re.MULTILINE)
+    found = re.findall(r'^projects[\\/]plugin[\\/](\S+\.lua)\s+(\d+)\s+(\d+)\s+', report, re.MULTILINE)
+    rows = [(name.replace('\\', '/'), hit_text, missed_text) for name, hit_text, missed_text in found]
     observed = {name for name, _, _ in rows}
     missing = sorted(expected - observed)
     if missing:
@@ -41,12 +42,13 @@ def main():
         package.path = cov_path .. '/?.lua;' .. cov_path .. '/?/init.lua;' .. package.path
         require('jit').off()
         local runner = require('luacov.runner')
-        runner.init({statsfile=stats_path, reportfile=report_path, include={'^plugin/'}, exclude={'plugin/unicode_data'}})
+        runner.init({statsfile=stats_path, reportfile=report_path, include={'^projects/plugin/'}, exclude={'projects/plugin/text/unicode_data'}})
         dofile('tests/plugin/run.lua')
         runner.shutdown()
         require('luacov.reporter').report()
     ''')
-    expected = {path.name for path in (ROOT / 'plugin').glob('*.lua')} - {'unicode_data.lua'}
+    plugin_root = ROOT / 'projects' / 'plugin'
+    expected = {path.relative_to(plugin_root).as_posix() for path in plugin_root.rglob('*.lua')} - {'text/unicode_data.lua'}
     hits, missed = check_coverage(report.read_text(encoding='utf-8'), expected)
     for oracle in ('test_verifier.py', 'allocation_oracle.py', 'validate_projection.py', 'validator_differential.py',
                    'tzif_differential.py', 'tzif_future_oracle.py', 'vocabulary_identity_oracle.py', 'ack_differential.py'):

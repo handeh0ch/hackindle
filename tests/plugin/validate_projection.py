@@ -3,7 +3,7 @@ import json
 import subprocess
 
 lua = LuaRuntime(unpack_returned_tuples=True)
-lua.execute('package.path = "plugin/?.lua;" .. package.path')
+lua.execute('package.path = "projects/plugin/?.lua;" .. package.path')
 def validate_packet(packet):
     code = '''import {validateEnvelope} from "./contracts/validate.js";
 let s=""; for await (const c of process.stdin) s+=c;
@@ -11,7 +11,7 @@ process.exit(validateEnvelope(JSON.parse(s)) ? 0 : 1);'''
     return subprocess.run(['node', '--input-type=module', '-e', code], input=packet, text=True).returncode == 0
 lua.globals().validate_packet = validate_packet
 items = lua.execute(r'''
-local envelope, json, segment, context = require("envelope"), require("wire_json"), require("segment"), require("context")
+local envelope, json, segment, context = require("protocol.envelope"), require("protocol.wire_json"), require("reading.segment"), require("snapshots.context")
 local id = "48bc0344-efad-4c68-adb6-dc0f0ba57276"
 local profile = {instance_id=id,device_id="a92e58b4-851b-467b-a5ad-1eaaccc84c61",reset_generation=0}
 local source, instant = ("a"):rep(64), "2026-01-01T00:00:00Z"
@@ -44,7 +44,7 @@ local restarted = {event_id="55555555-5555-4555-8555-555555555555",source_id=sou
 projected[#projected+1] = envelope.reading(profile, 7, instant, source, {ended,cycle,restarted})
 projected[#projected+1] = envelope.vocabulary(profile, 4, instant, {version=1,words={{word="word",language=json.null,source=json.null}}})
 projected[#projected+1] = envelope.legacy(profile, 5, instant, source, {version=1,records={{date="2026-01-01",native_pages=1,native_seconds=1}}})
-local source_capture = require("source")
+local source_capture = require("snapshots.source")
 local saved = {capture_generation="0"}
 local store = {}
 function store:transaction(work)

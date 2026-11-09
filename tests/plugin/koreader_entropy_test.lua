@@ -1,5 +1,5 @@
-package.path="plugin/?.lua;"..package.path
-local entropy=require("koreader_entropy")
+package.path="projects/plugin/?.lua;"..package.path
+local entropy=require("koreader.device.koreader_entropy")
 local ffi={C={}}
 function ffi.cdef() end
 function ffi.new() return {} end

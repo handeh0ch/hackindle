@@ -26,8 +26,8 @@ case(lambda p: p["payload"].update(progress={"version":1,"value":{"fraction":0.5
 script='''import {validateEnvelope} from "./contracts/validate.js"; let s=""; for await (const c of process.stdin) s+=c; console.log(JSON.stringify(JSON.parse(s).map(validateEnvelope)));'''
 expected=json.loads(subprocess.run(['node','--input-type=module','-e',script],input=json.dumps(cases),text=True,capture_output=True,check=True).stdout)
 lua=LuaRuntime(unpack_returned_tuples=True)
-lua.execute('package.path="plugin/?.lua;"..package.path')
-validator=lua.eval('require("validator")')
+lua.execute('package.path="projects/plugin/?.lua;"..package.path')
+validator=lua.eval('require("protocol.validator")')
 actual=[validator.validate(json.dumps(item,ensure_ascii=False)) for item in cases]
 assert actual == expected, [(i, expected[i], actual[i]) for i in range(len(cases)) if expected[i] != actual[i]]
 print(f'{len(cases)} source-envelope differential cases passed')

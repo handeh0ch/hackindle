@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError, createApi } from '../../public/js/api.js';
-import { load } from '../../public/js/state.js';
+import { ApiError, createApi } from '../../projects/frontend/js/core/api.js';
+import { load } from '../../projects/frontend/js/core/state.js';
 
 function fakeFetch(handler) {
   const calls = [];

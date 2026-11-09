@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Duplex } from 'node:stream';
 import app from '../../app.js';
-import { SECURITY_HEADERS } from '../../server/app.js';
+import { SECURITY_HEADERS } from '../../projects/server/http/app.js';
 
 const read = name => readFileSync(new URL(`../../${name}`, import.meta.url), 'utf8');
 
@@ -48,6 +48,6 @@ test('vercel.json sets the same security headers the Express static mount sets',
 
 test('.vercelignore keeps env files, local data, tests, docs and the plugin out of the deployment', () => {
   const lines = read('.vercelignore').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  for (const entry of ['.env', '.env.*', '.local', 'private', 'backups', 'exports', 'tests', 'docs', 'plugin', 'node_modules']) assert.ok(lines.includes(entry), entry);
+  for (const entry of ['.env', '.env.*', '.local', 'private', 'backups', 'exports', 'tests', 'docs', 'projects/plugin', 'node_modules']) assert.ok(lines.includes(entry), entry);
   assert.ok(!lines.some(line => line.startsWith('!.env')), 'no exception that would ship an env file');
 });

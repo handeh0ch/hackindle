@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
-local transport = require("transport")
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
+local transport = require("delivery.transport")
 local requests, reply = {}, nil
 local function http(request) requests[#requests + 1] = request; return reply(request) end
 local t = transport.new({url = "https://sync.example.org", token = "secret-token"}, http)

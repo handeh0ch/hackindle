@@ -3,8 +3,8 @@ from datetime import date,timedelta
 from lupa.luajit21 import LuaRuntime
 r=Random(77)
 lua=LuaRuntime(unpack_returned_tuples=True)
-lua.execute('package.path="plugin/?.lua;"..package.path')
-allocation=lua.eval('require("allocation")')
+lua.execute('package.path="projects/plugin/?.lua;"..package.path')
+allocation=lua.eval('require("time.allocation")')
 for _ in range(500):
     weights=[r.randrange(1,2**53) for _ in range(r.randrange(1,100))]
     seconds=r.randrange(0,2**53)

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { vocabulary } from '../../server/vocabulary.js';
+import { vocabulary } from '../../projects/server/library/vocabulary.js';
 import { validate } from '../../contracts/validate.js';
 function database() {
   let version = 1;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError } from '../../public/js/api.js';
-import { addDays } from '../../public/js/format.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { addDays } from '../../projects/frontend/js/lib/format.js';
 import { BOOK_1, BOOK_2, NOTE_1, NOTE_2, SRC_A, SRC_B, SRC_C, appHarness, book, book2, day, detail, note, page, readyContext, sample, session } from './fixtures.js';
 
 const TODAY = '2026-11-08';

@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local adapter = require("koreader_sqlite")
+package.path = "projects/plugin/?.lua;" .. package.path
+local adapter = require("koreader.device.koreader_sqlite")
 local history, current = {}, nil
 local conn = {}
 function conn:prepare(sql)

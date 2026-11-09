@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local tz = require("tzif")
+package.path = "projects/plugin/?.lua;" .. package.path
+local tz = require("time.tzif")
 local function u32(n) return string.char(math.floor(n/16777216)%256,math.floor(n/65536)%256,math.floor(n/256)%256,n%256) end
 local function header(count) return "TZif2"..string.rep("\0",15)..u32(0)..u32(0)..u32(0)..u32(count)..u32(2)..u32(8) end
 local transitions={1704067200,1710054000,1730613600,1767225600}

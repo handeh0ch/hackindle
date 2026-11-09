@@ -159,7 +159,7 @@ class GateTests(unittest.TestCase):
 
     @patch("scripts.check.subprocess.run")
     def test_plugin_without_its_lua_verifier_fails_before_any_tool(self, run):
-        (self.root / "plugin").mkdir()
+        (self.root / "projects" / "plugin").mkdir(parents=True)
         original = self.registry.read_bytes()
         with self.assertRaises(ValueError):
             verify(self.root)

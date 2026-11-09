@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local reading = require("reading")
+package.path = "projects/plugin/?.lua;" .. package.path
+local reading = require("reading.reading")
 local function compare(a, b) return a - b end
 local function measure(a, b) return b - a end
 local ledger = reading.new(compare, measure)
@@ -15,7 +15,7 @@ assert(#ledger:credit("source-a", "2026-01-02", 0, 10) == 1)
 assert(#ledger:credit("source-b", "2026-01-01", 0, 10) == 1)
 assert(not pcall(function() ledger:credit("source-a", "2026-01-01", 10, 10) end))
 print("reading assertions passed")
-local reading = require("reading")
+local reading = require("reading.reading")
 assert(reading.count("a é🙂é") == 6)
 assert(not pcall(reading.count, "\192\128"))
 assert(not pcall(reading.count, "\237\160\128"))

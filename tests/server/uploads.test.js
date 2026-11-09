@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createUploadService } from '../../server/uploads.js';
+import { createUploadService } from '../../projects/server/sync/uploads.js';
 const example = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url))).envelopes[0];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 function memory() {
@@ -133,7 +133,7 @@ test('uploaded event allocation is checked by the same ingestion path before eve
   const manifest = { schema_version: 1, instance_id: packet.instance_id, device_id: packet.device_id, source_id: packet.source_id, reset_generation: 0, seq: packet.seq, kind: packet.kind, byte_length: bytes.length, sha256: sha(bytes), chunk_count: 1 };
   let writes = 0;
   const tx = draft => ({ ...m.tx(draft), lock: async () => ({ instance_id: packet.instance_id, reset_generation: 0, reporting_timezone: 'UTC' }), packet: async () => null, source: async () => fixture.envelopes[0].payload.metadata.value, saveEvent: async () => { writes++; } });
-  const { createSyncService } = await import('../../server/sync.js');
+  const { createSyncService } = await import('../../projects/server/sync/sync.js');
   const sync = createSyncService({ db: m.db, createTx: tx });
   const upload = createUploadService({ db: m.db, createTx: tx, apply: sync.apply, now: m.now, uuid: m.uuid });
   const created = await upload.create('token', manifest); await upload.put('token', created.upload_id, 0, bytes);

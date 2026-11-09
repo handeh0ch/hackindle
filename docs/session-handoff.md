@@ -20,6 +20,8 @@ Read AGENTS.md first, then PROGRESS.md and feature_list.json; inspect Git status
 - Fixed since the earlier review: session-open retry, lease release on CloseWidget, upload kept across resume, 404 upload_not_found, one-time pause message, stale deferred page, idempotent server upload create (new SQL, not run on PostgreSQL). Last gate: 34 Python, 35 contract, 159 server tests, Lua 98.46%.
 - `.gitignore` covers `hackindle.conf`. Gitleaks 8.30.1 (full history) found nothing; the plugin zip has no URL or credential.
 
+- 2026-11-09 restructure: code now lives in `projects/{plugin,server,frontend}` with logical subdirectories (see README "Repository layout"); tests, contracts, db, scripts and the two entry files stay at the root. Plugin modules are dotted (`protocol.codec`) but the built plugin is still flat. Gate green; Vercel static serving of the panel from `projects/frontend` is unverified (docs/deployment.md). Uncommitted.
+
 ## Next steps
 
 1. F1 and F2 are registered passing (reviewed, committed). I1 preparation is done (`docs/testing.md`, `docs/compatibility-report.md`) and I1 stays `blocked` until the owner runs the device checklist and fills the report. The owner chose Vercel + Neon Free and wants the server deployed before device testing: the adapter files and the owner's step list are ready (docs/deployment.md section 4), the deployment itself is the owner's. I2 is `active`: `docs/deployment.md` and release checks are written; still open and needing the owner: container build with a pinned base-image digest (download approval), any deployment, CI, pushing. The panel ran once against the real server on a throwaway PostgreSQL with synthetic data (2026-11-09, see testing.md section 3); Neon, TLS, touch and the Kindle are untested.

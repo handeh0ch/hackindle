@@ -59,15 +59,15 @@ All contract/shared-dependency changes go through the coordinator. After C0, the
 Key files and responsibilities:
 
 ```text
-server/config.js                    validated instance settings
-server/app.js                       createApp({db,config}), no listener
-server/db.js                        standard pg + transaction on one client
-server/auth.js                      owner sessions / scoped device credentials
-server/sync.js                      packet validation, dedup, section versions
-server/uploads.js                   durable chunks + atomic commit
+projects/server/infra/config.js                    validated instance settings
+projects/server/http/app.js                       createApp({db,config}), no listener
+projects/server/infra/db.js                        standard pg + transaction on one client
+projects/server/auth/auth.js                      owner sessions / scoped device credentials
+projects/server/sync/sync.js                      packet validation, dedup, section versions
+projects/server/sync/uploads.js                   durable chunks + atomic commit
 server/queries.js                   reading reports / note search
-server/books.js                     group, split, matches, goals
-server/content.js                   versioned paged text and private covers
+projects/server/library/books.js                     group, split, matches, goals
+projects/server/library/content.js                   versioned paged text and private covers
 server/start.js                     standalone entry
 server/adapters/vercel.js            optional platform lifecycle integration
 db/migrations/*.sql                 standard PostgreSQL schema

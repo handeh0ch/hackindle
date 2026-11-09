@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local state = require("state")
+package.path = "projects/plugin/?.lua;" .. package.path
+local state = require("storage.state")
 local db = {calls = {}, rows = {}}
 function db:exec(sql, args)
     self.calls[#self.calls + 1] = {sql = sql, args = args}

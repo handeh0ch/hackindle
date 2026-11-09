@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local runtime=require("koreader_runtime")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local runtime=require("koreader.koreader_runtime")
+local json=require("protocol.wire_json")
 local id="48bc0344-efad-4c68-adb6-dc0f0ba57276"
 local source=("a"):rep(64)
 local db={rows={},outbox={}}
@@ -16,7 +16,7 @@ local function u32(n) return string.char(math.floor(n/16777216)%256,math.floor(n
 local function header() return "TZif2"..string.rep("\0",15)..u32(0)..u32(0)..u32(0)..u32(0)..u32(1)..u32(4) end
 local block=u32(0)..string.char(0,0).."UTC\0"
 local zone=header()..block..header()..block.."\nUTC0\n"
-local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("unicode_lower").version}
+local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("text.unicode_lower").version}
 local scheduled={}
 local calls,canceled=0,0
 local unchanged=true
@@ -54,7 +54,7 @@ local corrupt={rows={seq="1"},outbox={}}; setmetatable(corrupt,{__index=db})
 local invalid=clone(deps); invalid.db=corrupt
 assert(not pcall(function() runtime.open(config,invalid) end))
 package.preload["ui/widget/container/widgetcontainer"]=function() return {extend=function(_,spec) spec.__index=spec; return spec end} end
-local Entry=dofile("plugin/main.lua")
+local Entry=dofile("projects/plugin/main.lua")
 ui.annotation={annotations={{pos0="/a",pos1="/b",text="synthetic",note="note"}}}
 deps.annotation_binding=function() return {verified=true,complete=true,source_id=source,format="epub",key_for=function() return {verified=true,key="stable-key"} end} end
 deps.legacy_binding=function() return {verified=true,readonly=true,source_id=source,native_book_id=1} end
@@ -69,14 +69,14 @@ assert(view:configure(config,deps) and view.capture_gap); view:onReaderReady()
 local serial=0; deps.uuid=function() serial=serial+1; return string.format("10000000-0000-4000-8000-%012d",serial) end
 assert(view.status=="source_pending" and #scheduled==1)
 table.remove(scheduled,1)(); table.remove(scheduled,1)()
-assert(view.source_ready and require("codec").decode(db.outbox[1]).payload.metadata.value.title=="Synthetic")
+assert(view.source_ready and require("protocol.codec").decode(db.outbox[1]).payload.metadata.value.title=="Synthetic")
 assert(not view.lifecycle_pending)   -- the queued metadata snapshot is enough to open the session
 assert(not view:metadata_ack("forged") and db.outbox[5]==nil)
-ack_bytes=require("codec").encode({schema_version=1,instance_id=id,device_id=id,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
+ack_bytes=require("protocol.codec").encode({schema_version=1,instance_id=id,device_id=id,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(view:metadata_ack(ack_bytes) and not view.lifecycle_pending)
-assert(require("codec").decode(db.outbox[2]).payload.events[1].type=="session_started")
-assert(require("codec").decode(db.outbox[3]).payload.annotations.value[1].quote=="synthetic")
-assert(require("codec").decode(db.outbox[4]).payload.records[1].native_seconds==5)
+assert(require("protocol.codec").decode(db.outbox[2]).payload.events[1].type=="session_started")
+assert(require("protocol.codec").decode(db.outbox[3]).payload.annotations.value[1].quote=="synthetic")
+assert(require("protocol.codec").decode(db.outbox[4]).payload.records[1].native_seconds==5)
 assert(view:metadata_ack(ack_bytes) and db.outbox[5]==nil)
 local other=setmetatable({ui=ui},Entry); other:init(); assert(other:configure(config,deps)); other:onReaderReady()
 other:onCloseDocument(); local prior=calls; table.remove(scheduled,1)(); assert(calls==prior and other.closed)
@@ -91,7 +91,7 @@ sleeping:onResume(); assert(#scheduled==1); table.remove(scheduled,1)(); table.r
 assert(sleeping.source_ready)
 local found_annotation,found_legacy=false,false
 for seq=before_resume+1,tonumber(db.rows.seq) do
-    local packet=require("codec").decode(db.outbox[seq])
+    local packet=require("protocol.codec").decode(db.outbox[seq])
     found_annotation=found_annotation or (packet.kind=="source_snapshot" and packet.payload.annotations~=nil)
     found_legacy=found_legacy or packet.kind=="legacy_statistics"
 end
@@ -107,13 +107,13 @@ reader.statistics={document=reader.document,is_doc=true,id_curr_book=7,curr_page
 local integrated=setmetatable({ui=reader},Entry); integrated:init(); assert(integrated:configure(config,native_deps)); integrated:onReaderReady()
 table.remove(scheduled,1)(); table.remove(scheduled,1)()
 integrated:onPageUpdate(1); assert(integrated.pending_page and integrated.deferred_page==nil)   -- no wait for the acknowledgement
-local first_packet=require("codec").decode(fresh.outbox[1])
-ack_bytes=require("codec").encode({schema_version=1,instance_id=id,device_id=fresh.rows.device_id,source_id=source,reset_generation=0,current_reset_generation=0,seq=first_packet.seq,kind="source_snapshot",status="applied",results={metadata="applied"}})
+local first_packet=require("protocol.codec").decode(fresh.outbox[1])
+ack_bytes=require("protocol.codec").encode({schema_version=1,instance_id=id,device_id=fresh.rows.device_id,source_id=source,reset_generation=0,current_reset_generation=0,seq=first_packet.seq,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(integrated:metadata_ack(ack_bytes)); assert(integrated.pending_page)
 reader.statistics.page_stat[1][1][2]=5
 integrated:onPageUpdate(2); assert(integrated.pending_page)
 local reading_event
-for _,bytes in pairs(fresh.outbox) do local packet=require("codec").decode(bytes); if packet.kind=="reading_events" and packet.payload.events[1].type=="reading_segment" then reading_event=packet.payload.events[1] end end
+for _,bytes in pairs(fresh.outbox) do local packet=require("protocol.codec").decode(bytes); if packet.kind=="reading_events" and packet.payload.events[1].type=="reading_segment" then reading_event=packet.payload.events[1] end end
 assert(reading_event and reading_event.credited_characters==3 and reading_event.native_seconds==5 and reading_event.provenance=="koreader_statistics")
 integrated.runtime:close()
 local pdf_db={rows={},outbox={}}; setmetatable(pdf_db,{__index=db})
@@ -122,14 +122,14 @@ pdf_deps.begin_file=function() return {step=function() return {verified=true,sou
 local pdf_reader={document={file="/synthetic/book.pdf",getPageCount=function() return 3 end},doc_props={display_title="Synthetic"}}
 pdf_reader.statistics={document=pdf_reader.document,is_doc=true,id_curr_book=7,curr_page=1,page_stat={[1]={{1767225600,0}}}}
 local pdf_view=setmetatable({ui=pdf_reader},Entry); pdf_view:init(); assert(pdf_view:configure(config,pdf_deps)); pdf_view:onReaderReady(); table.remove(scheduled,1)()
-ack_bytes=require("codec").encode({schema_version=1,instance_id=id,device_id=pdf_db.rows.device_id,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
+ack_bytes=require("protocol.codec").encode({schema_version=1,instance_id=id,device_id=pdf_db.rows.device_id,source_id=source,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 assert(pdf_view:metadata_ack(ack_bytes)); pdf_view:onPageUpdate(1); pdf_reader.statistics.page_stat[1][1][2]=8; pdf_view:onPageUpdate(2)
 local pdf_event
-for _,bytes in pairs(pdf_db.outbox) do local packet=require("codec").decode(bytes); if packet.kind=="reading_events" and packet.payload.events[1].type=="reading_segment" then pdf_event=packet.payload.events[1] end end
+for _,bytes in pairs(pdf_db.outbox) do local packet=require("protocol.codec").decode(bytes); if packet.kind=="reading_events" and packet.payload.events[1].type=="reading_segment" then pdf_event=packet.payload.events[1] end end
 assert(pdf_event and pdf_event.native_seconds==8 and pdf_event.credited_characters==json.null and #pdf_event.ranges==0)
 pdf_view.runtime:close()
-fresh.rows.native_page=require("codec").encode({event_id=id,source=source})
-local recovery=require("koreader_reading").new(fresh,{},source,native_deps.uuid,native_deps.utc_now)
+fresh.rows.native_page=require("protocol.codec").encode({event_id=id,source=source})
+local recovery=require("koreader.capture.koreader_reading").new(fresh,{},source,native_deps.uuid,native_deps.utc_now)
 assert(recovery:recover()); recovery:close()
 local restarted_once=runtime.open(config,native_deps); assert(restarted_once:has_gap()); restarted_once:close()
 local restarted_twice=runtime.open(config,native_deps); assert(restarted_twice:has_gap()); restarted_twice:close()

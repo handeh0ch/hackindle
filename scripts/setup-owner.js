@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
-import { loadConfig, startupMessage } from '../server/config.js';
-import { createDatabase, createPool } from '../server/db.js';
-import { ensureInstancePolicy } from '../server/policy.js';
-import { bootstrapInteractive } from '../server/cli.js';
+import { loadConfig, startupMessage } from '../projects/server/infra/config.js';
+import { createDatabase, createPool } from '../projects/server/infra/db.js';
+import { ensureInstancePolicy } from '../projects/server/infra/policy.js';
+import { bootstrapInteractive } from '../projects/server/auth/cli.js';
 export async function setupOwner(env = process.env, input = process.stdin, output = process.stdout, openPool = createPool, ensure = ensureInstancePolicy, setup = bootstrapInteractive) {
   const config = loadConfig(env), db = createDatabase({ pool: openPool(config) });
   try { await ensure(db, config); await setup(db, input, output); }

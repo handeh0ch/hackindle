@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createSyncTx } from '../../server/sync-store.js';
+import { createSyncTx } from '../../projects/server/sync/sync-store.js';
 import { readFileSync } from 'node:fs';
 const fixtures = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
 function annotationDB() {
@@ -124,7 +124,7 @@ test('ready context survives unchanged selection and reactivation; changed selec
 
 test('annotation version remains monotonic after reset and invalidates old cursor and explicit version', async () => {
   const m = annotationDB(), tx = createSyncTx(m.client), a = structuredClone(fixtures.envelopes[0].payload.annotations.value[0]), source = 'a'.repeat(64);
-  const { createContentService } = await import('../../server/content.js');
+  const { createContentService } = await import('../../projects/server/library/content.js');
   const content = createContentService({ query: async () => ({ rows: [...m.annotations.values()] }) });
   await tx.annotations(source, [{ ...a, quote: 'a'.repeat(300000) }]);
   const old = await content.content(a.annotation_id, { field: 'quote' });

@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local annotations=require("koreader_annotations")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local annotations=require("koreader.capture.koreader_annotations")
+local json=require("protocol.wire_json")
 local source=("a"):rep(64)
 local item={pos0="/a",pos1="/b",text="synthetic",note="note",chapter="Chapter",datetime="2026-01-01 12:00:00"}
 local ui={annotation={annotations={item}}}

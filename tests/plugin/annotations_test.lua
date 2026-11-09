@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local annotations = require("annotations")
+package.path = "projects/plugin/?.lua;" .. package.path
+local annotations = require("snapshots.annotations")
 local state, next_id, captures = {}, 0, 0
 local function allocate() next_id = next_id + 1; return "id-"..next_id end
 local function extract(record, origin)

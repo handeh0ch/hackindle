@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHandlers } from '../../server/handlers.js';
+import { createHandlers } from '../../projects/server/http/handlers.js';
 test('HTTP auth handlers enforce origin, CSRF and device/owner scopes', async () => {
   const auth = {
     login: async () => ({ status: 200, username: 'synthetic', token: 'session', csrf: 'csrf', expiresAt: '2024-01-15T00:00:00Z' }),

@@ -1,9 +1,9 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
 local support = require("support")
-local state = require("state")
-local codec = require("codec")
-local json = require("wire_json")
-local client_module = require("koreader_client")
+local state = require("storage.state")
+local codec = require("protocol.codec")
+local json = require("protocol.wire_json")
+local client_module = require("koreader.koreader_client")
 
 local token = "AbC_123-xyz_AbC_123-xyz"
 local files = {}

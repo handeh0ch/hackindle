@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local allocation = require("allocation")
+package.path = "projects/plugin/?.lua;" .. package.path
+local allocation = require("time.allocation")
 local windows = {{start="2026-03-08T04:00:00Z", finish="2026-03-09T05:00:00Z"}}
 local function split(profile, observed)
     assert(profile.reporting_timezone == "Synthetic/DST" and observed == windows)

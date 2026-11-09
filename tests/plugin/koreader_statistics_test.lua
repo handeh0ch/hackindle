@@ -1,5 +1,5 @@
-package.path="plugin/?.lua;"..package.path
-local stats=require("koreader_statistics")
+package.path="projects/plugin/?.lua;"..package.path
+local stats=require("koreader.capture.koreader_statistics")
 local opened
 local opened_conn={}
 local storage={getSettingsDir=function() return "/synthetic/settings" end}

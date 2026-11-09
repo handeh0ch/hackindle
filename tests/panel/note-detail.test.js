@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError } from '../../public/js/api.js';
-import { buildCatalog } from '../../public/js/catalog.js';
-import { loadNote, buildNoteDetail } from '../../public/js/note-detail.js';
-import { noteDetailHtml } from '../../public/js/notes-view.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { buildCatalog } from '../../projects/frontend/js/models/catalog.js';
+import { loadNote, buildNoteDetail } from '../../projects/frontend/js/models/note-detail.js';
+import { noteDetailHtml } from '../../projects/frontend/js/views/notes-view.js';
 import { NOTE_1, BOOK_1, SRC_A, book, detail, fakeApi, readyContext } from './fixtures.js';
 
 const detailPath = `GET /owner/annotations/${NOTE_1}`, contentPath = `GET /owner/annotations/${NOTE_1}/content`;

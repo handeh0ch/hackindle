@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gateOpen } from '../../public/js/flow.js';
-import { parseTarget, buildConnection } from '../../public/js/connection.js';
-import { connectionHtml } from '../../public/js/connection-view.js';
+import { gateOpen } from '../../projects/frontend/js/core/flow.js';
+import { parseTarget, buildConnection } from '../../projects/frontend/js/models/connection.js';
+import { connectionHtml } from '../../projects/frontend/js/views/connection-view.js';
 
 const device = (patch = {}) => ({ device_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', last_sync_at: '2026-11-08T10:15:00Z', reset_generation: 2, ...patch });
 const goal = (patch = {}) => ({ year: 2026, target: 12, completed_unique_books: 3, ...patch });

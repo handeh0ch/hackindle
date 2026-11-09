@@ -1,6 +1,6 @@
-package.path = "plugin/?.lua;" .. package.path
-local codec = require("codec")
-local json = require("wire_json")
+package.path = "projects/plugin/?.lua;" .. package.path
+local codec = require("protocol.codec")
+local json = require("protocol.wire_json")
 local data = {name="synthetic", counts={1,2,3}, nested={empty={}, null=json.null}, marker="x\ny"}
 local text = codec.encode(data)
 local out = codec.decode(text)

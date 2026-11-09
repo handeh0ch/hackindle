@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local native=require("koreader_context")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local native=require("koreader.capture.koreader_context")
+local json=require("protocol.wire_json")
 local calls=0
 local doc={compareXPointers=function(_,a,b) return tonumber(b)>tonumber(a) and 1 or -1 end,getPageCount=function() return 4 end,getPageFromXPointer=function(_,p) return tonumber(p) end,
     getPageXPointer=function(_,p) if p<=5 then return tostring(p) end end,

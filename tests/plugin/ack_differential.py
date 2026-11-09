@@ -68,9 +68,9 @@ console.log(JSON.stringify(JSON.parse(s).map(([e,a]) => matchesAck(e,a))));'''
 expected = json.loads(subprocess.run(['node', '--input-type=module', '-e', script], input=json.dumps(pairs), text=True,
                                      capture_output=True, check=True).stdout)
 lua = LuaRuntime(unpack_returned_tuples=True)
-lua.execute('package.path="plugin/?.lua;"..package.path')
-codec = lua.eval('require("codec")')
-acknowledged = lua.eval('require("delivery").acknowledged')
+lua.execute('package.path="projects/plugin/?.lua;"..package.path')
+codec = lua.eval('require("protocol.codec")')
+acknowledged = lua.eval('require("delivery.delivery").acknowledged')
 actual = []
 for envelope, ack in pairs:
     packet = codec.decode(json.dumps(envelope, ensure_ascii=False))

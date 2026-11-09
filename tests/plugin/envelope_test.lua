@@ -1,10 +1,10 @@
-package.path = "plugin/?.lua;" .. package.path
-local envelope = require("envelope")
+package.path = "projects/plugin/?.lua;" .. package.path
+local envelope = require("protocol.envelope")
 local profile = {instance_id="48bc0344-efad-4c68-adb6-dc0f0ba57276",device_id="a92e58b4-851b-467b-a5ad-1eaaccc84c61",reset_generation=0}
 local body = envelope.reading(profile, 1, "2026-01-01T00:00:00Z", ("a"):rep(64), {})
 assert(body:match('"events":%[%]'))
 print("envelope assertions passed")
-local j = require("wire_json")
+local j = require("protocol.wire_json")
 local source = ("a"):rep(64)
 local pdf = {type="pdf",page=1,boxes={},geometry_version=j.null}
 local event = {type="progress_sample",progress={position=pdf}}

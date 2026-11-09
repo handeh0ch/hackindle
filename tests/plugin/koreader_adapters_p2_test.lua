@@ -1,7 +1,7 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
-local format = require("koreader_format")
-local network = require("koreader_network")
-local http_adapter = require("koreader_http")
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
+local format = require("koreader.device.koreader_format")
+local network = require("koreader.device.koreader_network")
+local http_adapter = require("koreader.device.koreader_http")
 
 -- Format verification reads file content, not only the extension.
 local function opener(head, fail)

@@ -7,7 +7,7 @@ const copies = read('Dockerfile').split(/\r?\n/).filter(line => /^COPY\s/.test(l
 
 test('the image carries everything the running app serves and needs', () => {
   const sources = copies.flatMap(line => line.split(/\s+/).slice(0, -1));
-  for (const needed of ['index.js', 'contracts', 'server', 'db', 'public']) assert.ok(sources.includes(needed), `${needed} must be copied`);
+  for (const needed of ['index.js', 'contracts', 'projects/server', 'db', 'projects/frontend']) assert.ok(sources.includes(needed), `${needed} must be copied`);
   assert.ok(sources.some(source => source.includes('scripts/migrate.js')) && sources.some(source => source.includes('scripts/setup-owner.js')));
 });
 

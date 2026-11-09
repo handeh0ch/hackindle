@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local profile = require("profile")
+package.path = "projects/plugin/?.lua;" .. package.path
+local profile = require("protocol.profile")
 local saved = {}
 local function clone(v) if type(v) ~= "table" then return v end; local x={}; for k,a in pairs(v) do x[k]=clone(a) end; return x end
 local store={}

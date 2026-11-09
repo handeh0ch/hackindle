@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local cover = require("cover")
+package.path = "projects/plugin/?.lua;" .. package.path
+local cover = require("snapshots.cover")
 local jpeg = "\255\216\255" .. ("x"):rep(10)
 local data, mime = cover.prepare(function() return jpeg end)
 assert(data == jpeg and mime == "image/jpeg")

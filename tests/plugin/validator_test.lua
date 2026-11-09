@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local validator = require("validator")
+package.path = "projects/plugin/?.lua;" .. package.path
+local validator = require("protocol.validator")
 local payload = '{"schema_version":1,"instance_id":"48bc0344-efad-4c68-adb6-dc0f0ba57276","device_id":"a92e58b4-851b-467b-a5ad-1eaaccc84c61","reset_generation":0,"seq":1,"captured_at":"2026-01-01T00:00:00Z","kind":"source_snapshot","source_id":"'..string.rep("a",64)..'","payload":{"metadata":{"version":1,"value":{"format":"epub","title":"Synthetic","authors":[],"language":null,"identifiers":[]}}}}'
 assert(validator.validate(payload))
 assert(not validator.validate(payload:gsub('"seq":1','"seq":0')))
@@ -30,7 +30,7 @@ assert(not validator.validate(payload:gsub('"seq":1','"seq":1.5')))
 assert(validator.validate(payload:gsub('2026%-01%-01T00:00:00Z','0001-01-01T00:00:00.000000001Z')))
 assert(not validator.validate(payload:gsub('2026%-01%-01T00:00:00Z','0000-01-01T00:00:00Z')))
 assert(not validator.validate(payload:gsub('2026%-01%-01T00:00:00Z','2026-01-01T00:00:60Z')))
-local codec = require("codec")
+local codec = require("protocol.codec")
 local f=assert(io.open("contracts/examples/synthetic.json","rb")); local fixtures=codec.decode(f:read("*a")); f:close()
 for _, item in ipairs(fixtures.envelopes) do assert(validator.validate(codec.encode(item))) end
 local function altered(item, edit)

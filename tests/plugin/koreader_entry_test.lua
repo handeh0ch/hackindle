@@ -1,9 +1,9 @@
-package.path = "plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;" .. package.path
 package.preload["ui/widget/container/widgetcontainer"] = function()
     return {extend=function(_, spec) spec.__index=spec; return spec end}
 end
-local Entry=dofile("plugin/main.lua")
-local meta=dofile("plugin/_meta.lua")
+local Entry=dofile("projects/plugin/main.lua")
+local meta=dofile("projects/plugin/_meta.lua")
 assert(meta.name==nil and type(meta.fullname)=="string")
 local view=setmetatable({ui={}},Entry)
 view:init()
@@ -188,7 +188,7 @@ seconds=900; rview:refreshSnapshots(); assert(#refreshes==6, "a clock that moved
 local warnings={}
 package.loaded["logger"]=nil
 package.preload["logger"]=function() return {warn=function(...) warnings[#warnings+1]=table.concat({...}," ") end} end
-local Logged=dofile("plugin/main.lua")
+local Logged=dofile("projects/plugin/main.lua")
 local logged=setmetatable({ui={}},Logged); logged:init()
 -- Starting sync outside KOReader is reported once; later counts start from here.
 assert(#warnings==1 and warnings[1]:find("sync unavailable",1,true)); warnings[1]=nil
@@ -197,7 +197,7 @@ assert(logged.status=="capture_unavailable" and logged.last_error=="synthetic fa
 assert(logged:configure({},{})==false and logged.status=="initialization_unavailable" and #warnings==2)
 package.loaded["logger"]=nil
 package.preload["logger"]=function() return {warn=function() error("logger failed") end} end
-local Noisy=dofile("plugin/main.lua")
+local Noisy=dofile("projects/plugin/main.lua")
 local noisy=setmetatable({ui={}},Noisy); noisy:init()
 assert(noisy:call(function() error("synthetic failure",0) end)==false and noisy.status=="capture_unavailable")
 package.loaded["logger"]=nil; package.preload["logger"]=nil

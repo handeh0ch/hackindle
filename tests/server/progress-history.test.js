@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { progressHistory } from '../../server/progress-history.js';
+import { progressHistory } from '../../projects/server/library/progress-history.js';
 import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), session = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const samples = [1, 2, 3].map(i => ({ event_id: `00000000-0000-0000-0000-00000000000${i}`, progress: { fraction: i / 10, position: { type: 'xpointer', value: `/synthetic/${i}` }, observed_at: `2024-01-01T00:00:0${i}Z`, session_id: session }, sort_time: `2024-01-01T00:00:0${i}000000000` }));

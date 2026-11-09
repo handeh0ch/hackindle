@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig, ConfigurationError } from '../../server/config.js';
-import { UNICODE_VERSION } from '../../server/unicode-lower.js';
-import { createDatabase } from '../../server/db.js';
+import { loadConfig, ConfigurationError } from '../../projects/server/infra/config.js';
+import { UNICODE_VERSION } from '../../projects/server/text/unicode-lower.js';
+import { createDatabase } from '../../projects/server/infra/db.js';
 
 const env = { DATABASE_URL: 'postgresql://synthetic:secret@example.invalid/test', APP_ORIGIN: 'https://example.invalid', REPORT_TIMEZONE: 'Europe/Berlin' };
 test('configuration validates names without exposing submitted secrets', () => {
@@ -25,7 +25,7 @@ test('transaction commits or rolls back using one client and always releases', a
   await assert.rejects(db.withTransaction(async () => { throw new Error('synthetic'); }), /synthetic/);
   assert.deepEqual(calls, ['BEGIN', 'ROLLBACK', 'release']);
 });
-import { ensureInstancePolicy } from '../../server/policy.js';
+import { ensureInstancePolicy } from '../../projects/server/infra/policy.js';
 test('initial policy persists and mismatched restart is rejected', async () => {
   let row;
   const db = { withTransaction: async fn => fn({ query: async (sql, params) => {
@@ -38,7 +38,7 @@ test('initial policy persists and mismatched restart is rejected', async () => {
   await assert.rejects(ensureInstancePolicy(db, { ...config, pageCharacters: 1000 }), /PAGE_CHARACTERS/);
   await assert.rejects(ensureInstancePolicy(db, { ...config, reportingTimezone: 'UTC' }), /REPORT_TIMEZONE/);
 });
-import { buildProfile } from '../../server/app.js';
+import { buildProfile } from '../../projects/server/http/app.js';
 test('profile exposes stored instance and policy but never database credentials', async () => {
   const config = loadConfig(env);
   const profile = await buildProfile({ query: async () => ({ rows: [{ instance_id: '48bc0344-efad-4c68-adb6-dc0f0ba57276', reset_generation: '4' }] }) }, config);
@@ -47,7 +47,7 @@ test('profile exposes stored instance and policy but never database credentials'
   assert.equal(profile.unicode_version, UNICODE_VERSION);
   assert.equal(JSON.stringify(profile).includes('secret'), false);
 });
-import { runMigrations } from '../../server/migrations.js';
+import { runMigrations } from '../../projects/server/infra/migrations.js';
 test('migration applies once and records the successful version atomically', async () => {
   let applied = false, executions = 0;
   const db = { withTransaction: async work => work({ query: async sql => {
@@ -60,7 +60,7 @@ test('migration applies once and records the successful version atomically', asy
   await runMigrations(db, 'SYNTHETIC MIGRATION');
   assert.equal(executions, 1);
 });
-import { bootstrapOwner } from '../../server/bootstrap.js';
+import { bootstrapOwner } from '../../projects/server/auth/bootstrap.js';
 test('owner bootstrap stores a salted hash and refuses replacement', async () => {
   let saved;
   const db = { query: async (sql, values) => { if (saved) return { rows: [] }; saved = values; return { rows: [{ username: values[0] }] }; } };
@@ -70,7 +70,7 @@ test('owner bootstrap stores a salted hash and refuses replacement', async () =>
   await assert.rejects(bootstrapOwner(db, '', ''), /owner/);
   await assert.rejects(bootstrapOwner(db, 'synthetic', 'short-pass'), /at least 12/);
 });
-import { createApp } from '../../server/app.js';
+import { createApp } from '../../projects/server/http/app.js';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Duplex } from 'node:stream';
 async function dispatch(app, method, path, headers = {}, body = '') {
@@ -93,7 +93,7 @@ test('Express app has no listener and denies anonymous or device owner access', 
   assert.equal(device.status, 403);
   assert.equal((await dispatch(app, 'GET', '/not-a-route')).status, 404);
 });
-import { readHidden, bootstrapInteractive } from '../../server/cli.js';
+import { readHidden, bootstrapInteractive } from '../../projects/server/auth/cli.js';
 import { PassThrough } from 'node:stream';
 test('private terminal input hides characters and restores terminal state', async () => {
   const input = new PassThrough(); input.isTTY = true; input.isRaw = false; input.setRawMode = value => { input.isRaw = value; };
@@ -106,7 +106,7 @@ test('interactive bootstrap rejects mismatched confirmation before writing', asy
   await assert.rejects(bootstrapInteractive({}, null, { write() {} }, async () => answers.shift(), async () => { called = true; }), /match/);
   assert.equal(called, false);
 });
-import { prepareApp, createProvider } from '../../server/runtime.js';
+import { prepareApp, createProvider } from '../../projects/server/infra/runtime.js';
 test('runtime checks policy before exposing a handler and provider initializes once', async () => {
   const calls = [];
   const prepare = async () => { calls.push('policy'); return (req, res) => { calls.push(req); res.end(); }; };
@@ -120,7 +120,7 @@ test('runtime checks policy before exposing a handler and provider initializes o
 import { start } from '../../index.js';
 import { migrate } from '../../scripts/migrate.js';
 import { setupOwner } from '../../scripts/setup-owner.js';
-import provider from '../../server/provider.js';
+import provider from '../../projects/server/infra/provider.js';
 test('standalone and CLI entrypoints release injected pools and never start during import', async () => {
   let closed = 0, migrated = false, ensured = false, setup = false;
   const pool = () => ({ end: async () => { closed++; } });
@@ -132,7 +132,7 @@ test('standalone and CLI entrypoints release injected pools and never start duri
   assert.equal(closed, 3); assert.equal(migrated && ensured && setup, true);
   assert.equal(typeof provider, 'function');
 });
-import { createPool } from '../../server/db.js';
+import { createPool } from '../../projects/server/infra/db.js';
 test('pool wrapper delegates queries and closes without connecting', async () => {
   const pool = { query: async () => ({ rows: [1] }), end: async () => 'closed' };
   const db = createDatabase({ pool }); assert.deepEqual((await db.query('synthetic')).rows, [1]); assert.equal(await db.close(), 'closed');
@@ -174,7 +174,7 @@ test('transaction preserves original failure when rollback itself fails', async 
   await assert.rejects(createDatabase({ pool: { connect: async () => client } }).withTransaction(async () => { throw new Error('original'); }), /original/);
   assert.equal(released, true);
 });
-import { makeProvider } from '../../server/provider.js';
+import { makeProvider } from '../../projects/server/infra/provider.js';
 test('provider adapter initializes the same app once with injected boundaries', async () => {
   let prepared = 0, handled = 0;
   const handler = makeProvider({ env, pool: () => ({}), prepare: async (db, config) => { prepared++; assert.equal(config.origin, 'https://example.invalid'); return () => { handled++; }; } });
@@ -197,7 +197,7 @@ test('idle pool errors report generically without forwarding error details', asy
   pool.emit('error', new Error('synthetic-secret'));
   assert.deepEqual(reported, [[]]); await pool.end();
 });
-import { startupMessage } from '../../server/config.js';
+import { startupMessage } from '../../projects/server/infra/config.js';
 test('startup reports safe configuration names but redacts external errors', () => {
   let configError; try { loadConfig({ ...env, DATABASE_URL: 'private-synthetic' }); } catch (error) { configError = error; }
   assert.match(startupMessage(configError), /DATABASE_URL/);
@@ -247,7 +247,7 @@ test('legacy handshake barriers do not prevent reset from deleting sources', asy
   assert.doesNotMatch(sql, /REFERENCES\s+sources\s*\(/i);
 });
 
-import { listMigrations } from '../../server/migrations.js';
+import { listMigrations } from '../../projects/server/infra/migrations.js';
 test('migration files are discovered from the directory and must be numbered without gaps', async () => {
   const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
   const { pathToFileURL } = await import('node:url');

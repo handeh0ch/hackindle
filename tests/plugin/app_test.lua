@@ -1,4 +1,4 @@
-package.path = "plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;" .. package.path
 local app = require("app")
 local db={rows={},outbox={}}
 local function clone(v) if type(v)~="table" then return v end; local o={}; for k,x in pairs(v) do o[k]=clone(x) end; return o end
@@ -13,7 +13,7 @@ local objects,n={},0
 local codec={}
 function codec.encode(value) n=n+1; local key="encoded-"..n; objects[key]=clone(value); return key end
 function codec.decode(value) return clone(assert(objects[value])) end
-local config={schema_version=1,instance_id="48bc0344-efad-4c68-adb6-dc0f0ba57276",reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("unicode_lower").version}
+local config={schema_version=1,instance_id="48bc0344-efad-4c68-adb6-dc0f0ba57276",reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("text.unicode_lower").version}
 local device="a92e58b4-851b-467b-a5ad-1eaaccc84c61"
 local function u32(n) return string.char(math.floor(n/16777216)%256,math.floor(n/65536)%256,math.floor(n/256)%256,n%256) end
 local function header() return "TZif2"..string.rep("\0",15)..u32(0)..u32(0)..u32(0)..u32(0)..u32(1)..u32(4) end
@@ -24,7 +24,7 @@ local valid=function() return true end
 local verified_ack_bytes
 local function authenticated(bytes) return bytes==verified_ack_bytes end
 local a=app.open(db,codec,config,device,valid,provider)
-local metadata={format="epub",title="Synthetic",authors={},language=require("wire_json").null,identifiers={}}
+local metadata={format="epub",title="Synthetic",authors={},language=require("protocol.wire_json").null,identifiers={}}
 local id=("a"):rep(64)
 assert(a:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
 local b=app.open(db,codec,config,device,valid,provider)
@@ -42,14 +42,14 @@ assert(db.outbox[3] == nil)
 local reset_meta=paused:reset_source_metadata(id,metadata,"2026-01-01T00:00:02Z")
 assert(reset_meta and reset_meta.seq==3)
 local reset_ack={schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=1,current_reset_generation=1,seq=3,kind="source_snapshot",status="applied",results={metadata="applied"}}
-local reset_ack_bytes=require("codec").encode(reset_ack)
+local reset_ack_bytes=require("protocol.codec").encode(reset_ack)
 assert(not paused:reset_source_metadata_ack(reset_ack_bytes))
 verified_ack_bytes=reset_ack_bytes
 assert(paused:reset_source_metadata_ack(reset_ack_bytes))
 assert(paused:reset_source_metadata_ack(reset_ack_bytes))   -- replay after a crash
 assert(paused:begin_legacy_baseline(id))
 local annotation_ticket=paused:begin_annotation_reset(id)
-local ann={key="native",selection="selection",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="synthetic",note="",chapter=require("wire_json").null,native_timestamp=require("wire_json").null}
+local ann={key="native",selection="selection",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="synthetic",note="",chapter=require("protocol.wire_json").null,native_timestamp=require("protocol.wire_json").null}
 assert(paused:annotation_reset_baseline(id,annotation_ticket,{ann}))
 local read_ticket=paused:begin_annotation_read(id)
 assert(paused:annotation_reset_snapshot(id,read_ticket,{ann},function() return config.instance_id end,function() return {status="pending",reason="unavailable"} end,"2026-01-01T00:00:03Z"))
@@ -85,7 +85,7 @@ assert(first:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
 assert(first:source_metadata_ready(id))   -- queued metadata is enough for generation 0; the ordered outbox delivers it first
 assert(not pcall(function() first:source_snapshot(("c"):rep(64),nil,{fraction=0.4,position={type="xpointer",value="x"},observed_at="2026-01-01T00:00:01Z",session_id=config.instance_id},"2026-01-01T00:00:01Z") end))
 local initial_ack={schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}}
-local initial_ack_bytes=require("codec").encode(initial_ack)
+local initial_ack_bytes=require("protocol.codec").encode(initial_ack)
 assert(not first:source_metadata_ack(initial_ack_bytes))
 verified_ack_bytes=initial_ack_bytes
 assert(first:source_metadata_ack(initial_ack_bytes))
@@ -133,11 +133,11 @@ assert(validated_db.rows.seq == nil and validated_db.outbox[1] == nil)
 local ordinary_db={rows={},outbox={}}; setmetatable(ordinary_db,{__index=db})
 local ordinary=app.open(ordinary_db,nil,config,device,valid,provider,authenticated)
 assert(ordinary:source_snapshot(id,metadata,nil,"2026-01-01T00:00:00Z"))
-local ordinary_ack=require("codec").encode({schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
+local ordinary_ack=require("protocol.codec").encode({schema_version=1,instance_id=config.instance_id,device_id=device,source_id=id,reset_generation=0,current_reset_generation=0,seq=1,kind="source_snapshot",status="applied",results={metadata="applied"}})
 verified_ack_bytes=ordinary_ack; assert(ordinary:source_metadata_ack(ordinary_ack))
-local record={key="note",selection="r",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="x",note="",chapter=require("wire_json").null,native_timestamp=require("wire_json").null}
+local record={key="note",selection="r",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="x",note="",chapter=require("protocol.wire_json").null,native_timestamp=require("protocol.wire_json").null}
 assert(ordinary:annotations_snapshot(id,{record},function() return config.instance_id end,function() return {status="pending",reason="unavailable"} end,"2026-01-01T00:00:01Z"))
-assert(ordinary:vocabulary_snapshot(function() return {{word="word",language=require("wire_json").null,source=require("wire_json").null}} end,"2026-01-01T00:00:02Z"))
+assert(ordinary:vocabulary_snapshot(function() return {{word="word",language=require("protocol.wire_json").null,source=require("protocol.wire_json").null}} end,"2026-01-01T00:00:02Z"))
 assert(ordinary:legacy_initial(id,function() return {{date="2026-01-01",native_pages=1,native_seconds=2}} end,"2026-01-01T00:00:03Z"))
 local native_connection={prepare=function(_,sql)
     local done=false

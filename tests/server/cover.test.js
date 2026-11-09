@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCoverService } from '../../server/cover.js';
+import { createCoverService } from '../../projects/server/sync/cover.js';
 const source = 'a'.repeat(64), device = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 test('cover requires bound device, current generation, existing source and genuine signature', async () => {
   let saved;

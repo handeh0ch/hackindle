@@ -4,9 +4,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY index.js ./
 COPY contracts ./contracts
-COPY server ./server
+COPY projects/server ./projects/server
 COPY db ./db
-COPY public ./public
+COPY projects/frontend ./projects/frontend
 COPY scripts/migrate.js scripts/setup-owner.js scripts/export-backup.js scripts/import-backup.js ./scripts/
 USER node
 EXPOSE 3000

@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local metadata=require("koreader_metadata")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local metadata=require("koreader.capture.koreader_metadata")
+local json=require("protocol.wire_json")
 local source=("a"):rep(64)
 local ui={document={file="/synthetic/book.epub"},doc_props={display_title="Synthetic",authors="Example Author",language="en"}}
 local adapter=metadata.new(function(path) assert(path=="/synthetic/book.epub"); return {source_id=source,format="epub",verified=true} end,

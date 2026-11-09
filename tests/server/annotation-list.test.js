@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listAnnotations } from '../../server/annotation-list.js';
+import { listAnnotations } from '../../projects/server/library/annotation-list.js';
 import { validate } from '../../contracts/validate.js';
 const source = 'a'.repeat(64), book = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const records = [1, 2].map(i => ({ annotation_id: `00000000-0000-0000-0000-00000000000${i}`, source_id: source, version: '1', kind: 'highlight', archived: false, quote_preview: 'synthetic', note_preview: '', context_status: 'pending' }));

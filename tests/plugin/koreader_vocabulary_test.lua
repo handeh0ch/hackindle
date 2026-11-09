@@ -1,6 +1,6 @@
-package.path="plugin/?.lua;"..package.path
-local native=require("koreader_vocabulary")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local native=require("koreader.capture.koreader_vocabulary")
+local json=require("protocol.wire_json")
 local opened
 local conn=native.open({getSettingsDir=function() return "/settings" end},{open=function(path,mode) opened={path,mode}; return {} end})
 assert(conn and opened[1]=="/settings/vocabulary_builder.sqlite3" and opened[2]=="ro")

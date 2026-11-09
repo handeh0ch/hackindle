@@ -3,10 +3,10 @@ import json
 import subprocess
 
 lua=LuaRuntime(unpack_returned_tuples=True)
-lua.execute('package.path="plugin/?.lua;"..package.path')
+lua.execute('package.path="projects/plugin/?.lua;"..package.path')
 values=lua.execute(r'''
 local bytes=dofile("tests/plugin/tzif_test.lua")
-local tz, alloc, json = require("tzif"),require("allocation"),require("wire_json")
+local tz, alloc, json = require("time.tzif"),require("time.allocation"),require("protocol.wire_json")
 local adapter=tz.adapter("America/New_York",function() return bytes end)
 local profile={reporting_timezone="America/New_York"}
 local inputs={
@@ -28,6 +28,6 @@ end
 return result
 ''')
 events=[json.loads(values[i]) for i in range(1,len(values)+1)]
-script='''import {validAllocation} from "./server/allocation.js";let s="";for await(const c of process.stdin)s+=c;const a=JSON.parse(s);if(!a.every(e=>validAllocation(e,"America/New_York")))process.exit(1);'''
+script='''import {validAllocation} from "./projects/server/sync/allocation.js";let s="";for await(const c of process.stdin)s+=c;const a=JSON.parse(s);if(!a.every(e=>validAllocation(e,"America/New_York")))process.exit(1);'''
 subprocess.run(['node','--input-type=module','-e',script],input=json.dumps(events),text=True,check=True)
 print(f'{len(events)} synthetic TZif allocations match the server allocator')

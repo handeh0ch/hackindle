@@ -1,12 +1,12 @@
-package.path="plugin/?.lua;"..package.path
-local reset=require("reset")
-local profile=require("profile")
-local codec=require("codec")
-local envelope=require("envelope")
-local json=require("wire_json")
+package.path="projects/plugin/?.lua;"..package.path
+local reset=require("storage.reset")
+local profile=require("protocol.profile")
+local codec=require("protocol.codec")
+local envelope=require("protocol.envelope")
+local json=require("protocol.wire_json")
 local id="48bc0344-efad-4c68-adb6-dc0f0ba57276"
 local device="a92e58b4-851b-467b-a5ad-1eaaccc84c61"
-local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("unicode_lower").version}
+local config={schema_version=1,instance_id=id,reporting_timezone="UTC",characters_per_page=2000,reset_generation=0,unicode_version=require("text.unicode_lower").version}
 local wire={instance_id=id,device_id=device,reset_generation=1}
 local state,packets={},{[1]="old-generation-bytes"}
 local function clone(v) if type(v)~="table" then return v end; local o={}; for k,x in pairs(v) do o[k]=clone(x) end; return o end
@@ -137,9 +137,9 @@ local seq_b=state.seq
 assert(not pcall(function() reset.vocabulary_snapshot(store,codec,6,{},read_a,build) end))
 assert(state.seq==seq_b)
 
-local legacy=require("legacy")
+local legacy=require("snapshots.legacy")
 local source=("a"):rep(64)
-local source_module=require("source")
+local source_module=require("snapshots.source")
 local meta={format="epub",title="Synthetic",authors={},language=json.null,identifiers={}}
 local function source_build(seq,sections) return envelope.source(wire,seq,"2026-01-01T00:00:00Z",source,sections) end
 local meta_packet=source_module.reset_metadata(store,codec,6,source,meta,source_build)
@@ -184,7 +184,7 @@ local newer_ticket=legacy.begin_baseline(store,codec,7,source)
 assert(not pcall(function() legacy.baseline(store,codec,7,source,{records=native,epoch=id,verified=true},id,device,ticket,legacy_build) end))
 assert(not pcall(function() legacy.baseline(store,codec,7,source,{records=native,epoch=id,verified=true},id,device,newer_ticket,legacy_build) end))
 
-local annotations=require("annotations")
+local annotations=require("snapshots.annotations")
 local note={key="native-note",selection="selection",kind="highlight",start={type="xpointer",value="a"},["end"]={type="xpointer",value="b"},quote="synthetic",note="",chapter=json.null,native_timestamp=json.null}
 state.annotations=codec.encode({sources={[source]={[note.key]={annotation_id=device,selection=note.selection,kind=note.kind,context={status="pending",reason="unavailable"}}}},owners={[device]={source=source,key=note.key}},versions={}})
 local function annotation_build(seq,version,rows) return envelope.annotations(wire,seq,"2026-01-01T00:00:00Z",source,version,rows) end
@@ -220,7 +220,7 @@ local function race_build(seq,version,rows) return envelope.annotations(wire,seq
 local race_packet=annotations.reset_snapshot(store,codec,7,race_source,annotations.begin_read(store,codec,7,race_source),{note},function() return "22222222-2222-4222-8222-222222222222" end,extract,race_build)
 assert(#codec.decode(race_packet).payload.annotations.value==1)
 
-local capture=require("capture")
+local capture=require("reading.capture")
 local reading_source=("b"):rep(64)
 state["source_ack_generation:"..reading_source]="7"
 local compare=function(a,b) return a-b end

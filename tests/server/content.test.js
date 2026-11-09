@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createContentService } from '../../server/content.js';
+import { createContentService } from '../../projects/server/library/content.js';
 const id = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 const source = 'a'.repeat(64);
 function contentStore() {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { UNAVAILABLE, conditionalPages, formatPages, formatDuration, formatMetric, formatPercent, formatDate, formatInstant, isLeapYear, todayIn } from '../../public/js/format.js';
+import { UNAVAILABLE, conditionalPages, formatPages, formatDuration, formatMetric, formatPercent, formatDate, formatInstant, isLeapYear, todayIn } from '../../projects/frontend/js/lib/format.js';
 
 test('conditional pages keep exact values and never turn null into zero', () => {
   assert.equal(conditionalPages(4000, 2000), 2);

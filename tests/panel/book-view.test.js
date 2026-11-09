@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBookPage } from '../../public/js/book.js';
-import { bookHtml, bookChartSvg } from '../../public/js/book-view.js';
+import { buildBookPage } from '../../projects/frontend/js/models/book.js';
+import { bookHtml, bookChartSvg } from '../../projects/frontend/js/views/book-view.js';
 import { SRC_A, SRC_B, book, day, sample, session } from './fixtures.js';
 
 const days = [day('2026-11-05', 2000), day('2026-11-06', null), day('2026-11-07', 4000, 60, { volume_status: 'partial' }), day('2026-11-08', 0)];

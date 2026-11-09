@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local identity = require("identity")
+package.path = "projects/plugin/?.lua;" .. package.path
+local identity = require("protocol.identity")
 assert(identity.uuid(string.rep("\0",16)) == "00000000-0000-4000-8000-000000000000")
 assert(identity.uuid(string.rep("\255",16)) == "ffffffff-ffff-4fff-bfff-ffffffffffff")
 assert(not pcall(identity.uuid, "short"))

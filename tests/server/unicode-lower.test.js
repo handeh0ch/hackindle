@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lower, UNICODE_VERSION } from '../../server/unicode-lower.js';
-import { vocabularyIdentity } from '../../server/vocabulary-identity.js';
+import { lower, UNICODE_VERSION } from '../../projects/server/text/unicode-lower.js';
+import { vocabularyIdentity } from '../../projects/server/text/vocabulary-identity.js';
 
 test('frozen lowercase handles special mappings and final sigma', () => {
   assert.equal(lower('ΟΔΥΣΣΕΥΣ'), 'οδυσσευς');

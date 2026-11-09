@@ -31,6 +31,41 @@ test('plugin build prefixes local modules, keeps KOReader requires and drops unr
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('plugin build resolves dotted subdirectory modules into a flat output', () => {
+  const root = scratch();
+  try {
+    const source = path.join(root, 'src'), out = path.join(root, 'out');
+    mkdirSync(path.join(source, 'protocol'), { recursive: true });
+    mkdirSync(path.join(source, 'koreader', 'device'), { recursive: true });
+    writeFileSync(path.join(source, '_meta.lua'), 'return {}\n');
+    writeFileSync(path.join(source, 'main.lua'), 'local c = require("protocol.codec")\nlocal ok = pcall(require, "koreader.device.http")\nreturn c\n');
+    writeFileSync(path.join(source, 'protocol', 'codec.lua'), 'return require("protocol.json")\n');
+    writeFileSync(path.join(source, 'protocol', 'json.lua'), 'return {}\n');
+    writeFileSync(path.join(source, 'koreader', 'device', 'http.lua'), 'return {}\n');
+    const files = buildPlugin(source, out);
+    assert.deepEqual(files.sort(), ['hackindle_codec.lua', 'hackindle_http.lua', 'hackindle_json.lua', 'main.lua']);
+    assert.deepEqual(readdirSync(out).sort(), ['_meta.lua', ...files].sort());
+    const main = readFileSync(path.join(out, 'main.lua'), 'utf8');
+    assert.match(main, /require\("hackindle_codec"\)/);
+    assert.match(main, /pcall\(require, "hackindle_http"\)/);
+    assert.match(readFileSync(path.join(out, 'hackindle_codec.lua'), 'utf8'), /require\("hackindle_json"\)/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('plugin build refuses two reachable modules that would share one flat file name', () => {
+  const root = scratch();
+  try {
+    const source = path.join(root, 'src');
+    mkdirSync(path.join(source, 'a'), { recursive: true });
+    mkdirSync(path.join(source, 'b'), { recursive: true });
+    writeFileSync(path.join(source, '_meta.lua'), 'return {}\n');
+    writeFileSync(path.join(source, 'main.lua'), 'require("a.state")\nrequire("b.state")\n');
+    writeFileSync(path.join(source, 'a', 'state.lua'), 'return {}\n');
+    writeFileSync(path.join(source, 'b', 'state.lua'), 'return {}\n');
+    assert.throws(() => buildPlugin(source, path.join(root, 'out')), /file names must be unique/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('plugin build requires main.lua and _meta.lua', () => {
   const root = scratch();
   try {
@@ -42,8 +77,14 @@ test('the real plugin builds with every local require resolved and no bare local
   const root = scratch();
   try {
     const repo = fileURLToPath(new URL('../..', import.meta.url)), out = path.join(root, `${PLUGIN_NAME}.koplugin`);
-    const files = buildPlugin(path.join(repo, 'plugin'), out);
-    const names = new Set(readdirSync(out).map(name => name.slice(0, -4))), local = new Set(readdirSync(path.join(repo, 'plugin')).map(name => name.slice(0, -4)));
+    const pluginDir = path.join(repo, 'projects', 'plugin');
+    const files = buildPlugin(pluginDir, out);
+    const names = new Set(readdirSync(out).map(name => name.slice(0, -4)));
+    // Both the dotted source name and its bare basename must be gone from the built output.
+    const local = new Set(readdirSync(pluginDir, { recursive: true }).filter(file => file.endsWith('.lua')).flatMap(file => {
+      const dotted = file.slice(0, -4).split(path.sep).join('.');
+      return [dotted, dotted.split('.').pop()];
+    }));
     assert.ok(files.includes('main.lua') && !files.includes('hackindle_sqlite.lua') && !files.includes('hackindle_cover.lua'));
     for (const file of readdirSync(out)) {
       for (const match of readFileSync(path.join(out, file), 'utf8').matchAll(/\brequire\s*\(?\s*(["'])([^"']+)\1/g)) {
@@ -60,7 +101,7 @@ test('the plugin archive holds exactly the built files under one folder and roun
   const root = scratch();
   try {
     const repo = fileURLToPath(new URL('../..', import.meta.url)), out = path.join(root, `${PLUGIN_NAME}.koplugin`);
-    buildPlugin(path.join(repo, 'plugin'), out);
+    buildPlugin(path.join(repo, 'projects', 'plugin'), out);
     const archive = zipDirectory(out, `${PLUGIN_NAME}.koplugin`);
     const end = archive.length - 22;
     assert.equal(archive.readUInt32LE(end), 0x06054b50);

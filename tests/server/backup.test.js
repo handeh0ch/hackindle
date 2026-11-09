@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 const id = '48bc0344-efad-4c68-adb6-dc0f0ba57276';
 test('backup export keeps device identity and excludes every credential', async () => {
-  const backup = await import('../../server/backup.js').catch(() => null), queries = [];
+  const backup = await import('../../projects/server/infra/backup.js').catch(() => null), queries = [];
   const db = { withTransaction: async work => work({ query: async sql => {
     queries.push(sql);
     if (sql.startsWith('SELECT instance_id')) return { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '1' }] };
@@ -16,7 +16,7 @@ test('backup export keeps device identity and excludes every credential', async 
 });
 
 test('backup preserves retained legacy handshake and lineage after sources are deleted', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const handshake = { device_id: id, source_id: 'a'.repeat(64), reset_generation: '1', baseline_id: id, native_epoch: id, digest: 'b'.repeat(64) };
   const lineage = { source_id: 'a'.repeat(64), native_epoch: id };
   const source = { withTransaction: async work => work({ query: async sql => {
@@ -39,7 +39,7 @@ test('backup preserves retained legacy handshake and lineage after sources are d
 });
 
 test('restore accepts pre-handshake format-v1 backups without inventing lineage', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const snapshot = await backup.exportBackup(source);
   delete snapshot.tables.legacy_handshakes; delete snapshot.tables.legacy_lineages;
@@ -48,7 +48,7 @@ test('restore accepts pre-handshake format-v1 backups without inventing lineage'
 });
 
 test('restore rejects a credentialed target before any write', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const snapshot = await backup.exportBackup(source); let writes = 0;
   const target = { withTransaction: async work => work({ query: async sql => {
@@ -63,7 +63,7 @@ test('restore rejects a credentialed target before any write', async () => {
 
 test('synthetic backup roundtrip preserves reading identities, cover and a credential-free device', async () => {
   const { readFileSync } = await import('node:fs'), { canonicalDigest } = await import('../../contracts/validate.js');
-  const backup = await import('../../server/backup.js'), fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
+  const backup = await import('../../projects/server/infra/backup.js'), fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
   const event = fixture.envelopes[3].payload.events[0], source = event.source_id, digest = canonicalDigest(event), cover = Buffer.from([255, 216, 255, 217]);
   const rows = {
     books: [{ book_id: id, title: 'Synthetic', metadata: {} }],
@@ -99,7 +99,7 @@ test('synthetic backup roundtrip preserves reading identities, cover and a crede
 
 
 test('restore writes large tables in bounded set-based batches', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const snapshot = await backup.exportBackup(source);
   snapshot.tables.books = Array.from({ length: 4001 }, (_, i) => ({ book_id: '00000000-0000-4000-8000-' + String(i).padStart(12, '0'), title: 'Book ' + i, metadata: {} }));
@@ -114,7 +114,7 @@ test('restore writes large tables in bounded set-based batches', async () => {
 });
 
 test('restore rejects invalid structure, foreign references and corrupted data before database access', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const clean = await backup.exportBackup(source); let attempts = 0;
   const target = { withTransaction: async () => { attempts++; } }, config = { reportingTimezone: 'UTC', pageCharacters: 2000 };
@@ -146,7 +146,7 @@ test('restore CLI passes parsed backup and private policy to restore and closes 
 
 test('restore rejects event allocation inconsistent with policy and events from another generation', async () => {
   const { readFileSync } = await import('node:fs'), { canonicalDigest } = await import('../../contracts/validate.js');
-  const { exportBackup, restoreBackup } = await import('../../server/backup.js');
+  const { exportBackup, restoreBackup } = await import('../../projects/server/infra/backup.js');
   const fixture = JSON.parse(readFileSync(new URL('../../contracts/examples/synthetic.json', import.meta.url)));
   const event = fixture.envelopes[3].payload.events[0], source = event.source_id;
   const original = { withTransaction: async work => work({ query: async sql => {
@@ -179,7 +179,7 @@ test('restore rejects event allocation inconsistent with policy and events from 
 });
 
 test('restore rejects vocabulary larger than the logical snapshot limit', async () => {
-  const { exportBackup, restoreBackup } = await import('../../server/backup.js');
+  const { exportBackup, restoreBackup } = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const data = await exportBackup(source), { canonicalDigest } = await import('../../contracts/validate.js');
   const content = { word: 'a'.repeat(16777216), language: null, source: null };
@@ -204,13 +204,13 @@ test('backup covers every migrated table except credentials, sessions and migrat
     exported.add(/ FROM (\w+)/.exec(sql)[1]);
     return { rows: [] };
   } }) };
-  await (await import('../../server/backup.js')).exportBackup(db);
+  await (await import('../../projects/server/infra/backup.js')).exportBackup(db);
   assert.deepEqual([...migrated].filter(table => !intentionallyExcluded.has(table) && !exported.has(table)), [], 'a migrated table is missing from backup.js');
   assert.deepEqual([...exported].filter(table => !migrated.has(table)), [], 'backup.js exports a table no migration creates');
 });
 
 test('restore accepts an older backup with an empty legacy_carry table and rejects one with rows', async () => {
-  const backup = await import('../../server/backup.js');
+  const backup = await import('../../projects/server/infra/backup.js');
   const source = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT instance_id') ? { rows: [{ instance_id: id, reporting_timezone: 'UTC', page_characters: '2000', reset_generation: '0' }] } : { rows: [] } }) };
   const target = { withTransaction: async work => work({ query: async sql => sql.startsWith('SELECT (') ? { rows: [{ count: '0' }] } : { rows: [] } }) };
   const config = { reportingTimezone: 'UTC', pageCharacters: 2000 };

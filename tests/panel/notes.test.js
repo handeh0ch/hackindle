@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCatalog } from '../../public/js/catalog.js';
-import { DEFAULT_FILTERS, normalizeFilters, reconcileFilters, listQuery, noteCounts, buildNotes } from '../../public/js/notes.js';
-import { notesHtml } from '../../public/js/notes-view.js';
+import { buildCatalog } from '../../projects/frontend/js/models/catalog.js';
+import { DEFAULT_FILTERS, normalizeFilters, reconcileFilters, listQuery, noteCounts, buildNotes } from '../../projects/frontend/js/models/notes.js';
+import { notesHtml } from '../../projects/frontend/js/views/notes-view.js';
 import { BOOK_1, BOOK_2, SRC_A, SRC_B, SRC_C, NOTE_1, NOTE_2, book, book2, note } from './fixtures.js';
 
 const catalog = buildCatalog([book(), book2()], true);

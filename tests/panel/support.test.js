@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ApiError } from '../../public/js/api.js';
-import { isUuid, isSourceId } from '../../public/js/ids.js';
-import { buildCatalog, sourceName } from '../../public/js/catalog.js';
-import { setFlash, takeFlash, flashHtml, guarded, errorText, needConfig } from '../../public/js/flow.js';
+import { ApiError } from '../../projects/frontend/js/core/api.js';
+import { isUuid, isSourceId } from '../../projects/frontend/js/lib/ids.js';
+import { buildCatalog, sourceName } from '../../projects/frontend/js/models/catalog.js';
+import { setFlash, takeFlash, flashHtml, guarded, errorText, needConfig } from '../../projects/frontend/js/core/flow.js';
 import { BOOK_1, BOOK_2, SRC_A, SRC_B, SRC_C, book, book2, source } from './fixtures.js';
 
 test('identifiers from the address are validated before they reach an API path', () => {

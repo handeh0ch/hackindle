@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local context = require("context")
+package.path = "projects/plugin/?.lua;" .. package.path
+local context = require("snapshots.context")
 local null = {}
 local pages = {"first", "", "footnote", "last"}
 local function extract(n) return pages[n] end

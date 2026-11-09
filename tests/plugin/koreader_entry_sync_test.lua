@@ -1,8 +1,8 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
 package.preload["ui/widget/container/widgetcontainer"] = function()
     return {extend = function(_, spec) spec.__index = spec; return spec end}
 end
-local Entry = dofile("plugin/main.lua")
+local Entry = dofile("projects/plugin/main.lua")
 local source = ("a"):rep(64)
 local function new(ui) local entry = setmetatable({ui = ui or {}}, Entry); entry:init(); return entry end
 
@@ -16,14 +16,14 @@ for _, name in ipairs({"suspend", "resume", "flush", "close", "sync_now"}) do
 end
 function fake_sync:summary() return "summary text" end
 local starts = {}
-package.loaded["koreader_client"] = {start = function(entry, modules) starts[#starts + 1] = modules; return fake_sync end}
+package.loaded["koreader.koreader_client"] = {start = function(entry, modules) starts[#starts + 1] = modules; return fake_sync end}
 local entry = new()
 assert(entry.sync == fake_sync and starts[1] == nil)
-package.loaded["koreader_client"] = {start = function() return nil, "not_configured" end}
+package.loaded["koreader.koreader_client"] = {start = function() return nil, "not_configured" end}
 assert(new().sync == nil)
-package.loaded["koreader_client"] = {start = function() error("broken", 0) end}
+package.loaded["koreader.koreader_client"] = {start = function() error("broken", 0) end}
 assert(new().sync_error == "broken")
-package.loaded["koreader_client"] = {start = function() return fake_sync end}
+package.loaded["koreader.koreader_client"] = {start = function() return fake_sync end}
 
 -- Acknowledgements reach the matching capture hook, preferring the open source.
 local hooks = {}

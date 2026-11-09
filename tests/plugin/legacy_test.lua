@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;" .. package.path
-local legacy = require("legacy")
+package.path = "projects/plugin/?.lua;" .. package.path
+local legacy = require("snapshots.legacy")
 local state, queue = {capture_generation="0"}, {}
 local store = {}
 function store:transaction(work)

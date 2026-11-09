@@ -1,5 +1,5 @@
-package.path = "plugin/?.lua;tests/plugin/?.lua;" .. package.path
-local settings = require("settings")
+package.path = "projects/plugin/?.lua;tests/plugin/?.lua;" .. package.path
+local settings = require("delivery.settings")
 local token = "AbC_123-xyz_AbC_123-xyz"
 local function conf(url, extra) return '-- comment\n\nurl = "' .. url .. '"\ntoken = "' .. token .. '"\n' .. (extra or "") end
 
